@@ -1,0 +1,4 @@
+{
+  "name": "@game-ai/storage", "version": "0.1.0", "private": true, "type": "module",
+  "exports": "./src/index.ts", "dependencies": { "@game-ai/core": "*", "pg": "^8.16.0" }
+}

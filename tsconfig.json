@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "esModuleInterop": true, "skipLibCheck": true,
+    "allowImportingTsExtensions": true, "noEmit": true, "jsx": "react-jsx",
+    "types": ["node"], "lib": ["ES2023", "DOM"],
+    "paths": {
+      "@game-ai/core": ["./packages/core/src/index.ts"],
+      "@game-ai/identity": ["./packages/identity/src/index.ts"],
+      "@game-ai/identity/browser": ["./packages/identity/src/browser.tsx"],
+      "@game-ai/model": ["./packages/model/src/index.ts"],
+      "@game-ai/storage": ["./packages/storage/src/index.ts"]
+    }
+  },
+  "include": ["packages", "apps", "examples", "scripts", "tests", "vite.config.ts"]
+}
