@@ -2,6 +2,8 @@
 
 Status: in_progress
 
+归档说明：本文件保留基础Demo的历史需求及框架接入边界；后续游戏专属需求归[武侠本地note索引](../../examples/wuxia-mud/.agents/note/README.md)。本次目录规范整理不变更功能范围或验收状态。
+
 ## 需求
 
 用行善、奇遇、拜师、挑战展示游戏如何调用Harness：游戏自己运算，AI只判定有限结果。

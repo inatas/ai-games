@@ -2,6 +2,8 @@
 
 此目录使用用户指定的单数`note`。每个编号文件只承载一个可继续完善的需求，保留目标、边界、验收、实现进展和未决问题；不把这里当作日志堆积处。
 
+本目录管理框架公共能力和仓库级需求。游戏专属需求归`examples/<game>/.agents/note`，独立编号；归属和跨层拆分规则见[开发指引](../../AGENTS.md)。武侠示例入口：[游戏需求索引](../../examples/wuxia-mud/.agents/note/README.md)。现有005保留为Quickstart接入边界及历史入口。
+
 命名：`NNN-topic.md`。状态：draft（未纳入当前开发）、in_progress（已实现部分或仍待验收）、implemented（对应验收有证据）、rejected（记录理由）。按同一个文件持续完善，不因小修订重复创建需求。
 
 从[TEMPLATE.md](TEMPLATE.md)开始。架构不变量归[ARCHITECT.md](../../ARCHITECT.md)，开发流程归[AGENTS.md](../../AGENTS.md)，具体测试契约归[docs/testing](../../docs/testing/framework.md)。需求状态变更必须引用实际证据；尚未运行的Docker或真实模型检查不算通过。

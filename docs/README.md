@@ -6,8 +6,8 @@
 |---|---|
 | [账号与世界观设计 v1](specs/accounts-worldview.md) | 已确认的公共模块、接口、数据与交互 |
 | [账号与世界观测试设计 v1](testing/accounts-worldview.md) | U/W验收场景及数据 |
-| [DeepSeek接入设计 v1](specs/deepseek-provider.md) | 待确认的V4.1 Flash协议与本地配置 |
-| [DeepSeek测试设计 v1](testing/deepseek-provider.md) | 待确认的协议、密钥与真实冒烟验收 |
+| [DeepSeek接入设计 v1](specs/deepseek-provider.md) | 已实现的V4.1 Flash协议与本地配置 |
+| [DeepSeek测试设计 v1](testing/deepseek-provider.md) | 协议、密钥与真实冒烟验收记录 |
 | [通用Context Composition设计 v1](specs/context-composition.md) | 待确认的多游戏背景与NPC状态组装协议 |
 | [Context Composition测试设计 v1](testing/context-composition.md) | 待确认的CTX中性验收场景 |
 | [框架规格](specs/framework.md) | MVP定义与协议细节 |

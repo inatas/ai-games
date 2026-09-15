@@ -2,6 +2,8 @@
 
 版本：0.1 ｜ 状态：已实现基础Demo；标准启动入口见 [开发指南](../../docs/development.md)
 
+下一版v2设计：[房间驱动的武侠世界MVP](docs/world-mvp.md)、[地图表现](docs/map-presentation.md)、[验收用例](docs/world-mvp-testing.md)及[实施计划](docs/world-mvp-plan.md)，均待确认，尚未替代本文当前实现说明。
+
 前置阅读：[框架定义](../../docs/specs/framework.md)。本Demo是独立游戏宿主，所有武侠逻辑都在examples/wuxia-mud中；core不认识侠义、师父、挑战或奇遇。
 
 ## 1. 演示目标与范围
@@ -96,6 +98,8 @@ action仅为good_deed/encounter/apprenticeship/challenge。游戏按action调用
 版本列在本路径中同时表示hostVersion和memoryVersion。奇遇完成后encounterDone=true，开放事项closed。每个成功行动一条游戏事件，总5条；开放/关闭事项不另算游戏事件。模型调用总2次。
 
 ## 6. 目录与验收边界
+
+开发流程见[本地开发指引](AGENTS.md)，游戏需求见[本地note索引](.agents/note/README.md)。游戏专属新增或调整在本地记录；公共框架能力在根目录note记录，跨层需求相互链接。
 
 examples/wuxia-mud/src保存规则、绑定、迁移；apps/web/src保存React页面；examples/wuxia-mud/tests保存游戏用例，apps/server/src负责装配。框架core不能导入这个目录。
 
