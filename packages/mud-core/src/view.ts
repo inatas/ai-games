@@ -1,5 +1,5 @@
 export interface GameAction {
-  action: string; label: string; [key: string]: string | undefined;
+  action: string; label: string; unavailableReason?: string; [key: string]: string | undefined;
 }
 export interface SceneObject {
   id: string; name: string; kind: 'npc'|'item'|'fixture'; description: string;

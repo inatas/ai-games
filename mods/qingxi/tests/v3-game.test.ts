@@ -25,12 +25,23 @@ async function act(g: Session, action: string, extra: Record<string,string> = {}
   assert.ok([200,202].includes(response.statusCode), response.body); await built.harness.drain(); return built.harness.get(g.id, requestId);
 }
 async function move(g: Session, to: string) { const from = (await read(g)).map.currentRoomId; const result = await act(g, 'move', { exitId: `${from}:${to}` }); assert.equal(result.status, 'committed', JSON.stringify(result)); }
+async function trainingReason(g: Session, skillId: string): Promise<string | undefined> {
+  const option = (await read(g)).training.find((entry: {skillId:string}) => entry.skillId === skillId);
+  assert.ok(option, `Missing training option ${skillId}`);
+  return option.unavailableReason;
+}
 
 test('CG-01/02/03/04/05/07: profile, school, quest, combat and skills persist atomically', async () => {
   const g = await login();
   assert.equal((await act(g, 'set_profile', { name: '林清', gender: '女' })).status, 'committed');
   await move(g, 'street'); await move(g, 'herbalist'); await move(g, 'square'); await move(g, 'dojo');
   assert.equal((await act(g, 'join_school', { schoolId: 'qingsong' })).status, 'committed');
+  assert.equal(await trainingReason(g, 'breathing'), '潜能不足：需要2点');
+  assert.equal(await trainingReason(g, 'qingsong_sword'), '先将吐纳法练至2级');
+  const beforeInvalid = await read(g);
+  assert.equal((await act(g, 'learn_skill', { skillId: 'breathing' })).error?.detail, 'INSUFFICIENT_POTENTIAL');
+  assert.equal((await act(g, 'learn_skill', { skillId: 'qingsong_sword' })).error?.detail, 'SKILL_PREREQUISITE');
+  assert.equal((await read(g)).memoryVersion, beforeInvalid.memoryVersion);
   assert.equal((await act(g, 'join_school', { schoolId: 'baicao' })).error?.detail, 'ALREADY_APPRENTICED');
   assert.equal((await act(g, 'accept_school_quest', { schoolId: 'qingsong' })).status, 'committed');
   await move(g, 'square'); await move(g, 'trail');
@@ -41,14 +52,37 @@ test('CG-01/02/03/04/05/07: profile, school, quest, combat and skills persist at
   assert.equal((await read(g)).schoolQuest.status, 'ready');
   await move(g, 'square'); await move(g, 'dojo');
   assert.equal((await act(g, 'turn_in_school_quest', { schoolId: 'qingsong' })).status, 'committed');
+  assert.equal(await trainingReason(g, 'breathing'), undefined);
+  assert.equal(await trainingReason(g, 'qingsong_sword'), '先将吐纳法练至2级');
   assert.equal((await act(g, 'learn_skill', { skillId: 'breathing' })).status, 'committed');
+  assert.equal(await trainingReason(g, 'qingsong_sword'), undefined);
   assert.equal((await act(g, 'learn_skill', { skillId: 'qingsong_sword' })).status, 'committed');
+  assert.equal(await trainingReason(g, 'breathing'), '潜能不足：需要2点');
+  assert.equal(await trainingReason(g, 'qingsong_sword'), '潜能不足：需要2点');
   const state = await read(g);
   assert.equal(state.state.name, '林清'); assert.equal(state.state.gender, '女'); assert.equal(state.state.experience, 5); assert.equal(state.state.potential, 0);
   assert.deepEqual(state.skills, [{ skillId: 'breathing', level: 2 }, { skillId: 'qingsong_sword', level: 1 }]);
   await act(g, 'accept_school_quest', { schoolId: 'qingsong' }); await move(g, 'square'); await move(g, 'trail');
   await act(g, 'use_skill', { enemyId: 'bandit', skillId: 'qingsong_sword' });
   assert.equal((await read(g)).schoolQuest.enemyHp, 6); assert.equal((await read(g)).state.qi, 8);
+});
+
+test('CG-10: Baicao training projection follows prerequisites and level caps', async () => {
+  const g = await login();
+  await move(g, 'street'); await move(g, 'herbalist');
+  assert.equal((await act(g, 'join_school', { schoolId: 'baicao' })).status, 'committed');
+  assert.equal(await trainingReason(g, 'herbal_breath'), '潜能不足：需要2点');
+  assert.equal(await trainingReason(g, 'acupoint_hand'), '先将采息术练至2级');
+  await db.store.pool.query('UPDATE wuxia_characters SET potential=8,host_version=host_version+1 WHERE scope_id=$1', [g.id]);
+  assert.equal(await trainingReason(g, 'herbal_breath'), undefined);
+  assert.equal(await trainingReason(g, 'acupoint_hand'), '先将采息术练至2级');
+  await db.store.pool.query("UPDATE wuxia_skills SET level=2 WHERE scope_id=$1 AND skill_id='herbal_breath'", [g.id]);
+  assert.equal(await trainingReason(g, 'acupoint_hand'), undefined);
+  await db.store.pool.query("UPDATE wuxia_skills SET level=3 WHERE scope_id=$1 AND skill_id='herbal_breath'", [g.id]);
+  await db.store.pool.query("INSERT INTO wuxia_skills VALUES($1,'acupoint_hand',3)", [g.id]);
+  await db.store.pool.query('UPDATE wuxia_characters SET potential=0 WHERE scope_id=$1', [g.id]);
+  assert.equal(await trainingReason(g, 'herbal_breath'), '已达3级上限');
+  assert.equal(await trainingReason(g, 'acupoint_hand'), '已达3级上限');
 });
 
 test('CG-06: defeat restores the player without negative silver and resets the enemy', async () => {

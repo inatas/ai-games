@@ -61,8 +61,8 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
     };void poll();return()=>{cancelled=true;clearTimeout(timer);};
   },[pending]);
   function act(selection:GameAction){
-    if(!game||!synced||pending||busy.current||resetting)return;
-    busy.current=true;const {label,...fields}=selection;
+    if(!game||!synced||pending||busy.current||resetting||selection.unavailableReason)return;
+    busy.current=true;const {label,unavailableReason,...fields}=selection;
     const payload={...fields,requestId:crypto.randomUUID(),expectedMemoryVersion:game.memoryVersion,note} as Pending;
     localStorage.setItem(pendingKey,JSON.stringify(payload));setPending(payload);setError('');
   }
@@ -88,7 +88,7 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
     {pending&&<p role="status">行动处理中…</p>}{error&&<p role="alert" className="error">{error}</p>}
     <p className="latest-result" aria-live="polite">{game.events.at(-1)?.payload.message??'选择场景中的对象开始探索。'}</p>
     <details><summary>历史记录</summary><div className="timeline">{[...game.events].reverse().map(e=><p key={e.id}>{e.payload.message}</p>)}</div></details>
-  </main><aside><section className="character"><h2>{game.characterName}</h2><dl>{game.attributes.map(a=><div key={a.label}><dt>{a.label}</dt><dd>{a.value}</dd></div>)}</dl><div className="skill-actions">{game.training.map(a=><button key={a.label} disabled={!!pending||!synced} onClick={()=>act(a)}>{a.label}</button>)}</div>
+  </main><aside><section className="character"><h2>{game.characterName}</h2><dl>{game.attributes.map(a=><div key={a.label}><dt>{a.label}</dt><dd>{a.value}</dd></div>)}</dl><div className="skill-actions">{game.training.map(a=><div key={a.skillId??a.label} className="training-option"><button disabled={!!pending||!synced||!!a.unavailableReason} aria-describedby={a.unavailableReason?`training-${a.skillId}`:undefined} onClick={()=>act(a)}>{a.label}</button>{a.unavailableReason&&<small id={`training-${a.skillId}`} className="training-reason">{a.unavailableReason}</small>}</div>)}</div>
     {game.forms?.map(form=><details key={form.action}><summary>{form.label}</summary><form onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);act({action:form.action,label:form.label,...Object.fromEntries([...data.entries()].map(([k,v])=>[k,String(v)]))});}}>{form.fields.map(field=><label key={field.id}>{field.label}{field.options?<select name={field.id} defaultValue={field.value}>{field.options.map(o=><option key={o}>{o}</option>)}</select>:<input name={field.id} defaultValue={field.value} maxLength={field.maxLength} required/>}</label>)}<button disabled={!!pending||!synced}>保存</button></form></details>)}
     </section>
     <section className="social"><h3>此地同行者</h3>{game.playersHere.map(p=><div className="player-row" key={p.scopeId}><span>{p.name}</span><button disabled={socialBusy} onClick={()=>void social('party',{action:'invite',targetScopeId:p.scopeId})}>邀请</button><button onClick={()=>{setChannel('tell');setTarget(p.scopeId);}}>私聊</button></div>)}

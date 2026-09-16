@@ -7,6 +7,7 @@ import { migrateMud } from '@game-ai/storage';
 import { lockRealm, sharedTask } from '@game-ai/mud-core';
 import { realmId, manifest } from './mod.ts';
 import { readWorldState, makeScene, type WorldState } from './scene.ts';
+import { schools, trainingDenial } from './training.ts';
 
 export const actions = ['good_deed', 'encounter', 'apprenticeship', 'challenge', 'move', 'talk', 'accept_quest', 'pickup', 'give', 'set_profile', 'join_school', 'learn_skill', 'accept_school_quest', 'turn_in_school_quest', 'attack', 'use_skill', 'escort_accept', 'escort_contribute', 'escort_complete', 'escort_claim'] as const;
 export type Action = typeof actions[number];
@@ -111,11 +112,6 @@ export async function createGame(store: PostgresStore, accessHash: string) {
   return id;
 }
 const targets: Partial<Record<Action, string>> = { good_deed: 'villager', apprenticeship: 'master', challenge: 'disciple', accept_quest: 'herbalist', give: 'herbalist' };
-const schools = {
-  qingsong: { name: '青松门', master: '青松道人', roomId: 'dojo', basic: 'breathing', advanced: 'qingsong_sword' },
-  baicao: { name: '百草门', master: '药师', roomId: 'herbalist', basic: 'herbal_breath', advanced: 'acupoint_hand' },
-} as const;
-const skillSchool: Record<string, keyof typeof schools> = { breathing: 'qingsong', qingsong_sword: 'qingsong', herbal_breath: 'baicao', acupoint_hand: 'baicao' };
 function deny(action: Action, input: Input, s: WorldState): string | null {
   const row = s.row;
   if (action.startsWith('escort_') && row.current_room_id !== (action === 'escort_contribute' ? 'forest' : 'herbalist')) return 'TARGET_NOT_PRESENT';
@@ -149,12 +145,7 @@ function deny(action: Action, input: Input, s: WorldState): string | null {
     if (row.current_room_id !== school.roomId) return 'TARGET_NOT_PRESENT';
   }
   if (action === 'learn_skill') {
-    const schoolId = skillSchool[input.skillId ?? ''];
-    if (!schoolId || row.school_id !== schoolId) return 'INVALID_SKILL';
-    const current = Number(s.skills.find(x => x.skill_id === input.skillId)?.level ?? 0);
-    if (current >= 3) return 'SKILL_MAXED';
-    if (input.skillId === schools[schoolId].advanced && Number(s.skills.find(x => x.skill_id === schools[schoolId].basic)?.level ?? 0) < 2) return 'SKILL_PREREQUISITE';
-    if (row.potential < 2) return 'INSUFFICIENT_POTENTIAL';
+    return trainingDenial(row, s.skills, input.skillId ?? '')?.code ?? null;
   }
   if (['accept_school_quest','turn_in_school_quest'].includes(action)) {
     const school = schools[input.schoolId as keyof typeof schools];

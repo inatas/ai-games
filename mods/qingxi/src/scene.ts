@@ -1,6 +1,7 @@
 import type { Transaction } from '@game-ai/core';
 import { HarnessError } from '@game-ai/core';
 import { world, projectMap } from './world.ts';
+import { schools, trainingDenial } from './training.ts';
 
 import type { GameAction, SceneObject } from '@game-ai/mud-core';
 export type { GameAction, SceneObject } from '@game-ai/mud-core';
@@ -49,11 +50,15 @@ export function makeScene(s: WorldState) {
   return { roomId: room.id, name: room.name, templateId: room.templateId, description: room.description, objects };
 }
 export function worldProjection(s: WorldState) {
+  const school = schools[s.row.school_id as keyof typeof schools];
   return {
     title:'青溪镇', characterName:s.row.player_name as string,
     forms:[{action:'set_profile',label:'修改角色档案',fields:[{id:'name',label:'姓名',value:s.row.player_name as string,maxLength:12},{id:'gender',label:'性别',value:s.row.gender as string,options:['未设定','男','女']}]}],
     attributes:[{label:'气血',value:`${s.row.hp}/30`},{label:'内力',value:`${s.row.qi}/10`},{label:'经验',value:Number(s.row.experience)},{label:'潜能',value:Number(s.row.potential)},{label:'银两',value:Number(s.row.silver)},{label:'侠义',value:Number(s.row.virtue)},{label:'师承',value:s.row.master??'无'}],
-    training:(s.row.school_id==='qingsong'?[['breathing','吐纳法'],['qingsong_sword','青松剑式']]:s.row.school_id==='baicao'?[['herbal_breath','采息术'],['acupoint_hand','点穴手']]:[]).map(([id,name])=>({action:'learn_skill',label:`修习${name}（2潜能）`,skillId:id})),
+    training:(school ? [[school.basic,school.basicName],[school.advanced,school.advancedName]] : []).map(([id,name])=>({
+      action:'learn_skill',label:`修习${name}（2潜能）`,skillId:id,
+      unavailableReason:trainingDenial(s.row,s.skills,id)?.reason,
+    })),
     worldContentVersion: world.version,
     map: projectMap(world, s.row.current_room_id, s.discovered, !!s.row.master), scene: makeScene(s),
     inventory: s.quantity ? [{ itemId: 'medicine', name: '药包', quantity: s.quantity }] : [],
