@@ -6,6 +6,7 @@ import { Harness, HarnessError, type ModelAdapter, type Transaction } from '@gam
 import { Identity, registerIdentityRoutes, sessionToken } from '@game-ai/identity';
 import { PostgresStore, loadWorldview } from '@game-ai/storage';
 import { actions, initializeGame, gameBinding, migrateGame, publicState } from '../../../examples/wuxia-mud/src/game.ts';
+import { readWorldState, worldProjection } from '../../../examples/wuxia-mud/src/scene.ts';
 
 export async function buildApp(store: PostgresStore, model: ModelAdapter, mode = 'mock') {
   await store.migrate();
@@ -16,7 +17,7 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   const harness = new Harness(store, model);
   actions.forEach(a => harness.register(gameBinding(store, a)));
   await harness.recover();
-  const app = Fastify({ logger: false, bodyLimit: 32768 });
+  const app = Fastify({ logger: false, bodyLimit: 32768, ajv: { customOptions: { removeAdditional: false, coerceTypes: false } } });
   const recovery = setInterval(() => { void harness.recover().catch(() => {}); }, 5000);
   recovery.unref();
   app.addHook('onClose', async () => { clearInterval(recovery); await harness.close(); });
@@ -38,12 +39,14 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   app.get('/api/wuxia/games/:id', async request => store.transaction(async tx => {
     const row = await authorize(tx, request);
     const memory = await store.memory(row.scope_id, ['public'], tx);
-    return { id: row.scope_id, state: publicState(row), memoryVersion: row.memory_version, events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
+    const worldState = await readWorldState(tx, row.scope_id);
+    return { id: row.scope_id, scopeId: row.scope_id, hostVersion: row.host_version, state: publicState(row), memoryVersion: row.memory_version, ...worldProjection(worldState), events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
   }));
-  app.post('/api/wuxia/games/:id/actions', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'expectedMemoryVersion', 'action', 'note'], properties: { requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, expectedMemoryVersion: { type: 'integer', minimum: 0 }, action: { type: 'string', enum: actions }, note: { type: 'string', maxLength: 200 } } } } }, async (request, reply) => {
+  app.post('/api/wuxia/games/:id/actions', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'expectedMemoryVersion', 'action', 'note'], properties: { requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, expectedMemoryVersion: { type: 'integer', minimum: 0 }, action: { type: 'string', enum: actions }, note: { type: 'string', maxLength: 200 }, ...Object.fromEntries(['exitId','targetId','topicId','questId','itemId'].map(key => [key, { type: 'string', minLength: 1, maxLength: 80 }])) } } } }, async (request, reply) => {
     const body = request.body as any;
     const id = (request.params as { id: string }).id;
-    const result = await harness.submit({ scopeId: id, requestId: body.requestId, expectedMemoryVersion: body.expectedMemoryVersion, bindingId: `wuxia.${body.action}`, bindingVersion: '1', input: { note: body.note } }, tx => identity.authorizeCurrent(tx, sessionToken(request), id));
+    const { requestId, expectedMemoryVersion, action, ...input } = body;
+    const result = await harness.submit({ scopeId: id, requestId, expectedMemoryVersion, bindingId: `wuxia.${action}`, bindingVersion: '1', input }, tx => identity.authorizeCurrent(tx, sessionToken(request), id));
     return reply.code(result.status === 'processing' ? 202 : 200).send(result);
   });
   app.get('/api/wuxia/games/:id/requests/:requestId', async request => store.transaction(async tx => {

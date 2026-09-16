@@ -16,7 +16,7 @@ docker compose up --build -d
 docker compose --profile test run --build --rm tests
 ```
 
-测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。已在Docker Desktop Linux容器中完成构建、启动、健康检查和29组测试；本机另已配置DeepSeek V4.1 Flash real模式并完成一次真实奇遇，详见[验证记录](docs/verification.md)。
+测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。已部署房间世界v2：12房间、5NPC、局部SVG地图、三类场景、任务与背包。本机配置DeepSeek真实模式，世界验证与回归证据见[示例验证记录](examples/wuxia-mud/docs/world-mvp-verification.md)，历史框架证据见[验证记录](docs/verification.md)。
 
 ## 阅读入口
 
@@ -24,7 +24,7 @@ docker compose --profile test run --build --rm tests
 - [ARCHITECT.md](ARCHITECT.md)：架构边界、依赖和不变量。
 - [.agents/note](.agents/note/README.md)：分项需求、状态和待完善内容。
 - [docs](docs/README.md)：规格、测试与操作文档。
-- [武侠Quickstart](examples/wuxia-mud/README.md)：行善、奇遇、拜师、挑战的宿主接入。
+- [武侠Quickstart](examples/wuxia-mud/README.md)：地图探索、人物交互、寻药、成长和宿主接入。
 
 目录借鉴[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)的apps、packages、文档和Agent Notes分工；按本项目要求使用单数`.agents/note`，没有引入其Cordis插件系统或复制其产品规则。
 

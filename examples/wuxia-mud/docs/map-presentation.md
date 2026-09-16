@@ -1,6 +1,6 @@
 # 武侠世界地图表现设计
 
-版本：v2，待确认。配合[世界MVP](world-mvp.md)、[验收用例](world-mvp-testing.md)和[实施计划](world-mvp-plan.md)阅读。
+版本：v2，已确认并实现。配合[世界MVP](world-mvp.md)、[验收用例](world-mvp-testing.md)、[实施计划](world-mvp-plan.md)和[实际验证](world-mvp-verification.md)阅读。
 
 ## 1. 原则和交付范围
 
@@ -66,14 +66,14 @@
 
 ## 5. 状态接口与刷新协议
 
-复用GET /api/wuxia/games/:id，在一次一致读取中生成以下游戏侧投影；字段是设计契约，尚未实现：
+复用GET /api/wuxia/games/:id，在一次一致读取中生成以下游戏侧投影：
 
 | 分组 | 字段与约束 |
 |---|---|
 | 快照标识 | scopeId、worldContentVersion、hostVersion、memoryVersion |
 | map | regionId/name、currentRoomId、radius=2、nodes、edges |
 | node | roomId、name、kind、layout{x,y}、discovery=visited/frontier、isCurrent；无远端NPC状态 |
-| edge | exitId、from、to、direction、access=open/locked/unknown、reason（当前已知时）；单向以出向边表示 |
+| edge | exitId、from、to、direction、bidirectional、access=open/locked/unknown、reason（当前已知时）；出向边表示通行，bidirectional防止未探索反向边被过滤后误画单向 |
 | scene | 当前roomId/templateId、环境短文、可见NPC/物件/设施及稳定ID、对象布局、可用动作 |
 | 玩家 | 角色属性、背包、任务；与map/scene来自同一快照 |
 

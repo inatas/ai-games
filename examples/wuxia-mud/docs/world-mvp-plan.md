@@ -1,6 +1,6 @@
 # 武侠世界 MVP 实施计划
 
-版本：v2，待确认；仅计划，未执行。依据[世界设计](world-mvp.md)、[地图设计](map-presentation.md)及[测试契约](world-mvp-testing.md)。需求状态统一记录在[001 note](../.agents/note/001-room-world.md)。
+版本：v2，已确认并按阶段交付MVP。依据[世界设计](world-mvp.md)、[地图设计](map-presentation.md)及[测试契约](world-mvp-testing.md)。需求状态统一记录在[001 note](../.agents/note/001-room-world.md)，实际证据及未覆盖子项见[验证记录](world-mvp-verification.md)。
 
 ## 开发门槛
 
@@ -45,4 +45,4 @@ P1先完成核心规则与测试库迁移，不提前对开发存档执行迁移
 
 本轮确认对象为世界/地图/测试/计划v2：12房间、5NPC、单用户独立世界、L2＋轻量L3、HTTP刷新、现有模型协议、旧档兼容。L1战略图、天气/势力、NPC自主Agent、自动寻路、推送与编辑器不在本轮实现。
 
-当前仅文档检查可执行；没有新增实现、迁移、素材或可执行测试，阶段均未开始。
+P0～P6的MVP产物已交付：基线提交、世界与存档、游戏循环、API快照、Web地图、AI接入、Docker部署及实际验收记录均已完成。完整浏览器故障注入覆盖仍可扩充，不能将阶段交付解读为所有设备和异常子场景均已自动验证。
