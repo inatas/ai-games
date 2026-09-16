@@ -1,6 +1,6 @@
 # AI MUD框架验收契约
 
-版本v1，待确认；依据[目标设计](../specs/ai-mud-framework.md)。测试先于实现，数据库用隔离随机schema。
+版本v1，已确认；依据[设计](../specs/ai-mud-framework.md)。数据库行为测试使用隔离随机schema。
 
 | ID | 行为与预期 |
 |---|---|

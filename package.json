@@ -6,8 +6,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "check:repo": "node scripts/check-repo.mjs",
-    "test:unit": "tsx --test packages/core/tests/*.test.ts packages/model/tests/*.test.ts",
-    "test": "tsx --test --test-concurrency=1 packages/core/tests/*.test.ts packages/model/tests/*.test.ts tests/integration/*.test.ts examples/wuxia-mud/tests/*.test.ts",
+    "test:unit": "tsx --test packages/core/tests/*.test.ts packages/model/tests/*.test.ts packages/mud-core/tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 packages/core/tests/*.test.ts packages/model/tests/*.test.ts packages/mud-core/tests/*.test.ts tests/integration/*.test.ts mods/qingxi/tests/*.test.ts",
     "build": "vite build",
     "start": "tsx apps/server/src/main.ts",
     "dev": "docker compose up --build",

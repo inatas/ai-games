@@ -18,9 +18,12 @@ for(const p of files){
  if(p.includes(`${process.platform==='win32'?'\\':'/'}packages${process.platform==='win32'?'\\':'/'}`)&&/\.[cm]?tsx?$/.test(p)){
    const norm=p.replaceAll('\\','/');
    if(norm.includes('/src/')){
-     for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('examples/')||m[1].includes('apps/'))errors.push(`${p}: source imports host ${m[1]}`);
-     if(norm.includes('/core/src/')&&/from ['"](?:@game-ai\/(?:storage|model)|pg)['"]/.test(text))errors.push(`${p}: core imports concrete provider`);
+     for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('examples/')||m[1].includes('mods/')||m[1].includes('apps/'))errors.push(`${p}: source imports host ${m[1]}`);
+     if(norm.includes('/core/src/')&&/from ['"](?:@game-ai\/(?:storage|model|mud-core)|pg)['"]/.test(text))errors.push(`${p}: core imports concrete provider`);
    }
+ }
+ if(p.replaceAll('\\','/').includes('/apps/web/src/')&&/\.[cm]?tsx?$/.test(p)){
+   for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('/mods/')||m[1].includes('/packages/storage/')||m[1]==='@game-ai/storage')errors.push(`${p}: browser imports server rules ${m[1]}`);
  }
 }
 for(const name of ['AGENTS.md','ARCHITECT.md','.agents/note/README.md','Dockerfile','compose.yaml']){try{await access(resolve(root,name));}catch{errors.push(`Missing ${name}`);}}

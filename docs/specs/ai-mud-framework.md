@@ -1,6 +1,6 @@
 # AI驱动MUD框架设计
 
-版本v1：产品方向已确认，详细实施契约待审阅。本文定义目标架构，不代表当前代码已经实现。
+版本v1：用户已确认。本文是实现契约；实际验证状态见[需求012](../../.agents/note/012-ai-mud-framework.md)。
 
 ## 产品与分层
 
@@ -33,7 +33,7 @@ MOD版本定义一种游戏：manifest包含modId、version、兼容契约版本
 | character | id、userId、realmId、playerScopeId、revision、active；位置归角色，对外只给授权投影 |
 | player scope | 属性、背包、探索、个人任务、个人关系与个人记忆；每个角色唯一绑定 |
 | party | id、realmId、revision、成员与生命周期；成员必须是同realm当前角色，同角色至多一队 |
-| task instance | id、realmId、definitionId、ownerType(player/party)、ownerId、状态、参与者及版本 |
+| task instance | id、realmId、definitionId、partyId、状态及冻结参与者；个人任务由MOD的player scope管理 |
 | reward claim | taskInstanceId、recipientCharacterId、rewardKey唯一，防止重放重复奖励 |
 | presence | 当前会话活动及过期时间；不增加角色或Harness记忆版本 |
 
@@ -55,7 +55,7 @@ MOD提供定义与服务器规则：属性Schema及初值、组织与加入规�
 
 party持有任务实例，领取时冻结参与者名单，之后入队者不自动取得该任务奖励资格。MOD决定具体目标、贡献条件和奖励公式；框架检查领取者属于已冻结参与者且仍是授权当前角色。
 
-完成任务与奖励领取采用唯一记录防重。离队者不再推进原任务且丧失未领取奖励资格；最后一名成员离开或队伍解散，未完成任务取消，未领取奖励失效，保留历史。青溪镇提供一个最小两人协作委托验收此机制，具体NPC、目标与数值由MOD本地文档定义后共同确认。
+完成任务与奖励领取采用唯一记录防重。队伍人数要求由MOD传给通用任务协调器。离队者不再推进原任务且丧失未领取奖励资格；最后一名成员离开或队伍解散，未完成任务取消，未领取奖励失效，保留历史。青溪镇提供两人护送药箱委托，具体数值见其[本地需求](../../mods/qingxi/.agents/note/004-qingxi-mod.md)。
 
 ## 聊天与在线
 

@@ -1,8 +1,12 @@
 # 验证记录
 
-日期：2026-09-16。此文件区分设计验收清单与实际运行结果。
+日期：2026-09-17。此文件区分设计验收清单与实际运行结果。
 
-当前武侠世界v2已部署：房间、NPC、任务、地图与场景的最新结果见[示例验证记录](../examples/wuxia-mud/docs/world-mvp-verification.md)。下文保留各历史阶段的检查证据和当时限制。
+当前AI MUD框架和青溪镇MOD已部署；迁移前的历史世界结果见[示例验证记录](../mods/qingxi/docs/world-mvp-verification.md)。下文保留各历史阶段的检查证据和当时限制。
+
+## AI MUD框架迁移（2026-09-17）
+
+`docker compose --profile test run --build --rm tests`：55项通过，0失败。Docker构建同时通过`npm run check`、`npm run check:repo`和`npm run build`。隔离恢复副本经过两次迁移，7个旧角色、3个账号、55条请求及62条记忆保持原数，生成1个realm、7个角色关系和5个共享NPC。备份摘要与恢复命令记录在[需求012](../.agents/note/012-ai-mud-framework.md)。部署后`docker compose ps app postgres`均healthy，浏览器恢复了原会话与角色。窄屏/键盘全流程及迁移后真实DeepSeek请求尚未手工执行。
 
 ## 已执行的基础验证
 

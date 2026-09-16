@@ -1,6 +1,6 @@
-# Game AI Harness
+# AI驱动的多人MUD框架
 
-面向游戏的持续记忆与AI综合判定MVP。游戏负责自己的规则和运算；Harness组织记忆、调用模型、验证结果并协调可靠提交。包含一个独立武侠MUD接入示例。
+通用运行层管理realm、角色、房间拓扑、在线状态、聊天、队伍与共享任务；MOD提供世界观、地图、角色属性及具体规则。Game AI Harness负责持续记忆、上下文、模型判定和可靠提交。青溪镇是首个可玩MOD，中性测试MOD验证相同框架能运行另一种题材。
 
 ## Docker 启动
 
@@ -16,7 +16,7 @@ docker compose up --build -d
 docker compose --profile test run --build --rm tests
 ```
 
-测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。已部署房间世界v2：12房间、5NPC、局部SVG地图、三类场景、任务与背包。本机配置DeepSeek真实模式，世界验证与回归证据见[示例验证记录](examples/wuxia-mud/docs/world-mvp-verification.md)，历史框架证据见[验证记录](docs/verification.md)。
+测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。[MUD架构](docs/specs/ai-mud-framework.md)、[验收契约](docs/testing/ai-mud-framework.md)及[迁移记录](docs/ai-mud-migration-plan.md)解释共享世界和旧档升级。历史世界证据见[青溪镇验证记录](mods/qingxi/docs/world-mvp-verification.md)。
 
 ## 阅读入口
 
@@ -24,7 +24,7 @@ docker compose --profile test run --build --rm tests
 - [ARCHITECT.md](ARCHITECT.md)：架构边界、依赖和不变量。
 - [.agents/note](.agents/note/README.md)：分项需求、状态和待完善内容。
 - [docs](docs/README.md)：规格、测试与操作文档。
-- [武侠Quickstart](examples/wuxia-mud/README.md)：地图探索、人物交互、寻药、成长和宿主接入。
+- [青溪镇Quickstart](mods/qingxi/README.md)：地图探索、人物交互、寻药、成长和双人护送。
 
 目录借鉴[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)的apps、packages、文档和Agent Notes分工；按本项目要求使用单数`.agents/note`，没有引入其Cordis插件系统或复制其产品规则。
 
@@ -35,10 +35,11 @@ docker compose --profile test run --build --rm tests
 apps/server/src/         服务装配和授权
 apps/web/src/            React Demo
 packages/core/src/      判定协调、上下文、公共接口
+packages/mud-core/src/  通用房间、MOD注册、realm、社交与共享任务
 packages/identity/src/  公共账号、会话、当前档案及登录组件
 packages/model/src/     模型与Mock适配
 packages/storage/src/   PostgreSQL实现
-examples/wuxia-mud/     游戏规则与专属测试
+mods/qingxi/     游戏规则与专属测试
 tests/integration/      中性框架集成测试
 tests/support/          测试夹具、隔离数据库、崩溃进程
 docs/                   规格、测试契约、使用文档

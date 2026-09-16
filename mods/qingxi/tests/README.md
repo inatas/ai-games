@@ -73,5 +73,5 @@ D-21/R：分别从W0奇遇、从真实两次行善路径拜师，各跑3个独�
 
 先D-01～06、10～11做确定性动作；再D-07～09、12～17接Mock判定和持续记忆；最后D-18～21做整体验收。所有D用例通过且F用例通过，才称Demo和框架接入完成。
 
-数据建议置于examples/wuxia-mud/tests/fixtures，Mock放同目录；不得混入tests/framework。代码与Mock见game.test.ts，未执行项和验证范围由验证记录维护。
+数据建议置于mods/qingxi/tests/fixtures，Mock放同目录；不得混入tests/framework。代码与Mock见game.test.ts，未执行项和验证范围由验证记录维护。
 

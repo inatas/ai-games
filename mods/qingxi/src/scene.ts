@@ -2,14 +2,14 @@ import type { Transaction } from '@game-ai/core';
 import { HarnessError } from '@game-ai/core';
 import { world, projectMap } from './world.ts';
 
-export interface GameAction { action: string; label: string; targetId?: string; topicId?: string; questId?: string; itemId?: string; exitId?: string; name?: string; gender?: string; schoolId?: string; skillId?: string; enemyId?: string }
-export interface SceneObject { id: string; name: string; kind: 'npc' | 'item' | 'fixture'; description: string; layout: { x: number; y: number }; actions: GameAction[] }
+import type { GameAction, SceneObject } from '@game-ai/mud-core';
+export type { GameAction, SceneObject } from '@game-ai/mud-core';
 export async function readWorldState(tx: Transaction, scopeId: string) {
   const row = (await tx.query('SELECT * FROM wuxia_characters WHERE scope_id=$1', [scopeId])).rows[0];
   if (!row) throw new HarnessError('NOT_FOUND', 404);
   if (row.world_content_version !== world.version) throw new Error('Unsupported world content version');
   const discovered = new Set<string>((await tx.query('SELECT room_id FROM wuxia_discovered_rooms WHERE scope_id=$1', [scopeId])).rows.map(r => r.room_id));
-  const npcs = (await tx.query('SELECT npc_id,room_id,status FROM wuxia_npc_states WHERE scope_id=$1 AND room_id=$2', [scopeId, row.current_room_id])).rows;
+  const npcs = (await tx.query('SELECT n.npc_id,n.room_id,n.status FROM mud_npcs n JOIN mud_characters c ON c.realm_id=n.realm_id WHERE c.scope_id=$1 AND n.room_id=$2', [scopeId, row.current_room_id])).rows;
   const quantity = (await tx.query("SELECT quantity FROM wuxia_inventory WHERE scope_id=$1 AND item_id='medicine'", [scopeId])).rows[0]?.quantity ?? 0;
   const quest = (await tx.query("SELECT status FROM wuxia_quests WHERE scope_id=$1 AND quest_id='medicine'", [scopeId])).rows[0]?.status ?? 'not_started';
   const skills = (await tx.query('SELECT skill_id,level FROM wuxia_skills WHERE scope_id=$1 ORDER BY skill_id', [scopeId])).rows;
@@ -23,6 +23,7 @@ export function makeScene(s: WorldState) {
     const npc = world.npcs.find(x => x.id === n.npc_id)!;
     const actions: GameAction[] = [{ action: 'talk', label: '交谈 · 本地见闻', targetId: npc.id, topicId: 'news' }];
     if (npc.id === 'herbalist') {
+      actions.push({action:'escort_accept',label:'两人领取护送委托'},{action:'escort_complete',label:'提交护送委托'},{action:'escort_claim',label:'领取护送奖励'});
       if (s.quest === 'not_started') actions.push({ action: 'accept_quest', label: '接受寻药委托', targetId: npc.id, questId: 'medicine' });
       if (s.quest === 'active' && s.quantity === 1) actions.push({ action: 'give', label: '交付药包', targetId: npc.id, questId: 'medicine', itemId: 'medicine' });
       if (!s.row.school_id) actions.push({ action: 'join_school', label: '拜入百草门', schoolId: 'baicao' });
@@ -39,6 +40,7 @@ export function makeScene(s: WorldState) {
   });
   if (room.id === 'forest' && s.quest === 'active' && s.quantity === 0)
     objects.push({ id: 'medicine', name: '药包', kind: 'item', description: '落叶间露出一角布包，散发着药香。', layout: { x: 65, y: 72 }, actions: [{ action: 'pickup', label: '拾取药包', itemId: 'medicine' }] });
+  if(room.id==='forest') objects.push({id:'route',name:'药路',kind:'fixture',description:'同队两人各自勘察一次，再回药铺复命。',layout:{x:35,y:60},actions:[{action:'escort_contribute',label:'勘察药路'}]});
   if (room.id === 'stream') objects.push({ id: 'stone', name: '旧石碑', kind: 'fixture', description: s.row.encounter_done ? '旧缘已结，碑上水痕依旧。' : '碑文模糊，似有故人的指引。', layout: { x: 65, y: 62 }, actions: s.row.encounter_done ? [] : [{ action: 'encounter', label: '查看石碑 · 奇遇' }] });
   if (room.id === 'trail' && s.schoolQuest?.status === 'active') objects.push({ id: 'bandit', name: '拦路恶徒', kind: 'npc', description: `恶徒气血 ${s.schoolQuest.enemy_hp}/12，正拦在山道中央。`, layout: { x: 66, y: 58 }, actions: [
     { action: 'attack', label: '普通攻击', enemyId: 'bandit' },
@@ -48,6 +50,10 @@ export function makeScene(s: WorldState) {
 }
 export function worldProjection(s: WorldState) {
   return {
+    title:'青溪镇', characterName:s.row.player_name as string,
+    forms:[{action:'set_profile',label:'修改角色档案',fields:[{id:'name',label:'姓名',value:s.row.player_name as string,maxLength:12},{id:'gender',label:'性别',value:s.row.gender as string,options:['未设定','男','女']}]}],
+    attributes:[{label:'气血',value:`${s.row.hp}/30`},{label:'内力',value:`${s.row.qi}/10`},{label:'经验',value:Number(s.row.experience)},{label:'潜能',value:Number(s.row.potential)},{label:'银两',value:Number(s.row.silver)},{label:'侠义',value:Number(s.row.virtue)},{label:'师承',value:s.row.master??'无'}],
+    training:(s.row.school_id==='qingsong'?[['breathing','吐纳法'],['qingsong_sword','青松剑式']]:s.row.school_id==='baicao'?[['herbal_breath','采息术'],['acupoint_hand','点穴手']]:[]).map(([id,name])=>({action:'learn_skill',label:`修习${name}（2潜能）`,skillId:id})),
     worldContentVersion: world.version,
     map: projectMap(world, s.row.current_room_id, s.discovered, !!s.row.master), scene: makeScene(s),
     inventory: s.quantity ? [{ itemId: 'medicine', name: '药包', quantity: s.quantity }] : [],

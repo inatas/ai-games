@@ -25,6 +25,12 @@ docker compose --profile test run --build --rm tests
 
 测试镜像构建先类型检查、仓库布局/文档检查和前端构建，再运行测试。postgres-test采用独立临时存储，不与开发库共享。每个集成测试组额外创建随机`harness_test_*` schema；测试结束只删除自己的schema。
 
+## 现有档案升级
+
+青溪镇首次启动会增加`mud_*`公共表，将旧角色、NPC和社交记录迁到realm；旧表保留供核对。升级前停止`app`写入并使用`pg_dump -Fc`备份开发数据库，备份应放在被Git忽略的`.local/backups`。恢复副本必须放在独立测试库，使用`pg_restore --no-owner --no-privileges --exit-on-error`，再以`TEST_DATABASE_URL`指向该副本运行`scripts/verify-mud-restore.ts`。脚本只接受名为`ai_mud_restore_*`的库，并核对历史记录数量及两次迁移的幂等性。恢复失败时不要升级开发库；部署失败须把应用与数据库一并回到匹配的备份版本。
+
+本次升级的实测数量、备份摘要及命令结果见[需求012](../.agents/note/012-ai-mud-framework.md)。测试用`postgres-test`为临时存储；其中的恢复副本不能当作长期备份。
+
 可单独停止测试数据库：`docker compose --profile test stop postgres-test`。不要用测试脚本清空开发数据库。
 
 ## 宿主机调试（可选）
@@ -64,13 +70,13 @@ Node/PostgreSQL采用[DaoCloud文档](https://github.com/DaoCloud/public-image-m
 
 宿主通过`harness.submit()`提交注册的Binding；无AI操作是`mode: recordMemory`绑定，不存在独立的公开recordMemory函数。武侠入口将业务资格错误记为异步`rejected/RULE_REJECTED`，detail表示具体游戏原因，便于一致的幂等查询。
 
-scope令牌只保护本机Demo存档，不等于生产账号体系。禁止直接把当前Demo作为公网多租户服务。原始模型响应和数据库错误不返回玩家。
+账号通过持久会话Cookie与当前角色授权；本地Compose只映射127.0.0.1。若公开部署，还需配置HTTPS、安全Cookie及独立运维边界。原始模型响应和数据库错误不返回玩家。
 
 ## 登录与世界观配置
 
 打开应用后输入用户名（3–32位字母、数字或下划线）和密码（8–128字符）。新用户名自动创建；已有用户名校验原密码。默认记住30天无活动期限内的登录，继续同一存档；右上角登出仅撤销当前设备会话。另起江湖需确认，旧档案保留但本期不能切回。旧游客记录保留且暂不迁移，旧浏览器令牌不能登录账号。
 
-世界观文件默认是[WORLD.md](../examples/wuxia-mud/WORLD.md)，服务端通过WORLDVIEW_PATH、WORLD_ID、WORLD_VERSION配置。编辑正文必须提升版本，再运行docker compose up --build -d。相同版本不同正文会拒绝启动，旧局保持已保存版本，新局绑定新版本。不得将模型Key或账号密码写入世界观。框架加载器上限16KiB；正文还需满足实际模型输入预算，超限会在调用前失败。
+世界观文件默认是[WORLD.md](../mods/qingxi/WORLD.md)，服务端通过WORLDVIEW_PATH、WORLD_ID、WORLD_VERSION配置。编辑正文必须提升版本，再运行docker compose up --build -d。相同版本不同正文会拒绝启动，旧局保持已保存版本，新局绑定新版本。不得将模型Key或账号密码写入世界观。框架加载器上限16KiB；正文还需满足实际模型输入预算，超限会在调用前失败。
 
 本地HTTP使用COOKIE_SECURE=false；HTTPS部署应设true并保持反向代理传递正确Host与Origin。Cookie是HttpOnly，客户端不读取凭据；所有写请求必须有同源Origin。账号/会话存放于开发数据库卷，docker compose down不会删除档案。不要通过删除数据卷处理登录问题。
 

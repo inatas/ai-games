@@ -165,12 +165,12 @@ MemoryChange仅包含replace_fact、append_event、append_summary、open_item、
 
 成功标准：中性宿主完成判定；重启保留事实与开放事项；非法输出/冲突无副作用；无AI动作也能写记忆；更换宿主不修改core。
 
-审阅顺序：本规格→[框架测试规格](../testing/framework.md)→[中性数据契约](../testing/fixtures.md)→[武侠Quickstart](../../examples/wuxia-mud/README.md)→[Demo测试与数据](../../examples/wuxia-mud/tests/README.md)。框架测试先于实现；Demo测试依照独立游戏文档生成，不反向定义框架规则。
+审阅顺序：本规格→[框架测试规格](../testing/framework.md)→[中性数据契约](../testing/fixtures.md)→[武侠Quickstart](../../mods/qingxi/README.md)→[Demo测试与数据](../../mods/qingxi/tests/README.md)。框架测试先于实现；Demo测试依照独立游戏文档生成，不反向定义框架规则。
 
 依赖由package-lock.json锁定，运行/测试环境由根目录compose.yaml定义；真实供应商配置和公网部署仍待定。当前已开始MVP实现；Docker运行与真实模型验收需独立记录，不能从协议文档推定通过。
 
 ## 实现布局说明
 
-四类记忆在当前实现中合并为fw_memory，通过kind区分；fw_scopes、fw_requests、fw_model_calls独立保存。上表为逻辑职责，并非每项必须有独立物理表。当前scope授权由宿主承担，游戏规则在examples/wuxia-mud。架构不变量以[ARCHITECT.md](../../ARCHITECT.md)为准。
+四类记忆在当前实现中合并为fw_memory，通过kind区分；fw_scopes、fw_requests、fw_model_calls独立保存。上表为逻辑职责，并非每项必须有独立物理表。当前scope授权由宿主承担，游戏规则在mods/qingxi。架构不变量以[ARCHITECT.md](../../ARCHITECT.md)为准。
 
 

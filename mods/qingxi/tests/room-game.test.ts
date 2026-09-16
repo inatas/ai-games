@@ -1,11 +1,12 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ScriptedModel } from '@game-ai/model';
 import { Harness } from '@game-ai/core';
+import { sendMessage, updateNpc } from '@game-ai/mud-core';
 import { startTestDatabase } from '../../../tests/support/database.ts';
 import { buildApp } from '../../../apps/server/src/app.ts';
-import { migrateGame, gameBinding } from '../src/game.ts';
+import { migrateGame, gameBinding, createGame } from '../src/game.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
 let built: Awaited<ReturnType<typeof buildApp>>;
@@ -97,6 +98,93 @@ test('WM-14: backfill preserves attributes and history, migration is repeatable'
   assert.equal(state.state.master, '青松道人'); assert.equal(state.state.encounterDone, true); assert.equal(state.memoryVersion, 0);
   await move(g, 'street'); await migrateGame(db.store);
   assert.equal((await read(g)).map.currentRoomId, 'street');
+});
+
+test('MF-05/11: a public NPC move invalidates an in-flight AI judgment for every player', async () => {
+  const first = await login();
+  const second = await login();
+  await move(first, 'street'); await move(first, 'herbalist'); await move(first, 'square');
+  await move(second, 'street'); await move(second, 'herbalist'); await move(second, 'square');
+  assert.ok((await read(second)).scene.objects.some((object: any) => object.id === 'villager'));
+
+  let started!: () => void;
+  let release!: () => void;
+  const modelStarted = new Promise<void>(resolve => { started = resolve; });
+  const mayFinish = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Harness(db.store, {
+    async generate() {
+      started();
+      await mayFinish;
+      return { rawText: '{"answerId":"GUIDE"}', model: 'scripted', usage: null };
+    },
+  });
+  waiting.register(gameBinding(db.store, 'talk'));
+  try {
+    const requestId = randomUUID();
+    const before = await read(first);
+    await waiting.submit({ scopeId: first.id, requestId, expectedMemoryVersion: before.memoryVersion,
+      bindingId: 'wuxia.talk', bindingVersion: '1', input: { note: '', targetId: 'villager', topicId: 'news' } });
+    await modelStarted;
+    await db.store.transaction(tx => updateNpc(tx, 'qingxi', 'villager', 'stream', 'present'));
+    assert.ok(!(await read(second)).scene.objects.some((object: any) => object.id === 'villager'));
+    release();
+    await waiting.drain();
+    const result = await waiting.get(first.id, requestId);
+    assert.equal(result.status, 'failed');
+    assert.equal(result.error?.code, 'STATE_CONFLICT');
+    assert.equal((await read(first)).memoryVersion, before.memoryVersion);
+  } finally {
+    release();
+    await waiting.close();
+    await db.store.transaction(tx => updateNpc(tx, 'qingxi', 'villager', 'square', 'present'));
+  }
+});
+
+test('MF-12: conflicting legacy NPC copies produce a reviewable report and roll back', async () => {
+  const isolated = await startTestDatabase();
+  try {
+    await isolated.store.migrate();
+    await migrateGame(isolated.store);
+    const first = await createGame(isolated.store, 'test');
+    const second = await createGame(isolated.store, 'test');
+    await isolated.store.transaction(async tx => {
+      await tx.query("DELETE FROM mud_npcs WHERE realm_id='qingxi' AND npc_id='villager'");
+      await tx.query("INSERT INTO wuxia_npc_states VALUES($1,'villager','square','present'),($2,'villager','street','present')", [first, second]);
+    });
+    await assert.rejects(migrateGame(isolated.store), error => {
+      assert.match(String(error), /NPC_MIGRATION_CONFLICT/);
+      assert.match(String(error), /square/);
+      assert.match(String(error), /street/);
+      return true;
+    });
+    assert.equal((await isolated.store.pool.query("SELECT count(*) n FROM mud_npcs WHERE realm_id='qingxi' AND npc_id='villager'")).rows[0].n, '0');
+  } finally {
+    await isolated.stop();
+  }
+});
+
+test('MF-12: a legacy social request ID replays its original response after migration', async () => {
+  const isolated = await startTestDatabase();
+  try {
+    await isolated.store.migrate();
+    await migrateGame(isolated.store);
+    const scopeId = await createGame(isolated.store, 'test');
+    const requestId = randomUUID();
+    const response = { id: randomUUID() };
+    const oldInput = { channel: 'chat', body: 'historic', targetScopeId: null };
+    const hash = createHash('sha256').update(JSON.stringify(oldInput)).digest('hex');
+    await isolated.store.transaction(async tx => {
+      await tx.query('INSERT INTO wuxia_social_writes VALUES($1,$2,$3,$4)', [scopeId, requestId, hash, response]);
+      await tx.query("DELETE FROM qingxi_migrations WHERE version='mud-1'");
+    });
+    await migrateGame(isolated.store);
+    const replay = await isolated.store.transaction(tx => sendMessage(tx, scopeId, {requestId,channel:'chat',body:'historic'}));
+    assert.deepEqual(replay, response);
+    assert.equal((await isolated.store.pool.query('SELECT count(*) n FROM mud_messages')).rows[0].n, '0');
+    await assert.rejects(isolated.store.transaction(tx => sendMessage(tx,scopeId,{requestId,channel:'chat',body:'changed'})), /IDEMPOTENCY_CONFLICT/);
+  } finally {
+    await isolated.stop();
+  }
 });
 
 test('WM-11: quest writes roll back on failure; model timeout leaves no game event', async () => {

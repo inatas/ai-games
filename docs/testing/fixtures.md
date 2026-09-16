@@ -58,7 +58,7 @@ C-OVER：必需块8001。C-PRIVATE：另加S2公开EX及S1内部EI，即使标�
 
 ## 5. 落位
 
-tests/support保存中性数据、Mock、时钟、屏障；examples/wuxia-mud/tests保存Demo数据。有效夹具需Schema/引用校验。
+tests/support保存中性数据、Mock、时钟、屏障；mods/qingxi/tests保存Demo数据。有效夹具需Schema/引用校验。
 
 哈希使用递归键排序的规范化JSON，数组保序，包含操作种类、binding及版本、input、expectedMemoryVersion；不含动态时间。当前可执行数据位于tests/support/counter.ts，故障子进程位于tests/support/crash-worker.ts。
 

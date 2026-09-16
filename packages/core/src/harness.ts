@@ -48,6 +48,7 @@ export class Harness {
     let claimed = false;
     const view = await this.store.transaction(async tx => {
       await authorize?.(tx);
+      await registered?.binding.lockResources?.(tx, input.scopeId);
       const scope = await tx.query('SELECT * FROM fw_scopes WHERE id=$1 FOR UPDATE', [input.scopeId]);
       if (!scope.rows.length) throw new HarnessError('NOT_FOUND', 404);
       await tx.query("UPDATE fw_requests SET status='failed',error=$3 WHERE scope_id=$1 AND status='processing' AND lease_expires_at<=$2", [input.scopeId, this.clock.now(), JSON.stringify({ code: 'PROCESSING_EXPIRED' })]);
@@ -115,6 +116,7 @@ export class Harness {
       const validation = binding.validate(proposal, prepared.facts);
       if (!validation.ok) throw new HarnessError('RULE_REJECTED', 409, validation.code);
       await this.store.transaction(async tx => {
+        await binding.lockResources?.(tx, input.scopeId);
         const scope = (await tx.query('SELECT * FROM fw_scopes WHERE id=$1 FOR UPDATE', [input.scopeId])).rows[0];
         const request = (await tx.query('SELECT * FROM fw_requests WHERE scope_id=$1 AND request_id=$2 FOR UPDATE', [input.scopeId,input.requestId])).rows[0];
         if (request.status !== 'processing' || Number(request.lease_expires_at) <= this.clock.now()) throw new HarnessError('PROCESSING_EXPIRED');

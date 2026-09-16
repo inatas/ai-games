@@ -2,7 +2,7 @@
 
 Status: in_progress
 
-归档说明：本文件保留基础Demo的历史需求及框架接入边界；后续游戏专属需求归[武侠本地note索引](../../examples/wuxia-mud/.agents/note/README.md)。本次目录规范整理不变更功能范围或验收状态。
+归档说明：本文件保留基础Demo的历史需求及框架接入边界；后续游戏专属需求归[青溪镇note索引](../../mods/qingxi/.agents/note/README.md)。
 
 ## 需求
 
@@ -15,12 +15,12 @@ Status: in_progress
 ## 验收
 
 - [ ] 按[Quickstart](../../examples/wuxia-mud/README.md)演示完整路径。
-- [ ] D-*用例的数值和模型调用次数符合[测试文档](../../examples/wuxia-mud/tests/README.md)。
+- [ ] D-*用例的数值和模型调用次数符合[测试文档](../../mods/qingxi/tests/README.md)。
 - [ ] 浏览器可创建存档、提交、刷新并恢复原结果。
 
 ## 当前进展
 
-基础四动作规则继续回归；账号和长期档案已由公共identity接管。房间世界v2及其地图、NPC、任务实现与实际证据统一记录在[示例001](../../examples/wuxia-mud/.agents/note/001-room-world.md)，本文件保留原接入需求的历史入口。
+基础四动作规则继续回归；账号和长期档案已由公共identity接管。房间世界v2及其地图、NPC、任务实现与实际证据统一记录在[青溪镇001](../../mods/qingxi/.agents/note/001-room-world.md)，本文件保留原接入需求的历史入口。
 
 ## 待完善
 

@@ -13,7 +13,9 @@ after(async () => { await built?.app.close(); await db?.stop(); });
 async function login() {
   const response = await built.app.inject({ method: 'POST', url: '/api/auth/login', headers: { origin: 'http://localhost' }, payload: { username: `v3_${randomUUID().slice(0,8)}`, password: 'v3-test-password' } });
   assert.equal(response.statusCode, 200, response.body);
-  return { id: response.json().currentScopeId as string, cookie: String(response.headers['set-cookie']).split(';')[0] };
+  const session = { id: response.json().currentScopeId as string, cookie: String(response.headers['set-cookie']).split(';')[0] };
+  assert.equal((await built.app.inject({method:'POST',url:'/api/mud/presence',headers:{cookie:session.cookie,origin:'http://localhost'},payload:{}})).statusCode,200);
+  return session;
 }
 type Session = Awaited<ReturnType<typeof login>>;
 async function read(g: Session) { const response = await built.app.inject({ url: `/api/wuxia/games/${g.id}`, headers: { cookie: g.cookie } }); assert.equal(response.statusCode, 200, response.body); return response.json(); }

@@ -26,6 +26,8 @@ export interface Prepared {
 }
 export interface ExecutionContext { scopeId: string; input: Json; gameVersion: string }
 export interface Binding {
+  /** Acquire host shared resources before the coordinator locks the player scope. No network I/O. */
+  lockResources?(tx: Transaction, scopeId: string): Promise<unknown>;
   id: string; version: string; mode: 'assessment' | 'recordMemory';
   inputSchema: object; outputSchema?: object;
   prepare(input: Json, scopeId: string): Promise<Prepared>;

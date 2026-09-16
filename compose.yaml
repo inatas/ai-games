@@ -35,7 +35,7 @@ services:
       MODEL_NAME: ${MODEL_NAME:-}
       MODEL_PROTOCOL: ${MODEL_PROTOCOL:-json-schema}
       MODEL_API_KEY: ${MODEL_API_KEY:-}
-      WORLDVIEW_PATH: ${WORLDVIEW_PATH:-examples/wuxia-mud/WORLD.md}
+      WORLDVIEW_PATH: ${WORLDVIEW_PATH:-mods/qingxi/WORLD.md}
       WORLD_ID: ${WORLD_ID:-wuxia}
       WORLD_VERSION: ${WORLD_VERSION:-1}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}

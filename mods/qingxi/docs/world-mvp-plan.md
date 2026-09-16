@@ -24,8 +24,8 @@ P1先完成核心规则与测试库迁移，不提前对开发存档执行迁移
 
 ## 预期文件职责
 
-- examples/wuxia-mud/src：内容、世界查询与投影、行动绑定、游戏数据迁移；按职责拆现有game.ts，不重写无关框架模块。
-- examples/wuxia-mud/tests：规则测试、游戏夹具和地图投影验收；通用数据库工具继续复用tests/support。
+- mods/qingxi/src：内容、世界查询与投影、行动绑定、游戏数据迁移；按职责拆现有game.ts，不重写无关框架模块。
+- mods/qingxi/tests：规则测试、游戏夹具和地图投影验收；通用数据库工具继续复用tests/support。
 - apps/server/src：装配新增游戏接口及一致读取，复用公共身份授权。
 - apps/web/src：地图、场景、对象交互、快照刷新及既有登录/请求恢复整合；必要时拆组件，避免为单个示例建设UI框架。
 - packages/*：默认复用现有公共入口。任何超出已批准协议的行为调整先记录框架note及设计。

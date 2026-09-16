@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { PostgresStore } from '@game-ai/storage';
 import { ChatCompletionsAdapter } from '@game-ai/model';
-import { demoModel } from '../../../examples/wuxia-mud/src/game.ts';
+import { demoModel } from '../../../mods/qingxi/src/game.ts';
 import { buildApp } from './app.ts';
 
 export async function startServer(connectionString?:string){

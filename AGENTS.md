@@ -7,20 +7,20 @@
 - `packages/*/src`：可复用能力；跨包只使用 `@game-ai/*` 公共入口，不绕过导出读其他包的src。
 - `packages/*/tests`：包自身单元测试；`tests/integration`：真实数据库和框架集成；`tests/support`：中性测试工具。
 - `apps/server/src`：Fastify装配、鉴权与进程入口；`apps/web/src`：React Demo界面。
-- `examples/wuxia-mud`：武侠游戏规则、Quickstart、专属测试；不得反向导入core。
+- `mods/qingxi`：武侠游戏规则、Quickstart、专属测试；不得反向导入core。
 - `.agents/note`：框架公共能力及仓库级需求，一份文件对应一个可完善需求，包含范围、验收、进展和未决项。
-- `examples/<game>/.agents/note`：该游戏专属需求，使用独立编号。
+- `mods/<mod>/.agents/note`：该MOD专属需求，使用独立编号。
 - `docs`：框架规范细节、测试契约与操作指南；示例游戏设计归其本地文档，不将开发规范散落到需求状态记录里。
 
 ### 需求与文档归属
 
-目标目录为`mods/<mod>`：具体世界的内容配置、规则实例、可执行规则、素材、测试和需求归其本地。通用房间/实体机制、realm/player/party归属与协调、身份授权及AI Harness能力归根需求。迁移期间`examples/wuxia-mud`继续作为青溪镇唯一编辑入口，迁移后保留来源链接，不并行维护两份规则。具体门派、技能数值或题材公式不因被称为“规则”而进入通用框架。
+目标目录为`mods/<mod>`：具体世界的内容配置、规则实例、可执行规则、素材、测试和需求归其本地。通用房间/实体机制、realm/player/party归属与协调、身份授权及AI Harness能力归根需求。迁移期间`mods/qingxi`继续作为青溪镇唯一编辑入口，迁移后保留来源链接，不并行维护两份规则。具体门派、技能数值或题材公式不因被称为“规则”而进入通用框架。
 
 按需求职责归档，不按当前实现文件所在位置归档。账号与会话、持续记忆、上下文组装、模型适配、通用校验和执行属于根目录note；游戏世界观正文、背景故事、NPC设定、行动资格、奖励和剧情属于对应示例的note。即使游戏页面位于apps/web，游戏专属需求仍归示例。
 
-每个示例使用自己的AGENTS.md补充本地指引，继承本文件的需求确认门禁、测试和安全规则，不重复维护另一套审批流程。示例note沿用根目录模板与状态定义，使用NNN-topic.md命名，在本地README.md维护索引；根目录索引提供示例入口。
+每个MOD使用自己的AGENTS.md补充本地指引，继承本文件的需求确认门禁、测试和安全规则，不重复维护另一套审批流程。MOD note沿用根目录模板与状态定义，使用NNN-topic.md命名，在本地README.md维护索引；根目录索引提供MOD入口。
 
-示例README.md作为Quickstart；较详细的游戏设计放examples/<game>/docs，游戏测试用例说明和数据契约可放本地docs或tests/README.md，并由note链接到唯一正文。可执行游戏测试归examples/<game>/tests，框架测试保持题材中性。
+MOD README.md作为Quickstart；较详细的游戏设计放mods/<mod>/docs，游戏测试用例说明和数据契约可放本地docs或tests/README.md，并由note链接到唯一正文。可执行游戏测试归mods/<mod>/tests，框架测试保持题材中性。
 
 跨框架与游戏的需求拆成相互链接的两份note：框架note定义通用能力与契约，示例note定义接入方式和游戏验收。分别记录确认范围及验证证据，不复制协议正文。已有根目录示例note可保留为接入边界与历史索引；后续游戏细节在示例目录持续完善，迁移时保留来源链接及确认记录。
 

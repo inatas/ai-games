@@ -7,6 +7,8 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const sessionSeconds = 30 * 86400;
 export interface IdentityOptions {
+  lockResources?(tx: Transaction, scopeId: string): Promise<unknown>;
+  retire?(tx: Transaction, scopeId: string): Promise<void>;
   initialize(tx: Transaction, scopeId: string): Promise<void>;
   worldview?: { worldId: string; version: string };
   now?: () => number;
@@ -89,9 +91,11 @@ export class Identity {
         return { currentScopeId: previous.new_scope_id as string };
       }
       if (user.current_scope_id !== expectedScopeId) throw new HarnessError('STATE_CONFLICT', 409);
+      await this.options.lockResources?.(tx, expectedScopeId);
       await tx.query('SELECT id FROM fw_scopes WHERE id=$1 FOR UPDATE', [expectedScopeId]);
       await tx.query("UPDATE fw_requests SET status='failed',error=$3 WHERE scope_id=$1 AND status='processing' AND lease_expires_at<=$2", [expectedScopeId, this.now(), JSON.stringify({ code: 'PROCESSING_EXPIRED' })]);
       if ((await tx.query("SELECT 1 FROM fw_requests WHERE scope_id=$1 AND status='processing'", [expectedScopeId])).rowCount) throw new HarnessError('SCOPE_BUSY', 409);
+      await this.options.retire?.(tx, expectedScopeId);
       const scopeId = await this.createScope(tx);
       await tx.query('UPDATE fw_users SET current_scope_id=$2 WHERE id=$1', [user.id, scopeId]);
       await tx.query('INSERT INTO fw_game_resets(user_id,request_id,old_scope_id,new_scope_id) VALUES($1,$2,$3,$4)', [user.id, requestId, expectedScopeId, scopeId]);
