@@ -7,6 +7,7 @@ import { Identity, registerIdentityRoutes, sessionToken } from '@game-ai/identit
 import { PostgresStore, loadWorldview } from '@game-ai/storage';
 import { actions, initializeGame, gameBinding, migrateGame, publicState } from '../../../examples/wuxia-mud/src/game.ts';
 import { readWorldState, worldProjection } from '../../../examples/wuxia-mud/src/scene.ts';
+import { socialProjection, sendMessage, mutateParty } from '../../../examples/wuxia-mud/src/social.ts';
 
 export async function buildApp(store: PostgresStore, model: ModelAdapter, mode = 'mock') {
   await store.migrate();
@@ -38,11 +39,12 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   }
   app.get('/api/wuxia/games/:id', async request => store.transaction(async tx => {
     const row = await authorize(tx, request);
+    await tx.query('UPDATE wuxia_characters SET last_active_at=$2 WHERE scope_id=$1', [row.scope_id, Date.now()]);
     const memory = await store.memory(row.scope_id, ['public'], tx);
     const worldState = await readWorldState(tx, row.scope_id);
-    return { id: row.scope_id, scopeId: row.scope_id, hostVersion: row.host_version, state: publicState(row), memoryVersion: row.memory_version, ...worldProjection(worldState), events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
+    return { id: row.scope_id, scopeId: row.scope_id, hostVersion: row.host_version, state: publicState(row), memoryVersion: row.memory_version, ...worldProjection(worldState), ...(await socialProjection(tx, row.scope_id)), events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
   }));
-  app.post('/api/wuxia/games/:id/actions', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'expectedMemoryVersion', 'action', 'note'], properties: { requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, expectedMemoryVersion: { type: 'integer', minimum: 0 }, action: { type: 'string', enum: actions }, note: { type: 'string', maxLength: 200 }, ...Object.fromEntries(['exitId','targetId','topicId','questId','itemId'].map(key => [key, { type: 'string', minLength: 1, maxLength: 80 }])) } } } }, async (request, reply) => {
+  app.post('/api/wuxia/games/:id/actions', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'expectedMemoryVersion', 'action', 'note'], properties: { requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, expectedMemoryVersion: { type: 'integer', minimum: 0 }, action: { type: 'string', enum: actions }, note: { type: 'string', maxLength: 200 }, ...Object.fromEntries(['exitId','targetId','topicId','questId','itemId','name','gender','schoolId','skillId','enemyId'].map(key => [key, { type: 'string', minLength: 1, maxLength: 80 }])) } } } }, async (request, reply) => {
     const body = request.body as any;
     const id = (request.params as { id: string }).id;
     const { requestId, expectedMemoryVersion, action, ...input } = body;
@@ -53,6 +55,15 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
     const row = await authorize(tx, request);
     return harness.get(row.scope_id, (request.params as { requestId: string }).requestId, tx);
   }));
+  app.get('/api/wuxia/games/:id/social', async request => store.transaction(async tx => {
+    const row = await authorize(tx, request); return socialProjection(tx, row.scope_id);
+  }));
+  app.post('/api/wuxia/games/:id/social/messages', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','channel','body'], properties: {
+    requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, channel: { type: 'string', enum: ['say','tell','chat'] }, body: { type: 'string', minLength: 1, maxLength: 200 }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
+  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return sendMessage(tx, row.scope_id, request.body as any); }));
+  app.post('/api/wuxia/games/:id/social/party', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','action'], properties: {
+    requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, action: { type: 'string', enum: ['invite','accept','leave'] }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, inviteId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
+  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any); }));
   const root = resolve('dist');
   if (existsSync(root)) await app.register(fastifyStatic, { root });
   return { app, harness, identity };

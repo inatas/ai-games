@@ -5,11 +5,11 @@ import { ScriptedModel } from '@game-ai/model';
 import { world } from './world.ts';
 import { readWorldState, makeScene, type WorldState } from './scene.ts';
 
-export const actions = ['good_deed', 'encounter', 'apprenticeship', 'challenge', 'move', 'talk', 'accept_quest', 'pickup', 'give'] as const;
+export const actions = ['good_deed', 'encounter', 'apprenticeship', 'challenge', 'move', 'talk', 'accept_quest', 'pickup', 'give', 'set_profile', 'join_school', 'learn_skill', 'accept_school_quest', 'turn_in_school_quest', 'attack', 'use_skill'] as const;
 export type Action = typeof actions[number];
-type Input = { note: string; exitId?: string; targetId?: string; topicId?: string; questId?: string; itemId?: string };
+type Input = { note: string; exitId?: string; targetId?: string; topicId?: string; questId?: string; itemId?: string; name?: string; gender?: string; schoolId?: string; skillId?: string; enemyId?: string };
 function inputSchema(action: Action) {
-  const fields: Partial<Record<Action, string[]>> = { move: ['exitId'], talk: ['targetId', 'topicId'], accept_quest: ['targetId', 'questId'], pickup: ['itemId'], give: ['targetId', 'questId', 'itemId'] };
+  const fields: Partial<Record<Action, string[]>> = { move: ['exitId'], talk: ['targetId', 'topicId'], accept_quest: ['targetId', 'questId'], pickup: ['itemId'], give: ['targetId', 'questId', 'itemId'], set_profile: ['name','gender'], join_school: ['schoolId'], learn_skill: ['skillId'], accept_school_quest: ['schoolId'], turn_in_school_quest: ['schoolId'], attack: ['enemyId'], use_skill: ['enemyId','skillId'] };
   return { type: 'object', additionalProperties: false, required: ['note', ...(fields[action] ?? [])], properties: {
     note: { type: 'string', maxLength: 200 },
     ...Object.fromEntries((fields[action] ?? []).map(key => [key, { type: 'string', minLength: 1, maxLength: 80 }])),
@@ -25,22 +25,42 @@ export async function migrateGame(store: PostgresStore) {
       host_version integer NOT NULL DEFAULT 0, access_hash text NOT NULL)`);
     await tx.query(`ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS current_room_id text;
       ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS world_content_version text;
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS player_name text;
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS gender text NOT NULL DEFAULT '未设定';
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS hp integer NOT NULL DEFAULT 30 CHECK(hp BETWEEN 0 AND 30);
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS qi integer NOT NULL DEFAULT 10 CHECK(qi BETWEEN 0 AND 10);
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS experience integer NOT NULL DEFAULT 0 CHECK(experience>=0);
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS potential integer NOT NULL DEFAULT 0 CHECK(potential>=0);
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS school_id text;
+      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS last_active_at bigint NOT NULL DEFAULT 0;
       CREATE TABLE IF NOT EXISTS wuxia_discovered_rooms(scope_id uuid REFERENCES fw_scopes(id),room_id text,PRIMARY KEY(scope_id,room_id));
       CREATE TABLE IF NOT EXISTS wuxia_npc_states(scope_id uuid REFERENCES fw_scopes(id),npc_id text,room_id text NOT NULL,status text NOT NULL DEFAULT 'present',PRIMARY KEY(scope_id,npc_id));
       CREATE TABLE IF NOT EXISTS wuxia_inventory(scope_id uuid REFERENCES fw_scopes(id),item_id text,quantity integer NOT NULL CHECK(quantity BETWEEN 0 AND 1),PRIMARY KEY(scope_id,item_id));
       CREATE TABLE IF NOT EXISTS wuxia_quests(scope_id uuid REFERENCES fw_scopes(id),quest_id text,status text NOT NULL CHECK(status IN ('not_started','active','completed')),PRIMARY KEY(scope_id,quest_id));
-      UPDATE wuxia_characters SET current_room_id=COALESCE(current_room_id,'gate'),world_content_version=COALESCE(world_content_version,'1');
+      CREATE TABLE IF NOT EXISTS wuxia_skills(scope_id uuid REFERENCES fw_scopes(id),skill_id text,level integer NOT NULL CHECK(level BETWEEN 1 AND 3),PRIMARY KEY(scope_id,skill_id));
+      CREATE TABLE IF NOT EXISTS wuxia_school_quests(scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id),school_id text NOT NULL,status text NOT NULL CHECK(status IN ('active','ready')),cycle integer NOT NULL,enemy_hp integer NOT NULL CHECK(enemy_hp BETWEEN 0 AND 12));
+      CREATE TABLE IF NOT EXISTS wuxia_school_quest_history(scope_id uuid REFERENCES fw_scopes(id),cycle integer NOT NULL,PRIMARY KEY(scope_id,cycle));
+      CREATE TABLE IF NOT EXISTS wuxia_social_messages(id uuid PRIMARY KEY,sender_scope_id uuid REFERENCES fw_scopes(id),channel text NOT NULL CHECK(channel IN ('say','tell','chat')),recipient_scope_id uuid REFERENCES fw_scopes(id),room_id text,body text NOT NULL,created_at bigint NOT NULL,request_id uuid NOT NULL,UNIQUE(sender_scope_id,request_id));
+      CREATE TABLE IF NOT EXISTS wuxia_social_receipts(message_id uuid REFERENCES wuxia_social_messages(id) ON DELETE CASCADE,scope_id uuid REFERENCES fw_scopes(id),PRIMARY KEY(message_id,scope_id));
+      CREATE TABLE IF NOT EXISTS wuxia_parties(id uuid PRIMARY KEY,created_at bigint NOT NULL);
+      CREATE TABLE IF NOT EXISTS wuxia_party_members(party_id uuid REFERENCES wuxia_parties(id) ON DELETE CASCADE,scope_id uuid UNIQUE REFERENCES fw_scopes(id),joined_at bigint NOT NULL,PRIMARY KEY(party_id,scope_id));
+      CREATE TABLE IF NOT EXISTS wuxia_party_invites(id uuid PRIMARY KEY,inviter_scope_id uuid REFERENCES fw_scopes(id),invitee_scope_id uuid REFERENCES fw_scopes(id),status text NOT NULL CHECK(status IN ('pending','accepted','expired')),expires_at bigint NOT NULL,created_at bigint NOT NULL);
+      CREATE UNIQUE INDEX IF NOT EXISTS wuxia_one_pending_invite ON wuxia_party_invites(inviter_scope_id,invitee_scope_id) WHERE status='pending';
+      CREATE TABLE IF NOT EXISTS wuxia_social_writes(scope_id uuid REFERENCES fw_scopes(id),request_id uuid,request_hash text NOT NULL,response jsonb NOT NULL,PRIMARY KEY(scope_id,request_id));
+      UPDATE wuxia_characters SET current_room_id=COALESCE(current_room_id,'gate'),world_content_version=COALESCE(world_content_version,'1'),player_name=COALESCE(player_name,'少侠-'||left(scope_id::text,4)),school_id=COALESCE(school_id,CASE WHEN master IS NOT NULL THEN 'qingsong' END);
       INSERT INTO wuxia_discovered_rooms SELECT scope_id,current_room_id FROM wuxia_characters ON CONFLICT DO NOTHING;
-      INSERT INTO wuxia_quests SELECT scope_id,'medicine','not_started' FROM wuxia_characters ON CONFLICT DO NOTHING;`);
+      INSERT INTO wuxia_quests SELECT scope_id,'medicine','not_started' FROM wuxia_characters ON CONFLICT DO NOTHING;
+      INSERT INTO wuxia_skills SELECT scope_id,'breathing',1 FROM wuxia_characters WHERE school_id='qingsong' ON CONFLICT DO NOTHING;`);
     for (const npc of world.npcs) await tx.query('INSERT INTO wuxia_npc_states(scope_id,npc_id,room_id) SELECT scope_id,$1,$2 FROM wuxia_characters ON CONFLICT DO NOTHING', [npc.id, npc.roomId]);
     if ((await tx.query('SELECT 1 FROM wuxia_characters WHERE world_content_version<>$1 LIMIT 1', [world.version])).rowCount) throw new Error('Unsupported world content version');
   });
 }
 export function publicState(row: any) {
-  return { silver: row.silver, virtue: row.virtue, skill: row.skill, master: row.master, encounterDone: row.encounter_done, hostVersion: row.host_version };
+  return { silver: row.silver, virtue: row.virtue, skill: row.skill, master: row.master, encounterDone: row.encounter_done, hostVersion: row.host_version,
+    name: row.player_name, gender: row.gender, hp: row.hp, maxHp: 30, qi: row.qi, maxQi: 10, experience: row.experience, potential: row.potential, schoolId: row.school_id };
 }
 export async function initializeGame(store: PostgresStore, tx: Transaction, id: string) {
-  const row = (await tx.query("INSERT INTO wuxia_characters(scope_id,access_hash,current_room_id,world_content_version) VALUES($1,'account-managed','gate',$2) RETURNING *", [id, world.version])).rows[0];
+  const row = (await tx.query("INSERT INTO wuxia_characters(scope_id,access_hash,current_room_id,world_content_version,player_name,last_active_at) VALUES($1,'account-managed','gate',$2,'少侠-'||left($1::text,4),$3) RETURNING *", [id, world.version, Date.now()])).rows[0];
   await tx.query("INSERT INTO wuxia_discovered_rooms VALUES($1,'gate')", [id]);
   await tx.query("INSERT INTO wuxia_quests VALUES($1,'medicine','not_started')", [id]);
   for (const npc of world.npcs) await tx.query('INSERT INTO wuxia_npc_states(scope_id,npc_id,room_id) VALUES($1,$2,$3)', [id, npc.id, npc.roomId]);
@@ -56,6 +76,11 @@ export async function createGame(store: PostgresStore, accessHash: string) {
   return id;
 }
 const targets: Partial<Record<Action, string>> = { good_deed: 'villager', apprenticeship: 'master', challenge: 'disciple', accept_quest: 'herbalist', give: 'herbalist' };
+const schools = {
+  qingsong: { name: '青松门', master: '青松道人', roomId: 'dojo', basic: 'breathing', advanced: 'qingsong_sword' },
+  baicao: { name: '百草门', master: '药师', roomId: 'herbalist', basic: 'herbal_breath', advanced: 'acupoint_hand' },
+} as const;
+const skillSchool: Record<string, keyof typeof schools> = { breathing: 'qingsong', qingsong_sword: 'qingsong', herbal_breath: 'baicao', acupoint_hand: 'baicao' };
 function deny(action: Action, input: Input, s: WorldState): string | null {
   const row = s.row;
   const target = targets[action] ?? (action === 'talk' ? input.targetId : undefined);
@@ -80,6 +105,36 @@ function deny(action: Action, input: Input, s: WorldState): string | null {
   if (action === 'encounter' && row.encounter_done) return 'ENCOUNTER_COMPLETED';
   if (action === 'apprenticeship' && row.master) return 'ALREADY_APPRENTICED';
   if (action === 'apprenticeship' && row.virtue < 2) return 'LOW_VIRTUE';
+  if (action === 'set_profile' && (!input.name?.trim() || input.name.trim().length > 12 || !['男','女','未设定'].includes(input.gender ?? ''))) return 'INVALID_PROFILE';
+  if (action === 'join_school') {
+    const school = schools[input.schoolId as keyof typeof schools];
+    if (!school) return 'INVALID_SCHOOL';
+    if (row.school_id) return 'ALREADY_APPRENTICED';
+    if (row.current_room_id !== school.roomId) return 'TARGET_NOT_PRESENT';
+  }
+  if (action === 'learn_skill') {
+    const schoolId = skillSchool[input.skillId ?? ''];
+    if (!schoolId || row.school_id !== schoolId) return 'INVALID_SKILL';
+    const current = Number(s.skills.find(x => x.skill_id === input.skillId)?.level ?? 0);
+    if (current >= 3) return 'SKILL_MAXED';
+    if (input.skillId === schools[schoolId].advanced && Number(s.skills.find(x => x.skill_id === schools[schoolId].basic)?.level ?? 0) < 2) return 'SKILL_PREREQUISITE';
+    if (row.potential < 2) return 'INSUFFICIENT_POTENTIAL';
+  }
+  if (['accept_school_quest','turn_in_school_quest'].includes(action)) {
+    const school = schools[input.schoolId as keyof typeof schools];
+    if (!school || row.school_id !== input.schoolId) return 'INVALID_SCHOOL';
+    if (row.current_room_id !== school.roomId) return 'TARGET_NOT_PRESENT';
+    if (action === 'accept_school_quest' && s.schoolQuest) return 'QUEST_ALREADY_ACTIVE';
+    if (action === 'turn_in_school_quest' && s.schoolQuest?.status !== 'ready') return 'QUEST_NOT_READY';
+  }
+  if (['attack','use_skill'].includes(action)) {
+    if (input.enemyId !== 'bandit' || row.current_room_id !== 'trail' || s.schoolQuest?.status !== 'active') return 'TARGET_NOT_PRESENT';
+    if (action === 'use_skill') {
+      const school = schools[row.school_id as keyof typeof schools];
+      if (!school || input.skillId !== school.advanced || !s.skills.some(x => x.skill_id === input.skillId)) return 'INVALID_SKILL';
+      if (row.qi < 2) return 'INSUFFICIENT_QI';
+    }
+  }
   return null;
 }
 function check(action: Action, input: Input, s: WorldState) {
@@ -146,15 +201,57 @@ export function gameBinding(store: PostgresStore, action: Action): Binding {
       } else if (action === 'challenge') {
         if (row.skill >= 2) { row.silver += 3; message = '切磋获胜，获得三两银钱。'; } else message = '切磋落败。你意识到还需修习武学。';
       } else if (action === 'apprenticeship') {
-        if (choice === 'ACCEPT') { row.master = '青松道人'; row.skill += 1; message = '青松道人收你为徒，传授入门心法。武学 +1。'; } else message = '青松道人暂缓收徒，邀你继续历练。';
+        if (choice === 'ACCEPT') { row.master = '青松道人'; row.school_id = 'qingsong'; row.skill += 1; await tx.query("INSERT INTO wuxia_skills(scope_id,skill_id,level) VALUES($1,'breathing',1) ON CONFLICT DO NOTHING", [context.scopeId]); message = '青松道人收你为徒，传授入门心法。武学 +1。'; } else message = '青松道人暂缓收徒，邀你继续历练。';
       } else if (action === 'encounter') {
         if (choice === 'GIFT') { row.silver += 4; message = '江湖故人赠你四两银钱，助你远行。'; } else { row.skill += 1; message = '你得到高人指点。武学 +1。'; }
         row.encounter_done = true;
         if (row.good_deed_item_id && (await tx.query("SELECT id FROM fw_memory WHERE scope_id=$1 AND id=$2 AND status='open'", [context.scopeId, row.good_deed_item_id])).rowCount) memoryChanges.push({ op: 'close_item', id: row.good_deed_item_id });
+      } else if (action === 'set_profile') {
+        row.player_name = input.name!.trim(); row.gender = input.gender; message = `你以“${row.player_name}”之名踏入江湖。`;
+      } else if (action === 'join_school') {
+        const school = schools[input.schoolId as keyof typeof schools];
+        row.school_id = input.schoolId; row.master = school.master;
+        await tx.query('INSERT INTO wuxia_skills(scope_id,skill_id,level) VALUES($1,$2,1) ON CONFLICT DO NOTHING', [context.scopeId, school.basic]);
+        message = `你拜入${school.name}，学会${school.basic === 'breathing' ? '吐纳法' : '采息术'}。`;
+      } else if (action === 'learn_skill') {
+        row.potential -= 2;
+        await tx.query('INSERT INTO wuxia_skills(scope_id,skill_id,level) VALUES($1,$2,1) ON CONFLICT(scope_id,skill_id) DO UPDATE SET level=wuxia_skills.level+1', [context.scopeId, input.skillId]);
+        message = `你消耗2点潜能，精进了${input.skillId}。`;
+      } else if (action === 'accept_school_quest') {
+        const cycle = Number((await tx.query('SELECT COALESCE(MAX(cycle),0)+1 AS cycle FROM wuxia_school_quest_history WHERE scope_id=$1', [context.scopeId])).rows[0].cycle);
+        await tx.query("INSERT INTO wuxia_school_quests(scope_id,school_id,status,cycle,enemy_hp) VALUES($1,$2,'active',$3,12)", [context.scopeId, input.schoolId, cycle]);
+        message = '师父命你去山道击退拦路恶徒。';
+      } else if (action === 'turn_in_school_quest') {
+        row.experience += 5; row.potential += 4; row.hp = 30; row.qi = 10;
+        await tx.query('INSERT INTO wuxia_school_quest_history(scope_id,cycle) SELECT scope_id,cycle FROM wuxia_school_quests WHERE scope_id=$1', [context.scopeId]);
+        await tx.query('DELETE FROM wuxia_school_quests WHERE scope_id=$1', [context.scopeId]);
+        message = '师门任务完成。经验 +5，潜能 +4。';
+      } else if (action === 'attack' || action === 'use_skill') {
+        const advancedLevel = Number(s.skills.find(x => x.skill_id === input.skillId)?.level ?? 0);
+        const basic = row.school_id ? schools[row.school_id as keyof typeof schools].basic : '';
+        const basicLevel = Number(s.skills.find(x => x.skill_id === basic)?.level ?? 0);
+        const damage = action === 'attack' ? Math.max(1, 2 + basicLevel) : Math.max(2, 4 + advancedLevel * 2);
+        if (action === 'use_skill') row.qi -= 2;
+        const enemyHp = Math.max(0, Number(s.schoolQuest.enemy_hp) - damage);
+        if (enemyHp === 0) {
+          await tx.query("UPDATE wuxia_school_quests SET enemy_hp=0,status='ready' WHERE scope_id=$1", [context.scopeId]);
+          message = `你造成${damage}点伤害，击退恶徒，可以回师门复命。`;
+        } else {
+          row.hp = Math.max(0, row.hp - 3);
+          if (row.hp === 0) {
+            row.hp = 30; row.qi = 10; row.silver = Math.max(0, row.silver - 1); row.current_room_id = 'gate';
+            await tx.query("UPDATE wuxia_school_quests SET enemy_hp=12 WHERE scope_id=$1", [context.scopeId]);
+            message = `你造成${damage}点伤害后力竭，被送回村口并损失一两银钱。`;
+          } else {
+            await tx.query('UPDATE wuxia_school_quests SET enemy_hp=$2 WHERE scope_id=$1', [context.scopeId, enemyHp]);
+            message = `你造成${damage}点伤害，恶徒反击造成3点伤害。`;
+          }
+        }
       }
       row.host_version += 1;
-      await tx.query(`UPDATE wuxia_characters SET silver=$2,virtue=$3,skill=$4,master=$5,encounter_done=$6,good_deed_item_id=$7,host_version=$8,current_room_id=$9 WHERE scope_id=$1`,
-        [context.scopeId, row.silver, row.virtue, row.skill, row.master, row.encounter_done, row.good_deed_item_id, row.host_version, row.current_room_id]);
+      row.last_active_at = Date.now();
+      await tx.query(`UPDATE wuxia_characters SET silver=$2,virtue=$3,skill=$4,master=$5,encounter_done=$6,good_deed_item_id=$7,host_version=$8,current_room_id=$9,player_name=$10,gender=$11,hp=$12,qi=$13,experience=$14,potential=$15,school_id=$16,last_active_at=$17 WHERE scope_id=$1`,
+        [context.scopeId, row.silver, row.virtue, row.skill, row.master, row.encounter_done, row.good_deed_item_id, row.host_version, row.current_room_id, row.player_name, row.gender, row.hp, row.qi, row.experience, row.potential, row.school_id, row.last_active_at]);
       const after = publicState(row); const target = targets[action] ?? input.targetId;
       memoryChanges.unshift({ op: 'append_event', id: eventId, payload: { action, message, before, after, roomId: row.current_room_id }, subjectIds: action === 'move' ? ['travel'] : ['player', ...(target ? [target] : [])], tags: [action, ...(target ? [`npc:${target}`] : [])] });
       memoryChanges.push({ op: 'replace_fact', key: 'character', payload: after, sourceVersion: String(row.host_version) });

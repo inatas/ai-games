@@ -24,7 +24,7 @@ test('D-01/02/05/07/11/14/19: full path with persistent provenance and only two 
  const g=await game();const start=model.calls.length;
  assert.equal((await read(g)).state.silver,20);
  for(const [i,a]of ['good_deed','good_deed','apprenticeship','challenge','encounter'].entries())assert.equal((await act(g,a,i)).status,'committed');
- const result=await read(g);assert.deepEqual(result.state,{silver:19,virtue:2,skill:3,master:'青松道人',encounterDone:true,hostVersion:5});assert.equal(result.memoryVersion,5);assert.equal(result.events.length,5);assert.equal(result.openItems.length,1);assert.equal(result.openItems[0].status,'closed');assert.equal(model.calls.length-start,2);
+ const result=await read(g);assert.deepEqual({silver:result.state.silver,virtue:result.state.virtue,skill:result.state.skill,master:result.state.master,encounterDone:result.state.encounterDone,hostVersion:result.state.hostVersion},{silver:19,virtue:2,skill:3,master:'青松道人',encounterDone:true,hostVersion:5});assert.equal(result.state.hp,30);assert.equal(result.state.potential,0);assert.equal(result.memoryVersion,5);assert.equal(result.events.length,5);assert.equal(result.openItems.length,1);assert.equal(result.openItems[0].status,'closed');assert.equal(model.calls.length-start,2);
  assert.ok(model.calls.at(-1)!.messages.some(m=>m.content.includes(result.openItems[0].id)));
 });
 test('D-03/04/06/09/10/15: business rejections versus successful game losses',async()=>{

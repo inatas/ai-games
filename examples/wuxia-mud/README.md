@@ -1,6 +1,8 @@
 # Quickstart：青溪镇武侠世界
 
-已实现世界MVP v2：12个房间、5名NPC、3类复用场景、局部SVG地图、寻药任务、背包与成长。每用户拥有一个持续保存的独立江湖，不是多人共享世界。
+已实现世界MVP v3：12个房间、5名NPC、3类复用场景、局部SVG地图、个人长期档案、两条师门成长路线、确定性战斗和轻量多人社交。玩家共享同一江湖的房间与在线投影；角色、背包、任务和记忆仍各自隔离。
+
+战斗伤害、内力消耗、任务奖励和死亡恢复全部由游戏规则计算。AI仍只参与受约束的NPC态度和剧情判定，不能决定数值或直接改写状态。详细规则见[成长与共享江湖v3](docs/v3-growth-social.md)。
 
 ## 启动与游玩
 
@@ -51,9 +53,10 @@ docker compose up --build -d
 - [世界设计](docs/world-mvp.md)、[地图设计](docs/map-presentation.md)、[实施计划](docs/world-mvp-plan.md)。
 - [世界验收用例](docs/world-mvp-testing.md)与[既有四动作规则回归](tests/README.md)。
 - [实际验证记录](docs/world-mvp-verification.md)：自动化、浏览器、真实模型及数据备份证据。
+- [v3验证记录](docs/v3-verification.md)：成长、战斗与共享江湖的实际检查和待运行项。
 
 ```sh
 docker compose --profile test run --build --rm tests
 ```
 
-测试使用独立PostgreSQL及随机schema，不清理开发卷。L1战略图、自动寻路、天气/势力、多人、自由工具调用及NPC自主规划均不在本MVP中。
+测试使用独立PostgreSQL及随机schema，不清理开发卷。L1战略图、自动寻路、天气/势力、自由工具调用及NPC自主规划均不在本MVP中。

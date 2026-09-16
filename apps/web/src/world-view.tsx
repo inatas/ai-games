@@ -6,6 +6,8 @@ export type WorldViewData = {
   map: ReturnType<typeof projectMap>; scene: ReturnType<typeof makeScene>;
   inventory: { itemId: string; name: string; quantity: number }[];
   quests: { questId: string; name: string; status: string; description: string }[];
+  skills: { skillId: string; level: number }[];
+  schoolQuest: { schoolId: string; status: string; cycle: number; enemyHp: number } | null;
 };
 export function WorldView({ game, disabled, act }: { game: WorldViewData; disabled: boolean; act: (a: GameAction) => void }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export function WorldView({ game, disabled, act }: { game: WorldViewData; disabl
         <p className="room-description">{game.scene.description}</p>
         <div className="object-list" aria-label="此地对象">{game.scene.objects.length ? game.scene.objects.map(o => <button key={o.id} aria-pressed={selected === o.id} onClick={() => setSelected(o.id)}>{o.kind === 'npc' ? '交谈' : '查看'} · {o.name}</button>) : <span>此地无人，沿路继续探索。</span>}</div>
       </section>
-      <section className="world-journal" aria-label="行囊与任务"><h3>行囊</h3>{game.inventory.length ? game.inventory.map(i => <p key={i.itemId}>{i.name} × {i.quantity}</p>) : <p>行囊空空，轻装前行。</p>}<h3>江湖委托</h3>{game.quests.map(q => <div key={q.questId}><strong>{q.name} · {q.status === 'completed' ? '已完成' : q.status === 'active' ? '进行中' : '待打听'}</strong><p>{q.description}</p></div>)}</section>
+      <section className="world-journal" aria-label="行囊与任务"><h3>行囊</h3>{game.inventory.length ? game.inventory.map(i => <p key={i.itemId}>{i.name} × {i.quantity}</p>) : <p>行囊空空，轻装前行。</p>}<h3>江湖委托</h3><div>{game.quests.map(q => <div key={q.questId}><strong>{q.name} · {q.status === 'completed' ? '已完成' : q.status === 'active' ? '进行中' : '待打听'}</strong><p>{q.description}</p></div>)}{game.schoolQuest && <p><strong>师门任务 · 第 {game.schoolQuest.cycle} 轮</strong><br/>{game.schoolQuest.status === 'ready' ? '恶徒已退，回师门复命。' : `山道恶徒气血 ${game.schoolQuest.enemyHp}/12`}</p>}</div><h3>所学武功</h3><p>{game.skills.length ? game.skills.map(s => `${skillName(s.skillId)} ${s.level}级`).join(' · ') : '尚未拜入门派。'}</p></section>
     </div>
     <section className="interaction" aria-label="对象交互">
       {object ? <><h3>{object.name}</h3><p>{object.description}</p><div className="interaction-actions">{object.actions.map(a => <button key={a.action} disabled={disabled} onClick={() => act(a)}>{a.label}</button>)}{!object.actions.length && <span>这段缘分已了。</span>}</div></> : <p>点击场景中的人物或物件，查看可做的事。</p>}
@@ -45,6 +47,7 @@ export function WorldView({ game, disabled, act }: { game: WorldViewData; disabl
     <section className="exits" aria-label="当前出口"><h3>从这里出发</h3>{exits.map(e => <div key={e.exitId}><button disabled={disabled || e.access !== 'open'} onClick={() => act({ action: 'move', label: '移动', exitId: e.exitId })}>{e.access === 'locked' ? '锁 · ' : '→ '}{e.direction} · {game.map.nodes.find(n => n.roomId === e.to)?.name}</button>{e.reason && <small>{e.reason}</small>}</div>)}</section>
   </>;
 }
+function skillName(id: string) { return ({ breathing:'吐纳法', qingsong_sword:'青松剑式', herbal_breath:'采息术', acupoint_hand:'点穴手' } as Record<string,string>)[id] ?? id; }
 
 function RoomMap({ map, select }: { map: WorldViewData['map']; select: (id: string) => void }) {
   const marker = useId().replaceAll(':', '');
