@@ -22,4 +22,5 @@
 | [009](009-accounts-persistence.md) | implemented | 公共账号与持续档案（v1已确认并实现） |
 | [010](010-worldview-context.md) | implemented | 公共世界观上下文（v1已确认并实现） |
 | [011](011-composable-game-context.md) | draft | 可组合的多游戏上下文（v1待确认） |
+| [012](012-ai-mud-framework.md) | draft | AI驱动MUD框架与MOD边界；方向确认，详细方案v1待审阅 |
 
