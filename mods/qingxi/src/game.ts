@@ -49,6 +49,13 @@ export async function migrateGame(store: PostgresStore) {
       CREATE TABLE IF NOT EXISTS wuxia_skills(scope_id uuid REFERENCES fw_scopes(id),skill_id text,level integer NOT NULL CHECK(level BETWEEN 1 AND 3),PRIMARY KEY(scope_id,skill_id));
       CREATE TABLE IF NOT EXISTS wuxia_school_quests(scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id),school_id text NOT NULL,status text NOT NULL CHECK(status IN ('active','ready')),cycle integer NOT NULL,enemy_hp integer NOT NULL CHECK(enemy_hp BETWEEN 0 AND 12));
       CREATE TABLE IF NOT EXISTS wuxia_school_quest_history(scope_id uuid REFERENCES fw_scopes(id),cycle integer NOT NULL,PRIMARY KEY(scope_id,cycle));`);
+    // Development volumes may contain the pre-v3 access_hash column. It is no
+    // longer part of the character contract and must not block new accounts.
+    await tx.query(`DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='wuxia_characters' AND column_name='access_hash') THEN
+        ALTER TABLE wuxia_characters ALTER COLUMN access_hash DROP NOT NULL;
+      END IF;
+    END $$`);
     for (const npc of npcs) {
       if (npc.initialRoomId === undefined) continue;
       await tx.query("INSERT INTO mud_npcs(realm_id,npc_id,room_id,status) VALUES($1,$2,$3,'present') ON CONFLICT DO NOTHING",
