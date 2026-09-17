@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api, ApiError, LoginPanel, useIdentity, type UserSession } from '@game-ai/identity/browser';
-import type { WorldView as View, GameAction } from '@game-ai/mud-core';
+import type { WorldView as View, GameAction } from '@game-ai/game-systems';
 import { WorldView } from './world-view';
 import { acceptSnapshot } from './snapshot';
 import './style.css';

@@ -9,22 +9,23 @@ export async function lockRealm(tx: Transaction, scopeId: string) {
   return { actor, realm };
 }
 
-export async function leaveParty(tx: Transaction, scopeId: string) {
+export interface PartyChange { scopeId: string; partyId: string; dissolved: boolean }
+export interface PartyPolicy { onPartyLeft?(tx: Transaction, change: PartyChange): Promise<void> }
+
+export async function leaveParty(tx: Transaction, scopeId: string, policy: PartyPolicy = {}) {
   const member = (await tx.query('DELETE FROM mud_members WHERE scope_id=$1 RETURNING party_id', [scopeId])).rows[0];
   if (!member) return;
-  await tx.query('UPDATE mud_participants SET eligible=false WHERE scope_id=$1 AND task_id IN (SELECT id FROM mud_tasks WHERE party_id=$2)', [scopeId, member.party_id]);
   const remaining = Number((await tx.query('SELECT count(*) n FROM mud_members WHERE party_id=$1', [member.party_id])).rows[0].n);
   if (remaining < 2) {
     await tx.query('DELETE FROM mud_members WHERE party_id=$1', [member.party_id]);
     await tx.query('UPDATE mud_parties SET active=false,revision=revision+1 WHERE id=$1', [member.party_id]);
-    await tx.query("UPDATE mud_tasks SET status='cancelled' WHERE party_id=$1 AND status='active'", [member.party_id]);
-    await tx.query('UPDATE mud_participants SET eligible=false WHERE task_id IN (SELECT id FROM mud_tasks WHERE party_id=$1)', [member.party_id]);
   }
+  await policy.onPartyLeft?.(tx, { scopeId, partyId: member.party_id, dissolved: remaining < 2 });
 }
 
-export async function retireCharacter(tx: Transaction, scopeId: string) {
+export async function retireCharacter(tx: Transaction, scopeId: string, policy: PartyPolicy = {}) {
   await lockRealm(tx, scopeId);
-  await leaveParty(tx, scopeId);
+  await leaveParty(tx, scopeId, policy);
   await tx.query("UPDATE mud_invites SET status='expired' WHERE sender=$1 OR recipient=$1", [scopeId]);
   await tx.query('DELETE FROM mud_presence WHERE scope_id=$1', [scopeId]);
   await tx.query('UPDATE mud_characters SET active=false WHERE scope_id=$1', [scopeId]);

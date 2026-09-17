@@ -2,6 +2,8 @@
 
 版本v1：用户已确认。本文是实现契约；实际验证状态见[需求012](../../.agents/note/012-ai-mud-framework.md)。
 
+三层调整后的模块归属以[三层设计](three-layer-architecture.md)为准：原mud-core机制拆入platform与game-systems，旧入口仅兼容；本文的游戏行为及存档隔离约束继续保持。
+
 ## 产品与分层
 
 产品是AI驱动的多人在线角色扮演MUD框架。通用运行机制与题材规则分离，AI Harness作为子系统保留。
@@ -9,7 +11,8 @@
 | 模块 | 职责 |
 |---|---|
 | identity | 账号、会话、角色归属、realm准入及当前角色授权 |
-| mud-core | 房间与出口、实体定位、行动生命周期、可见性契约、共享状态协调、队伍与任务归属机制 |
+| platform | realm、角色身份、在线、频道/私聊、队伍关系、钱包账本 |
+| game-systems | 房间与出口、NPC、空间策略、库存、共享任务及MUD视图 |
 | core（现有Harness） | 记忆、上下文预算、模型调用协调、输出校验、受控提交 |
 | model / storage | 模型适配；公共持久化、事务与迁移 |
 | MOD | 属性定义、具体组织、技能、战斗公式、成长、物品效果、任务内容、地图、NPC及世界观 |
@@ -17,7 +20,7 @@
 
 保留packages/core现有名称与公共入口，避免与职责调整无关的改名。新增packages/mud-core；青溪镇迁至mods/qingxi。未来有实际复用需求再提取可选规则包，不预建武侠引擎。
 
-依赖：apps→mud-core、identity、core、model、storage及已注册MOD；MOD→mud-core/core公共契约；mud-core→core公共契约；core不导入MOD、apps或mud-core。通用SQL持久化放storage；MOD私有表由MOD版本迁移负责。浏览器只消费投影和公开素材，不导入MOD服务端规则。
+依赖：MOD→game-systems/platform/core公共契约，game-systems→platform→core；core与platform不反向导入游戏系统。迁移归对应能力模块，storage保留组合迁移入口；MOD私有表由MOD迁移负责。浏览器只消费投影和公开素材。
 
 ## 世界定义与实例
 

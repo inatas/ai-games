@@ -1,4 +1,4 @@
 {
   "name": "@game-ai/mud-core", "version": "0.1.0", "private": true, "type": "module",
-  "exports": "./src/index.ts", "dependencies": { "@game-ai/core": "0.1.0", "ajv": "^8.17.1" }
+  "exports": "./src/index.ts", "dependencies": { "@game-ai/platform": "0.1.0", "@game-ai/game-systems": "0.1.0" }
 }

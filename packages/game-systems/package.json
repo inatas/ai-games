@@ -1,0 +1,11 @@
+{
+  "name": "@game-ai/game-systems",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@game-ai/core": "0.1.0",
+    "@game-ai/platform": "0.1.0"
+  }
+}

@@ -1,0 +1,7 @@
+# 可选游戏系统
+
+地图、NPC、共享任务、库存及空间社交策略依赖platform/core。migrateGameSystems在migratePlatform后安装；当前聚合迁移一次安装此组系统，后续按实际需要再拆更细粒度迁移。
+
+spatialSocialPolicy只提供房间相关规则；taskPartyLeft负责离队/解散对任务的影响，MOD显式组合两者。changeItemQuantity只管理数量与上限，MOD定义合法物品、使用效果和掉落；在行动协调器的授权、幂等事务中调用。
+
+当前库存是堆叠数量模型，尚未提供装备唯一实例或交易市场。共享任务保留冻结参与者的合作流程，尚非任意任务状态机。ModHost/WorldView是MUD参考宿主契约，无地图平台可直接使用platform API。

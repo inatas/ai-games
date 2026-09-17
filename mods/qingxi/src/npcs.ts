@@ -1,4 +1,4 @@
-import type { NpcDefinition } from '@game-ai/mud-core';
+import type { NpcDefinition } from '@game-ai/game-systems';
 
 export const npcs: NpcDefinition[] = [
   { id: 'waiter', name: '店小二', initialRoomId: 'tea', description: '熟悉镇上见闻，待人爽朗。' },

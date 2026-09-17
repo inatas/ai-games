@@ -5,7 +5,8 @@ import { ScriptedModel } from '@game-ai/model';
 import { map as world } from './map.ts';
 import { npcs } from './npcs.ts';
 import { migrateMud } from '@game-ai/storage';
-import { lockRealm, sharedTask } from '@game-ai/mud-core';
+import { lockRealm } from '@game-ai/platform';
+import { sharedTask, changeItemQuantity } from '@game-ai/game-systems';
 import { realmId, manifest } from './mod.ts';
 import { readWorldState, makeScene, type WorldState } from './scene.ts';
 import { schools, trainingDenial } from './training.ts';
@@ -93,6 +94,10 @@ export async function migrateGame(store: PostgresStore) {
       await tx.query("UPDATE mud_parties SET active=false WHERE id NOT IN (SELECT party_id FROM mud_members GROUP BY party_id HAVING count(*)>=2)");
       await tx.query('DELETE FROM mud_members WHERE party_id IN (SELECT id FROM mud_parties WHERE NOT active)');
       await tx.query("INSERT INTO qingxi_migrations VALUES('mud-1')");
+    }
+    if (!(await tx.query("SELECT 1 FROM qingxi_migrations WHERE version='inventory-1'")).rowCount) {
+      await tx.query('INSERT INTO game_inventory(scope_id,item_id,quantity) SELECT scope_id,item_id,quantity FROM wuxia_inventory ON CONFLICT DO NOTHING');
+      await tx.query("INSERT INTO qingxi_migrations VALUES('inventory-1')");
     }
     if ((await tx.query('SELECT 1 FROM wuxia_characters WHERE world_content_version<>$1 LIMIT 1', [world.version])).rowCount) throw new Error('Unsupported world content version');
   });
@@ -224,9 +229,9 @@ export function gameBinding(store: PostgresStore, action: Action): Binding {
       } else if (action === 'accept_quest') {
         await tx.query("UPDATE wuxia_quests SET status='active' WHERE scope_id=$1 AND quest_id='medicine'", [context.scopeId]); message = '药师托你寻回遗失在林地的药包。';
       } else if (action === 'pickup') {
-        await tx.query("INSERT INTO wuxia_inventory VALUES($1,'medicine',1) ON CONFLICT(scope_id,item_id) DO UPDATE SET quantity=1", [context.scopeId]); message = '你拾起药包，准备送回药铺。';
+        await changeItemQuantity(tx,context.scopeId,'medicine',1,1); message = '你拾起药包，准备送回药铺。';
       } else if (action === 'give') {
-        await tx.query("DELETE FROM wuxia_inventory WHERE scope_id=$1 AND item_id='medicine'", [context.scopeId]);
+        await changeItemQuantity(tx,context.scopeId,'medicine',-1,1);
         await tx.query("UPDATE wuxia_quests SET status='completed' WHERE scope_id=$1 AND quest_id='medicine'", [context.scopeId]);
         row.silver += 2; message = '药师接过药包，赠你二两银钱。寻药委托已完成。';
       } else if (action === 'talk') {

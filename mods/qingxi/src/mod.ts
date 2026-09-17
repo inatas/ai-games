@@ -1,4 +1,4 @@
-import { ModRegistry } from '@game-ai/mud-core';
+import { ModRegistry } from '@game-ai/game-systems';
 import { world } from './world.ts';
 
 export const realmId = 'qingxi';

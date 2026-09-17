@@ -6,22 +6,24 @@
 
 Game AI Harness是其中供游戏按需调用的AI判定子系统。NPC与历史事件持久存在；当游戏需要综合推理时才调用模型。Harness不内置回合、题材、战斗、数值成长、剧情触发或NPC自主循环。
 
-分层与契约见[AI MUD框架设计](docs/specs/ai-mud-framework.md)和[需求012](.agents/note/012-ai-mud-framework.md)。v1已获确认；实际通过项与部署状态记录在需求note。
+当前三层契约见[三层设计](docs/specs/three-layer-architecture.md)和[需求013](.agents/note/013-three-layer-platform.md)。用户已确认；原[需求012](.agents/note/012-ai-mud-framework.md)保留MUD迁移历史。基础层负责realm、通信、组队和钱包；可选系统负责地图、NPC、任务与库存；MOD负责玩法。真实支付为可选平台集成，尚未接入渠道。
 
 ## 依赖方向
 
 ```text
-apps/server ──► registered MOD host + mud-core + identity + core + model + storage
+apps/server ──► registered MOD host + platform + game-systems + identity + core + model + storage
 apps/web    ──► generic HTTP WorldView + identity browser adapter
 identity    ──► core persistence contracts + public HTTP/browser adapters
-mods/qingxi ──► mud-core + core contracts + storage transaction
-mud-core    ──► core contracts
+mods/qingxi ──► game-systems + platform + core contracts + storage transaction
+game-systems ──► platform + core contracts
+platform    ──► core contracts
+mud-core    ──► platform + game-systems（旧入口兼容装配）
 model       ──► core model contracts
-storage     ──► core persistence contracts
+storage     ──► core persistence contracts + platform/game-systems迁移组合
 core        ──► own types + AJV
 ```
 
-core不导入apps、MOD、mud-core、具体模型或PostgreSQL驱动。mud-core不导入题材MOD；浏览器不导入服务端规则。当前HarnessStore是PostgreSQL感知的事务接口，协调器仍使用SQL；本MVP不声称可无成本切换其他数据库。包导出指向TypeScript源码，由tsx启动，当前不发布npm制品。
+core不导入apps、MOD、platform、game-systems、具体模型或PostgreSQL驱动。platform不导入可选系统或查询空间/任务/库存状态；由服务端策略提供局部收件人、邀请资格、任务退出回调。回调与基础操作处于同一事务。game-systems不导入MOD；浏览器只导入视图类型。当前持久化接口仍感知PostgreSQL，不声称可无成本更换数据库。
 
 ## 公共账号与基础世界观
 
@@ -47,7 +49,7 @@ identity属于框架公共模块，负责密码、持久会话、当前scope授�
 
 ## 环境与装配
 
-Docker Compose提供`app + postgres`；测试profile提供`tests + postgres-test`。只有app端口映射到宿主127.0.0.1，数据库不发布端口；开发库持久卷与测试临时库分离。容器内服务监听0.0.0.0，宿主直接运行默认127.0.0.1。
+Docker Compose提供`app + postgres`；测试profile提供`tests + postgres-test`。app端口按用户确认映射主机网卡，数据库不发布端口；开发库持久卷与测试临时库分离。容器内服务监听0.0.0.0，宿主直接运行默认127.0.0.1。
 
 React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试MOD通过同一HTTP宿主证明引擎可更换世界观、属性和规则。未来规划器、Agent路由、互动会话位于Harness上方：父任务不得持有scope锁等待子任务；每一步分别提交。见对应未来需求，不在当前MVP加入空实现。
 

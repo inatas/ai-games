@@ -3,7 +3,7 @@ import { HarnessError, type Transaction } from '@game-ai/core';
 
 /** Caller holds the realm lock. Rules decide locations, objectives and award values. */
 export async function sharedTask(tx: Transaction, scopeId: string, definition: string, step: 'accept'|'contribute'|'complete'|'claim', requiredMembers: number) {
-  if (!Number.isInteger(requiredMembers) || requiredMembers < 1 || requiredMembers > 4) throw new HarnessError('INVALID_INPUT', 400);
+  if (!Number.isInteger(requiredMembers) || requiredMembers < 1) throw new HarnessError('INVALID_INPUT', 400);
   const member=(await tx.query('SELECT m.party_id,c.realm_id FROM mud_members m JOIN mud_characters c ON c.scope_id=m.scope_id WHERE m.scope_id=$1 AND c.active',[scopeId])).rows[0];
   if(!member) throw new HarnessError('RULE_REJECTED',409,'PARTY_REQUIRED');
   if(step==='accept') {
@@ -31,4 +31,13 @@ export async function sharedTask(tx: Transaction, scopeId: string, definition: s
     return {id:task.id,awarded:true};
   }
   return {id:task.id,awarded:false};
+}
+
+/** Runs in the membership transaction; errors roll back both systems. */
+export async function taskPartyLeft(tx: Transaction, change: import('@game-ai/platform').PartyChange) {
+  await tx.query('UPDATE mud_participants SET eligible=false WHERE scope_id=$1 AND task_id IN (SELECT id FROM mud_tasks WHERE party_id=$2)', [change.scopeId, change.partyId]);
+  if (change.dissolved) {
+    await tx.query("UPDATE mud_tasks SET status='cancelled' WHERE party_id=$1 AND status='active'", [change.partyId]);
+    await tx.query('UPDATE mud_participants SET eligible=false WHERE task_id IN (SELECT id FROM mud_tasks WHERE party_id=$1)', [change.partyId]);
+  }
 }

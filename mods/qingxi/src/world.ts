@@ -1,4 +1,4 @@
-import { validateWorld, type World } from '@game-ai/mud-core';
+import { validateWorld, type World } from '@game-ai/game-systems';
 import { map } from './map.ts';
 import { npcs } from './npcs.ts';
 

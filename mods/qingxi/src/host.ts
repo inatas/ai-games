@@ -1,3 +1,4 @@
+import { spatialSocialPolicy, taskPartyLeft } from '@game-ai/game-systems';
 import type { PostgresStore } from '@game-ai/storage';
 import type { Transaction } from '@game-ai/core';
 import { actions, migrateGame, initializeGame, gameBinding, publicState } from './game.ts';
@@ -6,6 +7,7 @@ import { readWorldState, worldProjection } from './scene.ts';
 export function qingxiHost(store: PostgresStore) {
   return {
     id:'qingxi', prefix:'wuxia', worldviewPath:'mods/qingxi/WORLD.md', worldId:'wuxia', worldVersion:'1',
+    socialPolicy: { ...spatialSocialPolicy, onPartyLeft: taskPartyLeft },
     actions, fields:['exitId','targetId','topicId','questId','itemId','name','gender','schoolId','skillId','enemyId'],
     migrate:()=>migrateGame(store), initialize:(tx:Transaction,id:string)=>initializeGame(store,tx,id),
     bindings:()=>actions.map(action=>gameBinding(store,action)),

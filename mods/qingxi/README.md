@@ -40,14 +40,15 @@ docker compose up --build -d
 
 | 文件 | 职责 |
 |---|---|
-| [world.ts](src/world.ts) | 房间、出口、NPC内容、配置校验及局部图投影 |
+| [world.ts](src/world.ts) | 组合地图与NPC目录，校验内容 |
+| [map.ts](src/map.ts) / [npcs.ts](src/npcs.ts) | 地图拓扑与NPC定义分别维护 |
 | [scene.ts](src/scene.ts) | 当前scope的世界状态读取、场景对象与可用动作 |
 | [game.ts](src/game.ts) | 增量迁移、初始化、严格行动Binding与事务内规则执行 |
 | [mod.ts](src/mod.ts) | MOD manifest、内容版本和公共注册校验 |
 | [host.ts](src/host.ts) | 注册到通用Web宿主的迁移、角色、行动和投影入口 |
 | [Web视图](../../apps/web/src/world-view.tsx) | SVG地图、三类场景素材、对象选择和出口操作 |
 
-MOD通过@game-ai/*公共入口使用MUD机制和Harness；通用包不反向导入青溪规则。prepare在短事务中读取授权事实，模型等待不占数据库事务；apply重新检查角色和realm版本、位置及资格。NPC不是常驻Agent。
+MOD通过platform使用realm与基础协作，通过game-systems使用地图、NPC、任务与库存。host显式装配同房社交和任务退出策略。prepare在短事务中读取授权事实，模型等待不占数据库事务；apply重新检查角色和realm版本、位置及资格。NPC不是常驻Agent。
 
 新增同类房间只修改游戏内容配置：稳定ID、模板、坐标和显式出口；双向需要两条出向记录。坐标不决定可达。部署内容变更须按需求流程设计内容版本兼容，不直接覆盖旧存档版本。
 

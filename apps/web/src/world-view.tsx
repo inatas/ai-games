@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import type { WorldView as View, GameAction } from '@game-ai/mud-core';
+import type { WorldView as View, GameAction } from '@game-ai/game-systems';
 
 export type WorldViewData = {
   map: View['map']; scene: View['scene'];

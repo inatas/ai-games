@@ -6,7 +6,8 @@ import { Harness, HarnessError, type ModelAdapter, type Transaction } from '@gam
 import { Identity, registerIdentityRoutes, sessionToken } from '@game-ai/identity';
 import { PostgresStore, loadWorldview } from '@game-ai/storage';
 import { qingxiHost } from '../../../mods/qingxi/src/host.ts';
-import { socialProjection, sendMessage, mutateParty, heartbeat, lockRealm, retireCharacter, type ModHost } from '@game-ai/mud-core';
+import { socialProjection, sendMessage, mutateParty, heartbeat, lockRealm, retireCharacter } from '@game-ai/platform';
+import type { ModHost } from '@game-ai/game-systems';
 
 export async function buildApp(store: PostgresStore, model: ModelAdapter, mode = 'mock', host: ModHost = qingxiHost(store)) {
   const actions=host.actions;
@@ -24,7 +25,7 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   const configuredPath=process.env.WORLDVIEW_PATH==='examples/wuxia-mud/WORLD.md'?host.worldviewPath:process.env.WORLDVIEW_PATH;
   const worldview = await loadWorldview(configuredPath ?? host.worldviewPath, process.env.WORLD_ID ?? host.worldId, process.env.WORLD_VERSION ?? host.worldVersion);
   await store.registerWorldview(worldview);
-  const identity = new Identity(store, { worldview, initialize: host.initialize, lockResources: lockRealm, retire: retireCharacter });
+  const identity = new Identity(store, { worldview, initialize: host.initialize, lockResources: lockRealm, retire: (tx,id) => retireCharacter(tx,id,host.socialPolicy) });
   const harness = new Harness(store, model);
   bindings.forEach(binding=>harness.register(binding));
   await harness.recover();
@@ -65,7 +66,7 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
       ...(await host.snapshot(tx,row.scope_id)),
       realm: { id:row.realm.id, modId:row.realm.mod_id, modVersion:row.realm.mod_version,
         contentVersion:row.realm.content_version, worldviewVersion:row.realm.worldview_version, revision:row.realm.revision },
-      ...(await socialProjection(tx, row.scope_id)), events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
+      ...(await socialProjection(tx, row.scope_id, host.socialPolicy)), events: memory.filter(m => m.kind === 'event'), openItems: memory.filter(m => m.kind === 'item') };
   }));
   app.post('/api/wuxia/games/:id/actions', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'expectedMemoryVersion', 'action', 'note'], properties: { requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, expectedMemoryVersion: { type: 'integer', minimum: 0 }, action: { type: 'string', enum: actions }, note: { type: 'string', maxLength: 200 }, ...Object.fromEntries(host.fields.map(key => [key, { type: 'string', minLength: 1, maxLength: 80 }])) } } } }, async (request, reply) => {
     const body = request.body as any;
@@ -83,17 +84,17 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
     return harness.get(row.scope_id, (request.params as { requestId: string }).requestId, tx);
   }));
   app.get('/api/wuxia/games/:id/social', async request => store.transaction(async tx => {
-    const row = await authorize(tx, request); return socialProjection(tx, row.scope_id);
+    const row = await authorize(tx, request); return socialProjection(tx, row.scope_id, host.socialPolicy);
   }));
   app.post('/api/wuxia/games/:id/presence', async request => store.transaction(async tx => {
     const row=await authorize(tx,request); await heartbeat(tx,row.scope_id,sessionToken(request)); return {ok:true};
   }));
   app.post('/api/wuxia/games/:id/social/messages', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','channel','body'], properties: {
     requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, channel: { type: 'string', enum: ['say','tell','chat'] }, body: { type: 'string', minLength: 1, maxLength: 200 }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
-  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return sendMessage(tx, row.scope_id, request.body as any); }));
+  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return sendMessage(tx, row.scope_id, request.body as any, host.socialPolicy); }));
   app.post('/api/wuxia/games/:id/social/party', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','action'], properties: {
     requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, action: { type: 'string', enum: ['invite','accept','leave'] }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, inviteId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
-  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any); }));
+  } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any, host.socialPolicy); }));
   for(const route of mudRoutes) app.route(route);
   const root = resolve('dist');
   if (existsSync(root)) await app.register(fastifyStatic, { root });

@@ -2,17 +2,18 @@ import type { Transaction } from '@game-ai/core';
 import { HarnessError } from '@game-ai/core';
 import { map as world, projectMap } from './map.ts';
 import { npcs } from './npcs.ts';
+import { itemQuantity } from '@game-ai/game-systems';
 import { schools, trainingDenial } from './training.ts';
 
-import type { GameAction, SceneObject } from '@game-ai/mud-core';
-export type { GameAction, SceneObject } from '@game-ai/mud-core';
+import type { GameAction, SceneObject } from '@game-ai/game-systems';
+export type { GameAction, SceneObject } from '@game-ai/game-systems';
 export async function readWorldState(tx: Transaction, scopeId: string) {
   const row = (await tx.query('SELECT * FROM wuxia_characters WHERE scope_id=$1', [scopeId])).rows[0];
   if (!row) throw new HarnessError('NOT_FOUND', 404);
   if (row.world_content_version !== world.version) throw new Error('Unsupported world content version');
   const discovered = new Set<string>((await tx.query('SELECT room_id FROM wuxia_discovered_rooms WHERE scope_id=$1', [scopeId])).rows.map(r => r.room_id));
   const npcs = (await tx.query('SELECT n.npc_id,n.room_id,n.status FROM mud_npcs n JOIN mud_characters c ON c.realm_id=n.realm_id WHERE c.scope_id=$1 AND n.room_id=$2', [scopeId, row.current_room_id])).rows;
-  const quantity = (await tx.query("SELECT quantity FROM wuxia_inventory WHERE scope_id=$1 AND item_id='medicine'", [scopeId])).rows[0]?.quantity ?? 0;
+  const quantity = await itemQuantity(tx,scopeId,'medicine');
   const quest = (await tx.query("SELECT status FROM wuxia_quests WHERE scope_id=$1 AND quest_id='medicine'", [scopeId])).rows[0]?.status ?? 'not_started';
   const skills = (await tx.query('SELECT skill_id,level FROM wuxia_skills WHERE scope_id=$1 ORDER BY skill_id', [scopeId])).rows;
   const schoolQuest = (await tx.query('SELECT school_id,status,cycle,enemy_hp FROM wuxia_school_quests WHERE scope_id=$1', [scopeId])).rows[0] ?? null;

@@ -1,4 +1,4 @@
-import { projectMap as projectTopology, validateMap, type MapDefinition, type RoomKind, type Room } from '@game-ai/mud-core';
+import { projectMap as projectTopology, validateMap, type MapDefinition, type RoomKind, type Room } from '@game-ai/game-systems';
 const room = (id: string, name: string, kind: RoomKind, x: number, y: number, description: string): Room =>
   ({ id, name, kind, templateId: kind, layout: { x, y }, description });
 const links: [string, string, string, string][] = [
