@@ -17,14 +17,7 @@ async function once(tx: Transaction, scopeId: string, requestId: string, payload
   const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   const previous = (await tx.query('SELECT * FROM mud_writes WHERE scope_id=$1 AND request_id=$2',[scopeId,requestId])).rows[0];
   if (previous) {
-    // Pre-MUD social requests used the same request ID but a smaller payload shape.
-    // Keep their original digest so a response lost during upgrade remains replayable.
-    const oldPayload = payload as {kind?:string;channel?:string;body?:string;target?:string|null;action?:string;invite?:string|null};
-    const legacy = oldPayload.kind === 'message'
-      ? {channel:oldPayload.channel,body:oldPayload.body,targetScopeId:oldPayload.target}
-      : {action:oldPayload.action,targetScopeId:oldPayload.target,inviteId:oldPayload.invite};
-    const legacyHash = createHash('sha256').update(JSON.stringify(legacy)).digest('hex');
-    if (previous.hash !== hash && previous.hash !== legacyHash) throw new HarnessError('IDEMPOTENCY_CONFLICT',409);
+    if (previous.hash !== hash) throw new HarnessError('IDEMPOTENCY_CONFLICT',409);
     return previous.result;
   }
   const result = await run();

@@ -1,6 +1,5 @@
 import type { Transaction } from '@game-ai/core';
 import type { SocialPolicy } from '@game-ai/platform';
-import { taskPartyLeft } from './tasks.ts';
 
 async function neighbors(tx: Transaction, scopeId: string) {
   return (await tx.query(`SELECT c.scope_id,c.name FROM mud_characters c JOIN mud_characters actor ON actor.scope_id=$1
@@ -16,6 +15,3 @@ export const spatialSocialPolicy: SocialPolicy = {
   canInvite: async (tx,actorId,targetId) => !!(await tx.query(`SELECT 1 FROM mud_characters a JOIN mud_characters b
     ON a.realm_id=b.realm_id AND a.room_id=b.room_id WHERE a.scope_id=$1 AND b.scope_id=$2 AND a.active AND b.active`, [actorId,targetId])).rowCount,
 };
-
-/** Historical MUD composition for the compatibility entry point. */
-export const mudSocialPolicy: SocialPolicy = { ...spatialSocialPolicy, onPartyLeft: taskPartyLeft };

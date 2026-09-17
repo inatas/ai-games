@@ -1,12 +1,12 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { ScriptedModel } from '@game-ai/model';
 import { Harness } from '@game-ai/core';
-import { sendMessage, updateNpc } from '@game-ai/mud-core';
+import { updateNpc } from '@game-ai/game-systems';
 import { startTestDatabase } from '../../../tests/support/database.ts';
 import { buildApp } from '../../../apps/server/src/app.ts';
-import { migrateGame, gameBinding, createGame } from '../src/game.ts';
+import { migrateGame, gameBinding } from '../src/game.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
 let built: Awaited<ReturnType<typeof buildApp>>;
@@ -25,12 +25,12 @@ async function login() {
 }
 type Session = Awaited<ReturnType<typeof login>>;
 async function read(g: Session) {
-  const r = await built.app.inject({ url: `/api/wuxia/games/${g.id}`, headers: { cookie: g.cookie } });
+  const r = await built.app.inject({ url: `/api/mud/current`, headers: { cookie: g.cookie } });
   assert.equal(r.statusCode, 200, r.body); return r.json();
 }
 async function act(g: Session, action: string, extra: Record<string, string> = {}, requestId = randomUUID()) {
   const version = (await read(g)).memoryVersion;
-  const r = await built.app.inject({ method: 'POST', url: `/api/wuxia/games/${g.id}/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId, expectedMemoryVersion: version, action, note: '', ...extra } });
+  const r = await built.app.inject({ method: 'POST', url: `/api/mud/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId, expectedMemoryVersion: version, action, note: '', ...extra } });
   assert.ok([200,202].includes(r.statusCode), r.body);
   await built.harness.drain(); return built.harness.get(g.id, requestId);
 }
@@ -80,7 +80,7 @@ test('WM-09/10/12/19: current context, topic restrictions and idempotency', asyn
   assert.match(text, /广场/); assert.match(text, /村民/); assert.match(text, /good_deed/);
   assert.ok(!text.includes('店小二'));
   assert.ok(!text.includes('unrelated_waiter_history'));
-  const replay = await built.app.inject({ method: 'POST', url: `/api/wuxia/games/${g.id}/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId: id, expectedMemoryVersion: version, action: 'talk', note: '', targetId: 'villager', topicId: 'news' } });
+  const replay = await built.app.inject({ method: 'POST', url: `/api/mud/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId: id, expectedMemoryVersion: version, action: 'talk', note: '', targetId: 'villager', topicId: 'news' } });
   assert.deepEqual(replay.json(), first);
   assert.equal((await act(g, 'talk', { targetId: 'villager', topicId: 'secret' })).error?.detail, 'INVALID_TOPIC');
   const before = await read(g);
@@ -89,9 +89,9 @@ test('WM-09/10/12/19: current context, topic restrictions and idempotency', asyn
   assert.equal((await read(g)).memoryVersion, before.memoryVersion);
 });
 
-test('WM-14: backfill preserves attributes and history, migration is repeatable', async () => {
+test('WM-14: initialization preserves attributes and history, migration is repeatable', async () => {
   const g = await login();
-  await db.store.pool.query("UPDATE wuxia_characters SET current_room_id=NULL,world_content_version=NULL,silver=37,master='青松道人',encounter_done=true WHERE scope_id=$1", [g.id]);
+  await db.store.pool.query("UPDATE wuxia_characters SET silver=37,master='青松道人',encounter_done=true WHERE scope_id=$1", [g.id]);
   await migrateGame(db.store); await migrateGame(db.store);
   const state = await read(g);
   assert.equal(state.map.currentRoomId, 'gate'); assert.equal(state.state.silver, 37);
@@ -126,6 +126,8 @@ test('MF-05/11: a public NPC move invalidates an in-flight AI judgment for every
       bindingId: 'wuxia.talk', bindingVersion: '1', input: { note: '', targetId: 'villager', topicId: 'news' } });
     await modelStarted;
     await db.store.transaction(tx => updateNpc(tx, 'qingxi', 'villager', 'stream', 'present'));
+    await migrateGame(db.store);
+    assert.equal((await db.store.pool.query("SELECT room_id FROM mud_npcs WHERE realm_id='qingxi' AND npc_id='villager'")).rows[0].room_id, 'stream');
     assert.ok(!(await read(second)).scene.objects.some((object: any) => object.id === 'villager'));
     release();
     await waiting.drain();
@@ -137,53 +139,6 @@ test('MF-05/11: a public NPC move invalidates an in-flight AI judgment for every
     release();
     await waiting.close();
     await db.store.transaction(tx => updateNpc(tx, 'qingxi', 'villager', 'square', 'present'));
-  }
-});
-
-test('MF-12: conflicting legacy NPC copies produce a reviewable report and roll back', async () => {
-  const isolated = await startTestDatabase();
-  try {
-    await isolated.store.migrate();
-    await migrateGame(isolated.store);
-    const first = await createGame(isolated.store, 'test');
-    const second = await createGame(isolated.store, 'test');
-    await isolated.store.transaction(async tx => {
-      await tx.query("DELETE FROM mud_npcs WHERE realm_id='qingxi' AND npc_id='villager'");
-      await tx.query("INSERT INTO wuxia_npc_states VALUES($1,'villager','square','present'),($2,'villager','street','present')", [first, second]);
-    });
-    await assert.rejects(migrateGame(isolated.store), error => {
-      assert.match(String(error), /NPC_MIGRATION_CONFLICT/);
-      assert.match(String(error), /square/);
-      assert.match(String(error), /street/);
-      return true;
-    });
-    assert.equal((await isolated.store.pool.query("SELECT count(*) n FROM mud_npcs WHERE realm_id='qingxi' AND npc_id='villager'")).rows[0].n, '0');
-  } finally {
-    await isolated.stop();
-  }
-});
-
-test('MF-12: a legacy social request ID replays its original response after migration', async () => {
-  const isolated = await startTestDatabase();
-  try {
-    await isolated.store.migrate();
-    await migrateGame(isolated.store);
-    const scopeId = await createGame(isolated.store, 'test');
-    const requestId = randomUUID();
-    const response = { id: randomUUID() };
-    const oldInput = { channel: 'chat', body: 'historic', targetScopeId: null };
-    const hash = createHash('sha256').update(JSON.stringify(oldInput)).digest('hex');
-    await isolated.store.transaction(async tx => {
-      await tx.query('INSERT INTO wuxia_social_writes VALUES($1,$2,$3,$4)', [scopeId, requestId, hash, response]);
-      await tx.query("DELETE FROM qingxi_migrations WHERE version='mud-1'");
-    });
-    await migrateGame(isolated.store);
-    const replay = await isolated.store.transaction(tx => sendMessage(tx, scopeId, {requestId,channel:'chat',body:'historic'}));
-    assert.deepEqual(replay, response);
-    assert.equal((await isolated.store.pool.query('SELECT count(*) n FROM mud_messages')).rows[0].n, '0');
-    await assert.rejects(isolated.store.transaction(tx => sendMessage(tx,scopeId,{requestId,channel:'chat',body:'changed'})), /IDEMPOTENCY_CONFLICT/);
-  } finally {
-    await isolated.stop();
   }
 });
 
@@ -214,22 +169,26 @@ test('WM-11/13: stale actor state rejected, persistent world isolated and reset'
   await h.submit({ scopeId:g.id,requestId:id,expectedMemoryVersion:before.memoryVersion,bindingId:'wuxia.talk',bindingVersion:'1',input:{note:'',targetId:'waiter',topicId:'news'} });
   await h.drain(); assert.equal((await h.get(g.id,id)).error?.code,'STATE_CONFLICT'); await h.close();
   const other = await login();
-  assert.equal((await built.app.inject({url:`/api/wuxia/games/${g.id}`,headers:{cookie:other.cookie}})).statusCode,403);
+  assert.equal((await read(other)).id, other.id);
+  assert.notEqual((await read(other)).id, g.id);
+  assert.equal((await built.app.inject({url:`/api/mud/requests/${id}`,headers:{cookie:other.cookie}})).statusCode,404);
+  assert.equal((await built.app.inject({url:`/api/wuxia/games/${g.id}`,headers:{cookie:other.cookie}})).statusCode,404);
   await built.app.close(); built = await buildApp(db.store,model);
   assert.equal((await read(g)).map.currentRoomId,'tea');
   const reset=await built.app.inject({method:'POST',url:'/api/game/current/reset',headers:{cookie:g.cookie,origin:'http://localhost'},payload:{requestId:randomUUID(),expectedCurrentScopeId:g.id}});
   assert.equal(reset.statusCode,200,reset.body);
   assert.equal((await read({...g,id:reset.json().currentScopeId})).map.currentRoomId,'gate');
-  assert.equal((await built.app.inject({url:`/api/wuxia/games/${g.id}`,headers:{cookie:g.cookie}})).statusCode,403);
+  assert.equal((await built.app.inject({url:`/api/mud/requests/${id}`,headers:{cookie:g.cookie}})).statusCode,404);
+  assert.equal((await built.app.inject({url:`/api/wuxia/games/${g.id}`,headers:{cookie:g.cookie}})).statusCode,404);
 });
 
 test('WM-12: reject extra fields and keep target changes in idempotency identity',async()=>{
   const g=await login(); const headers={cookie:g.cookie,origin:'http://localhost'};
   const payload={requestId:randomUUID(),expectedMemoryVersion:0,action:'move',note:'',exitId:'gate:street'};
-  assert.equal((await built.app.inject({method:'POST',url:`/api/wuxia/games/${g.id}/actions`,headers,payload:{...payload,itemId:'medicine'}})).statusCode,400);
-  assert.equal((await built.app.inject({method:'POST',url:`/api/wuxia/games/${g.id}/actions`,headers,payload:{...payload,silver:999}})).statusCode,400);
-  await built.app.inject({method:'POST',url:`/api/wuxia/games/${g.id}/actions`,headers,payload}); await built.harness.drain();
-  const conflict=await built.app.inject({method:'POST',url:`/api/wuxia/games/${g.id}/actions`,headers,payload:{...payload,exitId:'street:tea'}});
+  assert.equal((await built.app.inject({method:'POST',url:`/api/mud/actions`,headers,payload:{...payload,itemId:'medicine'}})).statusCode,400);
+  assert.equal((await built.app.inject({method:'POST',url:`/api/mud/actions`,headers,payload:{...payload,silver:999}})).statusCode,400);
+  await built.app.inject({method:'POST',url:`/api/mud/actions`,headers,payload}); await built.harness.drain();
+  const conflict=await built.app.inject({method:'POST',url:`/api/mud/actions`,headers,payload:{...payload,exitId:'street:tea'}});
   assert.equal(conflict.statusCode,409); assert.equal(conflict.json().code,'IDEMPOTENCY_CONFLICT');
 });
 

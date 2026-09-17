@@ -1,5 +1,7 @@
 # 武侠世界 MVP 实施计划
 
+> 历史实施计划：旧数据保留、升级回填与兼容要求已由2026-09-17用户确认的破坏性升级政策取代，不再作为当前执行步骤。
+
 版本：v2，已确认并按阶段交付MVP。依据[世界设计](world-mvp.md)、[地图设计](map-presentation.md)及[测试契约](world-mvp-testing.md)。需求状态统一记录在[001 note](../.agents/note/001-room-world.md)，实际证据及未覆盖子项见[验证记录](world-mvp-verification.md)。
 
 ## 开发门槛

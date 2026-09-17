@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { migrateMud } from '@game-ai/storage';
+import { migratePlatform } from '@game-ai/platform';
+import { migrateGameSystems } from '@game-ai/game-systems';
 import { HarnessError } from '@game-ai/core';
-import { lockRealm, ModRegistry, type ModHost } from '@game-ai/mud-core';
+import { lockRealm } from '@game-ai/platform';
+import { ModRegistry, type ModHost } from '@game-ai/game-systems';
 import { ScriptedModel } from '@game-ai/model';
 import { buildApp } from '../../apps/server/src/app.ts';
 import { startTestDatabase } from '../support/database.ts';
@@ -14,7 +16,7 @@ test('MF-02/07/14: neutral MOD runs through the same HTTP host and session prese
   registry.register({id:'station',version:'1',contractVersion:1,contentVersion:'1',worldviewVersion:'1',configSchema:{type:'object'},config:{},rooms:[{id:'lab'}],exits:[],npcs:[],actions:['inspect'],startRoomId:'lab'});
   const host:ModHost={
     id:'station',prefix:'station',worldviewPath:'tests/support/neutral-world.md',worldId:'station',worldVersion:'1',actions:['inspect'],fields:[],
-    async migrate(){await db.store.transaction(async tx=>{await migrateMud(tx);await tx.query("INSERT INTO mud_realms(id,mod_id,mod_version,content_version,worldview_version) VALUES('station','station','1','1','1')");await tx.query('CREATE TABLE station_charge(scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id),charge integer NOT NULL)');});},
+    async migrate(){await db.store.transaction(async tx=>{await migratePlatform(tx); await migrateGameSystems(tx);await tx.query("INSERT INTO mud_realms(id,mod_id,mod_version,content_version,worldview_version) VALUES('station','station','1','1','1')");await tx.query('CREATE TABLE station_charge(scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id),charge integer NOT NULL)');});},
     async initialize(tx,id){await tx.query("INSERT INTO mud_characters(scope_id,realm_id,name,room_id) VALUES($1,'station','Researcher','lab')",[id]);await tx.query('INSERT INTO station_charge VALUES($1,2)',[id]);},
     bindings:()=>[{
       id:'station.inspect',version:'1',mode:'assessment',inputSchema:{type:'object',required:['note'],additionalProperties:false,properties:{note:{type:'string'}}},outputSchema:{type:'object',required:['result'],additionalProperties:false,properties:{result:{const:'observed'}}},
@@ -60,7 +62,7 @@ test('MF-03: a MOD missing a registered action fails before creating realm table
     const invalidHost: ModHost = {
       id:'broken',prefix:'broken',worldviewPath:'tests/support/neutral-world.md',worldId:'broken',worldVersion:'1',
       actions:['missing'],fields:[],
-      async migrate(){await db.store.transaction(migrateMud);},
+      async migrate(){await db.store.transaction(async tx => { await migratePlatform(tx); await migrateGameSystems(tx); });},
       async initialize(){},bindings:()=>[],
       async snapshot(){throw new Error('not reached');},
     };

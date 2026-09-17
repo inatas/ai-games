@@ -15,7 +15,9 @@ export class PostgresStore {
       await tx.query("SELECT pg_advisory_xact_lock(7310251)");
       await tx.query(`
         CREATE TABLE IF NOT EXISTS fw_worldviews (world_id text NOT NULL, version text NOT NULL, content text NOT NULL, digest text NOT NULL, PRIMARY KEY(world_id,version));
-        CREATE TABLE IF NOT EXISTS fw_scopes (id uuid PRIMARY KEY, memory_version integer NOT NULL DEFAULT 0, sequence integer NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS fw_scopes (id uuid PRIMARY KEY, memory_version integer NOT NULL DEFAULT 0, sequence integer NOT NULL DEFAULT 0,
+          world_id text, world_version text,
+          CONSTRAINT fw_scope_worldview_fk FOREIGN KEY(world_id,world_version) REFERENCES fw_worldviews(world_id,version) MATCH FULL);
         CREATE TABLE IF NOT EXISTS fw_requests (
           scope_id uuid REFERENCES fw_scopes(id), request_id uuid, hash text NOT NULL,
           binding_id text NOT NULL, binding_version text NOT NULL, mode text NOT NULL,
@@ -35,19 +37,10 @@ export class PostgresStore {
         CREATE TABLE IF NOT EXISTS fw_model_calls (
           scope_id uuid, request_id uuid, attempt integer, model text NOT NULL, usage jsonb,
           latency_ms integer NOT NULL, context_ids text[] NOT NULL, error_code text,
+          world_id text, world_version text, world_digest text,
           PRIMARY KEY(scope_id,request_id,attempt), FOREIGN KEY(scope_id,request_id) REFERENCES fw_requests(scope_id,request_id));
       `);
       await tx.query(`
-        ALTER TABLE fw_scopes ADD COLUMN IF NOT EXISTS world_id text;
-        ALTER TABLE fw_scopes ADD COLUMN IF NOT EXISTS world_version text;
-        DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fw_scope_worldview_fk' AND conrelid='fw_scopes'::regclass) THEN
-            ALTER TABLE fw_scopes ADD CONSTRAINT fw_scope_worldview_fk FOREIGN KEY(world_id,world_version) REFERENCES fw_worldviews(world_id,version) MATCH FULL;
-          END IF;
-        END $$;
-        ALTER TABLE fw_model_calls ADD COLUMN IF NOT EXISTS world_id text;
-        ALTER TABLE fw_model_calls ADD COLUMN IF NOT EXISTS world_version text;
-        ALTER TABLE fw_model_calls ADD COLUMN IF NOT EXISTS world_digest text;
         CREATE TABLE IF NOT EXISTS fw_users (
           id uuid PRIMARY KEY, username text UNIQUE NOT NULL, password_salt text NOT NULL, password_hash text NOT NULL,
           current_scope_id uuid UNIQUE NOT NULL REFERENCES fw_scopes(id));

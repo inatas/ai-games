@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { migrateMud } from '@game-ai/storage';
+import { migratePlatform } from '@game-ai/platform';
+import { migrateGameSystems } from '@game-ai/game-systems';
 import { changeItemQuantity, itemQuantity } from '@game-ai/game-systems';
 import { startTestDatabase } from '../support/database.ts';
-import { migrateGame, createGame } from '../../mods/qingxi/src/game.ts';
+import { migrateGame, initializeGame } from '../../mods/qingxi/src/game.ts';
 
 test('TL-05: neutral inventory enforces ownership, stack limits and transaction rollback', async () => {
   const db=await startTestDatabase();
   try {
-    await db.store.migrate(); await db.store.transaction(migrateMud);
+    await db.store.migrate(); await db.store.transaction(async tx => { await migratePlatform(tx); await migrateGameSystems(tx); });
     const a=randomUUID(),b=randomUUID();
     await db.store.transaction(async tx=>{
       await tx.query("INSERT INTO mud_realms(id,mod_id,mod_version,content_version,worldview_version) VALUES('inventory','station','1','1','1')");
@@ -29,13 +30,19 @@ test('TL-05: neutral inventory enforces ownership, stack limits and transaction 
   } finally { await db.stop(); }
 });
 
-test('TL-05: legacy medicine migrates once and cannot respawn after consumption', async () => {
+test('TL-05: current inventory survives initialization and cannot respawn after consumption', async () => {
   const db=await startTestDatabase();
   try {
     await db.store.migrate(); await migrateGame(db.store);
-    const id=await createGame(db.store,'test');
-    await db.store.pool.query("DELETE FROM qingxi_migrations WHERE version='inventory-1'");
-    await db.store.pool.query("INSERT INTO wuxia_inventory VALUES($1,'medicine',1)",[id]);
+    const obsolete = await db.store.pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema() AND table_name IN ('wuxia_inventory','wuxia_npc_states','wuxia_social_messages','wuxia_social_writes','wuxia_parties','wuxia_party_members','wuxia_party_invites','wuxia_social_receipts','qingxi_migrations')");
+    assert.equal(obsolete.rowCount,0);
+    assert.equal((await db.store.pool.query("SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='wuxia_characters' AND column_name='access_hash'")).rowCount,0);
+    const id=randomUUID();
+    await db.store.transaction(async tx=>{
+      await tx.query('INSERT INTO fw_scopes(id) VALUES($1)',[id]);
+      await initializeGame(db.store,tx,id);
+    });
+    await db.store.transaction(tx=>changeItemQuantity(tx,id,'medicine',1,1));
     await migrateGame(db.store);
     assert.equal(await db.store.transaction(tx=>itemQuantity(tx,id,'medicine')),1);
     await db.store.transaction(tx=>changeItemQuantity(tx,id,'medicine',-1,1));

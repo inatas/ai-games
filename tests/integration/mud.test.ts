@@ -1,12 +1,13 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { migrateMud } from '@game-ai/storage';
-import { lockRealm, retireCharacter } from '@game-ai/mud-core';
+import { migratePlatform } from '@game-ai/platform';
+import { migrateGameSystems } from '@game-ai/game-systems';
+import { lockRealm, retireCharacter } from '@game-ai/platform';
 import { startTestDatabase } from '../support/database.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
-before(async () => { db = await startTestDatabase(); await db.store.migrate(); await db.store.transaction(migrateMud); });
+before(async () => { db = await startTestDatabase(); await db.store.migrate(); await db.store.transaction(async tx => { await migratePlatform(tx); await migrateGameSystems(tx); }); });
 after(async () => { await db?.stop(); });
 test('MF-04/06/15: realm ownership survives retirement without touching other players', async () => {
   const a = randomUUID(), b = randomUUID();
@@ -21,5 +22,5 @@ test('MF-04/06/15: realm ownership survives retirement without touching other pl
     assert.equal((await lockRealm(tx,b)).realm.id,'r2');
   });
   await assert.rejects(db.store.transaction(tx => lockRealm(tx,a)), /FORBIDDEN/);
-  await db.store.transaction(migrateMud);
+  await db.store.transaction(async tx => { await migratePlatform(tx); await migrateGameSystems(tx); });
 });

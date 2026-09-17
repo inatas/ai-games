@@ -29,14 +29,13 @@ export function useIdentity() {
   }
   return { session, loading, error, restore, login, logout };
 }
-export function LoginPanel({ login, legacy = false }: { login(username: string, password: string): Promise<void>; legacy?: boolean }) {
+export function LoginPanel({ login }: { login(username: string, password: string): Promise<void> }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return <section className="welcome"><h2>登录并继续你的旅程</h2>
     <p>账号不存在时将自动创建。默认记住登录，游戏进度长期保存。</p>
-    {legacy && <p>此浏览器有旧游客档案，暂未关联账号；旧数据仍然保留。</p>}
     <form className="login-form" onSubmit={e => { e.preventDefault(); setBusy(true); setError(''); void login(username, password).catch(e => {
       setError(e instanceof ApiError && e.code === 'RATE_LIMITED' ? '尝试过于频繁，请稍后再试。' : e instanceof ApiError && e.status === 401 ? '用户名或密码不正确。' : '登录失败，请检查输入和网络。');
     }).finally(() => { setBusy(false); setPassword(''); }); }}>

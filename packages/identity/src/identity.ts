@@ -70,7 +70,8 @@ export class Identity {
     if (!session.rowCount) throw new HarnessError('UNAUTHENTICATED', 401);
     return row;
   }
-  async session(token: string) {
+  async session(token: string, tx?: Transaction) {
+    if (tx) return this.view(await this.authenticated(tx, token));
     return this.store.transaction(async tx => this.view(await this.authenticated(tx, token)));
   }
   async logout(token: string) {

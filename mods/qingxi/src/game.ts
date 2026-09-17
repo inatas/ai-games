@@ -4,9 +4,8 @@ import { HarnessError, type Binding, type MemoryChange, type Transaction } from 
 import { ScriptedModel } from '@game-ai/model';
 import { map as world } from './map.ts';
 import { npcs } from './npcs.ts';
-import { migrateMud } from '@game-ai/storage';
-import { lockRealm } from '@game-ai/platform';
-import { sharedTask, changeItemQuantity } from '@game-ai/game-systems';
+import { lockRealm, migratePlatform } from '@game-ai/platform';
+import { sharedTask, changeItemQuantity, migrateGameSystems } from '@game-ai/game-systems';
 import { realmId, manifest } from './mod.ts';
 import { readWorldState, makeScene, type WorldState } from './scene.ts';
 import { schools, trainingDenial } from './training.ts';
@@ -24,7 +23,8 @@ function inputSchema(action: Action) {
 export async function migrateGame(store: PostgresStore) {
   await store.transaction(async tx => {
     await tx.query("SELECT pg_advisory_xact_lock(hashtext('wuxia-world-migration'))");
-    await migrateMud(tx);
+    await migratePlatform(tx);
+    await migrateGameSystems(tx);
     await tx.query('INSERT INTO mud_realms(id,mod_id,mod_version,content_version,worldview_version) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING', [realmId,manifest.id,manifest.version,manifest.contentVersion,manifest.worldviewVersion]);
     const installedRealm = (await tx.query('SELECT mod_id,mod_version,content_version,worldview_version FROM mud_realms WHERE id=$1', [realmId])).rows[0];
     if (installedRealm.mod_id !== manifest.id || installedRealm.mod_version !== manifest.version ||
@@ -35,69 +35,23 @@ export async function migrateGame(store: PostgresStore) {
       scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id), silver integer NOT NULL DEFAULT 20 CHECK(silver>=0),
       virtue integer NOT NULL DEFAULT 0 CHECK(virtue>=0), skill integer NOT NULL DEFAULT 1 CHECK(skill>=0),
       master text, encounter_done boolean NOT NULL DEFAULT false, good_deed_item_id text,
-      host_version integer NOT NULL DEFAULT 0, access_hash text NOT NULL)`);
-    await tx.query(`ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS current_room_id text;
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS world_content_version text;
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS player_name text;
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS gender text NOT NULL DEFAULT '未设定';
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS hp integer NOT NULL DEFAULT 30 CHECK(hp BETWEEN 0 AND 30);
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS qi integer NOT NULL DEFAULT 10 CHECK(qi BETWEEN 0 AND 10);
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS experience integer NOT NULL DEFAULT 0 CHECK(experience>=0);
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS potential integer NOT NULL DEFAULT 0 CHECK(potential>=0);
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS school_id text;
-      ALTER TABLE wuxia_characters ADD COLUMN IF NOT EXISTS last_active_at bigint NOT NULL DEFAULT 0;
+      host_version integer NOT NULL DEFAULT 0,
+      current_room_id text NOT NULL, world_content_version text NOT NULL, player_name text NOT NULL,
+      gender text NOT NULL DEFAULT '未设定',
+      hp integer NOT NULL DEFAULT 30 CHECK(hp BETWEEN 0 AND 30),
+      qi integer NOT NULL DEFAULT 10 CHECK(qi BETWEEN 0 AND 10),
+      experience integer NOT NULL DEFAULT 0 CHECK(experience>=0),
+      potential integer NOT NULL DEFAULT 0 CHECK(potential>=0),
+      school_id text, last_active_at bigint NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS wuxia_discovered_rooms(scope_id uuid REFERENCES fw_scopes(id),room_id text,PRIMARY KEY(scope_id,room_id));
-      CREATE TABLE IF NOT EXISTS wuxia_npc_states(scope_id uuid REFERENCES fw_scopes(id),npc_id text,room_id text NOT NULL,status text NOT NULL DEFAULT 'present',PRIMARY KEY(scope_id,npc_id));
-      CREATE TABLE IF NOT EXISTS wuxia_inventory(scope_id uuid REFERENCES fw_scopes(id),item_id text,quantity integer NOT NULL CHECK(quantity BETWEEN 0 AND 1),PRIMARY KEY(scope_id,item_id));
       CREATE TABLE IF NOT EXISTS wuxia_quests(scope_id uuid REFERENCES fw_scopes(id),quest_id text,status text NOT NULL CHECK(status IN ('not_started','active','completed')),PRIMARY KEY(scope_id,quest_id));
       CREATE TABLE IF NOT EXISTS wuxia_skills(scope_id uuid REFERENCES fw_scopes(id),skill_id text,level integer NOT NULL CHECK(level BETWEEN 1 AND 3),PRIMARY KEY(scope_id,skill_id));
       CREATE TABLE IF NOT EXISTS wuxia_school_quests(scope_id uuid PRIMARY KEY REFERENCES fw_scopes(id),school_id text NOT NULL,status text NOT NULL CHECK(status IN ('active','ready')),cycle integer NOT NULL,enemy_hp integer NOT NULL CHECK(enemy_hp BETWEEN 0 AND 12));
-      CREATE TABLE IF NOT EXISTS wuxia_school_quest_history(scope_id uuid REFERENCES fw_scopes(id),cycle integer NOT NULL,PRIMARY KEY(scope_id,cycle));
-      CREATE TABLE IF NOT EXISTS wuxia_social_messages(id uuid PRIMARY KEY,sender_scope_id uuid REFERENCES fw_scopes(id),channel text NOT NULL CHECK(channel IN ('say','tell','chat')),recipient_scope_id uuid REFERENCES fw_scopes(id),room_id text,body text NOT NULL,created_at bigint NOT NULL,request_id uuid NOT NULL,UNIQUE(sender_scope_id,request_id));
-      CREATE TABLE IF NOT EXISTS wuxia_social_receipts(message_id uuid REFERENCES wuxia_social_messages(id) ON DELETE CASCADE,scope_id uuid REFERENCES fw_scopes(id),PRIMARY KEY(message_id,scope_id));
-      CREATE TABLE IF NOT EXISTS wuxia_parties(id uuid PRIMARY KEY,created_at bigint NOT NULL);
-      CREATE TABLE IF NOT EXISTS wuxia_party_members(party_id uuid REFERENCES wuxia_parties(id) ON DELETE CASCADE,scope_id uuid UNIQUE REFERENCES fw_scopes(id),joined_at bigint NOT NULL,PRIMARY KEY(party_id,scope_id));
-      CREATE TABLE IF NOT EXISTS wuxia_party_invites(id uuid PRIMARY KEY,inviter_scope_id uuid REFERENCES fw_scopes(id),invitee_scope_id uuid REFERENCES fw_scopes(id),status text NOT NULL CHECK(status IN ('pending','accepted','expired')),expires_at bigint NOT NULL,created_at bigint NOT NULL);
-      CREATE UNIQUE INDEX IF NOT EXISTS wuxia_one_pending_invite ON wuxia_party_invites(inviter_scope_id,invitee_scope_id) WHERE status='pending';
-      CREATE TABLE IF NOT EXISTS wuxia_social_writes(scope_id uuid REFERENCES fw_scopes(id),request_id uuid,request_hash text NOT NULL,response jsonb NOT NULL,PRIMARY KEY(scope_id,request_id));
-      UPDATE wuxia_characters SET current_room_id=COALESCE(current_room_id,'gate'),world_content_version=COALESCE(world_content_version,'1'),player_name=COALESCE(player_name,'少侠-'||left(scope_id::text,4)),school_id=COALESCE(school_id,CASE WHEN master IS NOT NULL THEN 'qingsong' END);
-      INSERT INTO wuxia_discovered_rooms SELECT scope_id,current_room_id FROM wuxia_characters ON CONFLICT DO NOTHING;
-      INSERT INTO wuxia_quests SELECT scope_id,'medicine','not_started' FROM wuxia_characters ON CONFLICT DO NOTHING;
-      INSERT INTO wuxia_skills SELECT scope_id,'breathing',1 FROM wuxia_characters WHERE school_id='qingsong' ON CONFLICT DO NOTHING;`);
-    // Legacy NPC rows are read only after migration. New characters use the shared realm NPCs.
+      CREATE TABLE IF NOT EXISTS wuxia_school_quest_history(scope_id uuid REFERENCES fw_scopes(id),cycle integer NOT NULL,PRIMARY KEY(scope_id,cycle));`);
     for (const npc of npcs) {
       if (npc.initialRoomId === undefined) continue;
-      await tx.query('INSERT INTO wuxia_npc_states(scope_id,npc_id,room_id) SELECT scope_id,$1,$2 FROM wuxia_characters WHERE NOT EXISTS(SELECT 1 FROM mud_npcs WHERE realm_id=$3 AND npc_id=$1) ON CONFLICT DO NOTHING', [npc.id, npc.initialRoomId, realmId]);
-    }
-    await tx.query(`INSERT INTO mud_characters(scope_id,realm_id,name,room_id,active)
-      SELECT c.scope_id,$1,c.player_name,c.current_room_id,NOT EXISTS(SELECT 1 FROM fw_game_resets r WHERE r.old_scope_id=c.scope_id)
-      FROM wuxia_characters c ON CONFLICT DO NOTHING`, [realmId]);
-    for (const npc of npcs) {
-      const prior = (await tx.query('SELECT 1 FROM mud_npcs WHERE realm_id=$1 AND npc_id=$2',[realmId,npc.id])).rowCount;
-      if (!prior) {
-        const variants = (await tx.query('SELECT DISTINCT room_id,status FROM wuxia_npc_states WHERE npc_id=$1',[npc.id])).rows;
-        if (variants.length>1) throw new Error(`NPC_MIGRATION_CONFLICT:${JSON.stringify({npcId:npc.id,variants})}`);
-        const initialRoomId = variants[0]?.room_id ?? npc.initialRoomId;
-        if (initialRoomId === undefined) continue;
-        await tx.query('INSERT INTO mud_npcs(realm_id,npc_id,room_id,status) VALUES($1,$2,$3,$4)',[realmId,npc.id,initialRoomId,variants[0]?.status??'present']);
-      }
-    }
-    await tx.query(`CREATE TABLE IF NOT EXISTS qingxi_migrations(version text PRIMARY KEY)`);
-    if (!(await tx.query("SELECT 1 FROM qingxi_migrations WHERE version='mud-1'")).rowCount) {
-      await tx.query(`INSERT INTO mud_messages(id,realm_id,sender,channel,recipient,body,created_at)
-        SELECT id,$1,sender_scope_id,channel,recipient_scope_id,body,created_at FROM wuxia_social_messages ON CONFLICT DO NOTHING`,[realmId]);
-      await tx.query('INSERT INTO mud_receipts SELECT message_id,scope_id FROM wuxia_social_receipts ON CONFLICT DO NOTHING');
-      await tx.query('INSERT INTO mud_writes(scope_id,request_id,hash,result) SELECT scope_id,request_id,request_hash,response FROM wuxia_social_writes ON CONFLICT DO NOTHING');
-      await tx.query('INSERT INTO mud_parties(id,realm_id) SELECT id,$1 FROM wuxia_parties ON CONFLICT DO NOTHING',[realmId]);
-      await tx.query('INSERT INTO mud_members SELECT m.scope_id,m.party_id FROM wuxia_party_members m JOIN mud_characters c ON c.scope_id=m.scope_id WHERE c.active ON CONFLICT DO NOTHING');
-      await tx.query(`INSERT INTO mud_invites SELECT id,$1,inviter_scope_id,invitee_scope_id,expires_at,status FROM wuxia_party_invites ON CONFLICT DO NOTHING`,[realmId]);
-      await tx.query("UPDATE mud_parties SET active=false WHERE id NOT IN (SELECT party_id FROM mud_members GROUP BY party_id HAVING count(*)>=2)");
-      await tx.query('DELETE FROM mud_members WHERE party_id IN (SELECT id FROM mud_parties WHERE NOT active)');
-      await tx.query("INSERT INTO qingxi_migrations VALUES('mud-1')");
-    }
-    if (!(await tx.query("SELECT 1 FROM qingxi_migrations WHERE version='inventory-1'")).rowCount) {
-      await tx.query('INSERT INTO game_inventory(scope_id,item_id,quantity) SELECT scope_id,item_id,quantity FROM wuxia_inventory ON CONFLICT DO NOTHING');
-      await tx.query("INSERT INTO qingxi_migrations VALUES('inventory-1')");
+      await tx.query("INSERT INTO mud_npcs(realm_id,npc_id,room_id,status) VALUES($1,$2,$3,'present') ON CONFLICT DO NOTHING",
+        [realmId,npc.id,npc.initialRoomId]);
     }
     if ((await tx.query('SELECT 1 FROM wuxia_characters WHERE world_content_version<>$1 LIMIT 1', [world.version])).rowCount) throw new Error('Unsupported world content version');
   });
@@ -107,20 +61,11 @@ export function publicState(row: any) {
     name: row.player_name, gender: row.gender, hp: row.hp, maxHp: 30, qi: row.qi, maxQi: 10, experience: row.experience, potential: row.potential, schoolId: row.school_id };
 }
 export async function initializeGame(store: PostgresStore, tx: Transaction, id: string) {
-  const row = (await tx.query("INSERT INTO wuxia_characters(scope_id,access_hash,current_room_id,world_content_version,player_name,last_active_at) VALUES($1,'account-managed','gate',$2,$4,$3) RETURNING *", [id, world.version, Date.now(),`少侠-${id.slice(0,4)}`])).rows[0];
+  const row = (await tx.query("INSERT INTO wuxia_characters(scope_id,current_room_id,world_content_version,player_name,last_active_at) VALUES($1,'gate',$2,$4,$3) RETURNING *", [id, world.version, Date.now(),`少侠-${id.slice(0,4)}`])).rows[0];
   await tx.query("INSERT INTO mud_characters(scope_id,realm_id,name,room_id) VALUES($1,$2,$3,'gate')", [id,realmId,row.player_name]);
   await tx.query("INSERT INTO wuxia_discovered_rooms VALUES($1,'gate')", [id]);
   await tx.query("INSERT INTO wuxia_quests VALUES($1,'medicine','not_started')", [id]);
   await store.applyMemory(tx, id, [{ op: 'replace_fact', key: 'character', payload: publicState(row), sourceVersion: '0' }]);
-}
-export async function createGame(store: PostgresStore, accessHash: string) {
-  const id = randomUUID();
-  await store.transaction(async tx => {
-    await tx.query('INSERT INTO fw_scopes(id) VALUES($1)', [id]);
-    await initializeGame(store, tx, id);
-    await tx.query('UPDATE wuxia_characters SET access_hash=$2 WHERE scope_id=$1', [id, accessHash]);
-  });
-  return id;
 }
 const targets: Partial<Record<Action, string>> = { good_deed: 'villager', apprenticeship: 'master', challenge: 'disciple', accept_quest: 'herbalist', give: 'herbalist' };
 function deny(action: Action, input: Input, s: WorldState): string | null {

@@ -19,6 +19,8 @@ for(const p of files){
    const norm=p.replaceAll('\\','/');
    if(norm.includes('/src/')){
      for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('examples/')||m[1].includes('mods/')||m[1].includes('apps/'))errors.push(`${p}: source imports host ${m[1]}`);
+     if(/from ['"]@game-ai\/mud-core['"]/.test(text))errors.push(`${p}: removed compatibility package imported`);
+     if(norm.includes('/storage/src/')&&/from ['"]@game-ai\/(?:platform|game-systems)['"]/.test(text))errors.push(`${p}: storage imports upper layer`);
      if(norm.includes('/core/src/')&&/from ['"](?:@game-ai\/(?:storage|model|mud-core|platform|game-systems)|pg)['"]/.test(text))errors.push(`${p}: core imports concrete provider`);
      if(norm.includes('/platform/src/')){
        if(/(?:from\s+|import\s*\()['"](?:@game-ai\/(?:game-systems|mud-core|storage)|[^'"]*(?:game-systems|mods)\/)/.test(text))errors.push(`${p}: platform imports upper layer`);

@@ -17,9 +17,8 @@ identity    ──► core persistence contracts + public HTTP/browser adapters
 mods/qingxi ──► game-systems + platform + core contracts + storage transaction
 game-systems ──► platform + core contracts
 platform    ──► core contracts
-mud-core    ──► platform + game-systems（旧入口兼容装配）
 model       ──► core model contracts
-storage     ──► core persistence contracts + platform/game-systems迁移组合
+storage     ──► core persistence contracts
 core        ──► own types + AJV
 ```
 
@@ -31,7 +30,7 @@ identity属于框架公共模块，负责密码、持久会话、当前scope授�
 
 每用户一个当前scope和角色。行动登记在同一事务内通过authorizeCurrent校验，随后锁定realm、scope；新局遵循同一顺序并使旧角色失活、退出队伍、撤销邀请。processing时拒绝切换。旧局持久保留但不能通过公共游戏API继续读写。读状态和记忆使用同一事务，防止返回混合版本。跨角色共享写入以短事务锁定realm；模型等待期间释放全部锁。
 
-世界观是服务端受信任配置，以worldId/version固定关联scope，每次assessment及纠正都加入完整系统上下文并记录版本摘要。它属于必需预算，不能被可选历史挤出，也不授权越过协议、宿主规则或Schema。旧游客scope允许世界观为空以兼容既有记录，新账号档案由配置完成绑定。具体题材正文仍由宿主提供。详细协议见[账号与世界观](docs/specs/accounts-worldview.md)。
+世界观是服务端受信任配置，以worldId/version固定关联scope，每次assessment及纠正都加入完整系统上下文并记录版本摘要。它属于必需预算，不能被可选历史挤出，也不授权越过协议、宿主规则或Schema。Harness允许不绑定世界观的独立scope；游戏账号由宿主配置完成绑定。具体题材正文仍由宿主提供。详细协议见[账号与世界观](docs/specs/accounts-worldview.md)。
 
 ## 五层与不变量
 
@@ -54,6 +53,8 @@ Docker Compose提供`app + postgres`；测试profile提供`tests + postgres-test
 React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试MOD通过同一HTTP宿主证明引擎可更换世界观、属性和规则。未来规划器、Agent路由、互动会话位于Harness上方：父任务不得持有scope锁等待子任务；每一步分别提交。见对应未来需求，不在当前MVP加入空实现。
 
 ## 变更规则
+
+未发布阶段不维护旧包、旧API或旧数据升级路径，按当前结构初始化；必要时显式重建本项目开发库。旧代码通过Git查看，不留在运行路径。当前版本重启须保留状态，事务、授权和幂等规则不变。详见[需求014](.agents/note/014-breaking-cleanup.md)。
 
 地图与NPC分别定义：MapDefinition仅含房间、出口和地图版本；NpcDefinition含身份描述及可选initialRoomId（仅用于初始化）。World可组合两者；地图投影不依赖NPC。运行时位置继续以mud_npcs为准，updateNpc归NPC模块，保持锁与revision协议。MOD装配校验初始位置引用；无出生位置的NPC允许仅存在于目录。不新增实例系统或数据库迁移。
 

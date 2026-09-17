@@ -6,7 +6,7 @@
 
 ## 1. 夹具与Mock
 
-地图/NPC拆分：world.test.ts检查独立地图与组合世界投影一致、12房间及5个NPC出生位置不变；room-game.test.ts继续验证NPC移动后的场景和过时AI结果拒绝，以及旧NPC迁移冲突回滚。
+地图/NPC拆分：world.test.ts检查独立地图与组合世界投影一致、12房间及5个NPC出生位置不变；room-game.test.ts继续验证NPC移动后的场景和过时AI结果拒绝，以及重复初始化不覆盖NPC运行时位置。
 
 W0：silver20、virtue0、skill1、master=null、encounterDone=false、goodDeedItemId=null、hostVersion0；scope memoryVersion0；已初始化公开事实投影，无事件、摘要或开放事项。
 

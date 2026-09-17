@@ -2,7 +2,7 @@
 
 版本v1：用户已确认。本文是实现契约；实际验证状态见[需求012](../../.agents/note/012-ai-mud-framework.md)。
 
-三层调整后的模块归属以[三层设计](three-layer-architecture.md)为准：原mud-core机制拆入platform与game-systems，旧入口仅兼容；本文的游戏行为及存档隔离约束继续保持。
+三层调整后的模块归属以[三层设计](three-layer-architecture.md)为准：原mud-core机制拆入platform与game-systems，旧入口已删除；本文的游戏行为及存档隔离约束继续保持。
 
 ## 产品与分层
 
@@ -18,9 +18,9 @@
 | MOD | 属性定义、具体组织、技能、战斗公式、成长、物品效果、任务内容、地图、NPC及世界观 |
 | apps | 注册MOD、装配服务；呈现经过授权的通用Web投影 |
 
-保留packages/core现有名称与公共入口，避免与职责调整无关的改名。新增packages/mud-core；青溪镇迁至mods/qingxi。未来有实际复用需求再提取可选规则包，不预建武侠引擎。
+保留packages/core现有名称与公共入口，避免与职责调整无关的改名。平台机制位于packages/platform，可选游戏机制位于packages/game-systems；青溪镇位于mods/qingxi。不保留旧mud-core包，不预建武侠引擎。
 
-依赖：MOD→game-systems/platform/core公共契约，game-systems→platform→core；core与platform不反向导入游戏系统。迁移归对应能力模块，storage保留组合迁移入口；MOD私有表由MOD迁移负责。浏览器只消费投影和公开素材。
+依赖：MOD→game-systems/platform/core公共契约，game-systems→platform→core；core与platform不反向导入游戏系统。迁移归对应能力模块，storage不再提供跨层组合迁移入口；MOD私有表由MOD迁移负责。浏览器只消费投影和公开素材。
 
 ## 世界定义与实例
 
@@ -78,7 +78,7 @@ MVP沿用现有Harness玩家scope记忆，realm公共事实通过宿主事实输
 
 通用客户端消费WorldView：realm/version、当前场景、可见实体、出口、属性显示描述、技能/任务/物品卡片、允许动作、社交投影。标签、图标和美术资源由MOD公开配置提供，浏览器不硬编码青松门或固定hp/qi字段。
 
-目标接口为/api/mud/current、/api/mud/actions、/api/mud/requests/:requestId及对应social/presence路由。服务器从当前身份解析角色，不通过任意scopeId获取世界。迁移期间保留/api/wuxia兼容适配，委托同一服务且不复制规则；旧requestId继续返回原结果。错误保留INVALID_INPUT、FORBIDDEN、STATE_CONFLICT、IDEMPOTENCY_CONFLICT以及MOD提供的规则原因码。
+目标接口为/api/mud/current、/api/mud/actions、/api/mud/requests/:requestId及对应social/presence路由。服务器从当前身份解析角色，不通过任意scopeId获取世界。旧/api/wuxia路由已删除；仅当前版本的请求提供幂等重放。错误保留INVALID_INPUT、FORBIDDEN、STATE_CONFLICT、IDEMPOTENCY_CONFLICT以及MOD提供的规则原因码。
 
 ## MVP边界
 

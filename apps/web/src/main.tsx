@@ -18,7 +18,7 @@ function App(){
   const identity=useIdentity();const [error,setError]=useState('');
   return <div className="shell"><header><a className="brand" href="/">世界行记</a>{identity.session&&<div className="account">{identity.session.username}<button onClick={()=>void identity.logout().catch(()=>setError('登出失败，请重试。'))}>登出</button></div>}</header>
     {error&&<p role="alert">{error}</p>}
-    {identity.loading?<p>正在恢复档案…</p>:identity.error?<p>{identity.error}<button onClick={()=>void identity.restore()}>重试</button></p>:identity.session?<GameView key={identity.session.currentScopeId} session={identity.session} restore={identity.restore}/>:<LoginPanel login={identity.login} legacy={!!saved('harness-session')}/>}
+    {identity.loading?<p>正在恢复档案…</p>:identity.error?<p>{identity.error}<button onClick={()=>void identity.restore()}>重试</button></p>:identity.session?<GameView key={identity.session.currentScopeId} session={identity.session} restore={identity.restore}/>:<LoginPanel login={identity.login}/>}
     <footer>行动与故事持续保存在世界中。</footer></div>;
 }
 function GameView({session,restore}:{session:UserSession;restore:()=>Promise<void>}){

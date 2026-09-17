@@ -4,7 +4,6 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/package.json
-COPY packages/mud-core/package.json packages/mud-core/package.json
 COPY packages/platform/package.json packages/platform/package.json
 COPY packages/game-systems/package.json packages/game-systems/package.json
 COPY packages/identity/package.json packages/identity/package.json

@@ -1,6 +1,6 @@
 # AI驱动的多人MUD框架
 
-当前采用[三层架构](docs/specs/three-layer-architecture.md)：`platform`负责realm、通信、组队和钱包账本；`game-systems`提供可选地图、NPC、任务与库存；MOD组合系统并定义具体玩法。`mud-core`仅保留旧调用兼容入口。真实充值渠道和跨realm账号IM尚未提供。
+当前采用[三层架构](docs/specs/three-layer-architecture.md)：`platform`负责realm、通信、组队和钱包账本；`game-systems`提供可选地图、NPC、任务与库存；MOD组合系统并定义具体玩法。当前未发布，不保留旧版兼容，结构变更允许重建开发库。真实充值渠道和跨realm账号IM尚未提供。
 
 通用运行层管理realm、角色、房间拓扑、在线状态、聊天、队伍与共享任务；MOD提供世界观、地图、角色属性及具体规则。Game AI Harness负责持续记忆、上下文、模型判定和可靠提交。青溪镇是首个可玩MOD，中性测试MOD验证相同框架能运行另一种题材。
 
@@ -18,7 +18,7 @@ docker compose up --build -d
 docker compose --profile test run --build --rm tests
 ```
 
-测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。[MUD架构](docs/specs/ai-mud-framework.md)、[验收契约](docs/testing/ai-mud-framework.md)及[迁移记录](docs/ai-mud-migration-plan.md)解释共享世界和旧档升级。历史世界证据见[青溪镇验证记录](mods/qingxi/docs/world-mvp-verification.md)。
+测试连接独立的postgres-test，不使用开发存档。更多配置见[开发指南](docs/development.md)。[MUD架构](docs/specs/ai-mud-framework.md)、[验收契约](docs/testing/ai-mud-framework.md)解释共享世界；[破坏性升级政策](.agents/note/014-breaking-cleanup.md)规定当前代码与数据边界。历史世界证据见[青溪镇验证记录](mods/qingxi/docs/world-mvp-verification.md)。
 
 ## 阅读入口
 
@@ -39,7 +39,6 @@ apps/web/src/            React Demo
 packages/core/src/      判定协调、上下文、公共接口
 packages/platform/src/ realm、频道/私聊、组队、钱包与通用MOD注册
 packages/game-systems/src/ 地图、NPC、任务、库存与空间策略
-packages/mud-core/src/  历史兼容装配入口
 packages/identity/src/  公共账号、会话、当前档案及登录组件
 packages/model/src/     模型与Mock适配
 packages/storage/src/   PostgreSQL实现

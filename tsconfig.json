@@ -7,7 +7,6 @@
     "paths": {
       "@game-ai/platform": ["./packages/platform/src/index.ts"],
       "@game-ai/game-systems": ["./packages/game-systems/src/index.ts"],
-      "@game-ai/mud-core": ["./packages/mud-core/src/index.ts"],
       "@game-ai/core": ["./packages/core/src/index.ts"],
       "@game-ai/identity": ["./packages/identity/src/index.ts"],
       "@game-ai/identity/browser": ["./packages/identity/src/browser.tsx"],

@@ -1,5 +1,7 @@
 # 武侠世界示例 MVP 设计
 
+> 2026-09-17修订：本文旧档保留、回填及游客兼容条款已取消。当前按空库结构初始化，重复启动保留当前状态；不维护旧版升级路径。其余游戏规则和隔离/事务测试仍适用。
+
 版本：v2，用户已通过“继续代码实现”确认并完成MVP实现。配套[地图表现设计](map-presentation.md)、[测试设计](world-mvp-testing.md)与[实施计划](world-mvp-plan.md)；实际覆盖范围见[验证记录](world-mvp-verification.md)。
 
 ## 1. 目标与参考
@@ -123,9 +125,9 @@ v1可使用现有worldview、facts、instructions和记忆筛选接口承载上�
 
 所有游戏查询限制已授权当前scope。运行状态引用对应内容版本；v1部署同时保留所支持的旧内容配置，缺失版本拒绝加载，不静默切换旧档内容。世界内容版本与框架上下文版本是不同概念。
 
-保留现有账号、新局及请求查询接口。扩展GET /api/wuxia/games/:id返回一致版本的角色、当前房间、可见对象、出口及门槛、背包、任务、局部地图；返回值不含NPC内部提示或未发现物品。
+保留现有账号、新局及请求查询接口。扩展GET /api/mud/current返回一致版本的角色、当前房间、可见对象、出口及门槛、背包、任务、局部地图；返回值不含NPC内部提示或未发现物品。
 
-POST /api/wuxia/games/:id/actions保留requestId、expectedMemoryVersion及现有action/note，按action使用严格字段分支：move附exitId；talk附targetId/topicId；accept_quest及give附targetId/questId，give再附itemId；pickup附itemId；原四动作由服务端映射固定目标并重验所在房间。客户端不能传奖励、状态快照或任意目的roomId。字段全部计入幂等请求内容；多余字段拒绝。登记202、结果查询200沿用现有协议。
+POST /api/mud/actions保留requestId、expectedMemoryVersion及现有action/note，按action使用严格字段分支：move附exitId；talk附targetId/topicId；accept_quest及give附targetId/questId，give再附itemId；pickup附itemId；原四动作由服务端映射固定目标并重验所在房间。客户端不能传奖励、状态快照或任意目的roomId。字段全部计入幂等请求内容；多余字段拒绝。登记202、结果查询200沿用现有协议。
 
 预期游戏拒绝原因包括NOT_ADJACENT、EXIT_LOCKED、TARGET_NOT_PRESENT、INVALID_TOPIC、QUEST_NOT_ACTIVE、ITEM_NOT_AVAILABLE、ITEM_REQUIRED、QUEST_COMPLETED；沿用RULE_REJECTED/detail表达。显示操作列表只是提示，伪造请求仍须重新验证。
 

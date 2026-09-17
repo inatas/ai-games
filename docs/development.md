@@ -11,7 +11,7 @@ docker compose ps
 docker compose logs app
 ```
 
-浏览器访问http://localhost:3000。健康检查等待PostgreSQL就绪后才启动app。应用自带幂等建表迁移；后续字段变更需要独立版本迁移，不能只修改CREATE TABLE IF NOT EXISTS。
+浏览器访问http://localhost:3000。健康检查等待PostgreSQL就绪后才启动app。应用按当前结构幂等建表。未发布阶段不提供旧结构升级：改变表结构后须显式重建本项目开发库；仅重启容器不会更新或清空旧表。
 
 可复制`.env.example`为`.env`设置APP_PORT、POSTGRES_PASSWORD与模型变量；默认口令仅用于不发布端口的本地开发库。已有卷的数据库密码不会因修改.env自动更新。`.env`不提交也不进入镜像。
 
@@ -27,7 +27,7 @@ docker compose --profile test run --build --rm tests
 
 ## 现有档案升级
 
-青溪镇首次启动会增加`mud_*`公共表，将旧角色、NPC和社交记录迁到realm；旧表保留供核对。升级前停止`app`写入并使用`pg_dump -Fc`备份开发数据库，备份应放在被Git忽略的`.local/backups`。恢复副本必须放在独立测试库，使用`pg_restore --no-owner --no-privileges --exit-on-error`，再以`TEST_DATABASE_URL`指向该副本运行`scripts/verify-mud-restore.ts`。脚本只接受名为`ai_mud_restore_*`的库，并核对历史记录数量及两次迁移的幂等性。恢复失败时不要升级开发库；部署失败须把应用与数据库一并回到匹配的备份版本。
+未发布阶段允许旧开发数据失效。重建前核实Compose项目为`game-ai-harness`、数据库为`harness`，停止app写入，仅清理该开发库，再用当前代码初始化。此操作会删除账号、存档、消息与账本；不由测试或应用启动自动执行。旧备份仅用于恢复到匹配的历史代码，不导入当前版本。不得清理其他项目或生产库。
 
 本次升级的实测数量、备份摘要及命令结果见[需求012](../.agents/note/012-ai-mud-framework.md)。测试用`postgres-test`为临时存储；其中的恢复副本不能当作长期备份。
 
@@ -74,7 +74,7 @@ Node/PostgreSQL采用[DaoCloud文档](https://github.com/DaoCloud/public-image-m
 
 ## 登录与世界观配置
 
-打开应用后输入用户名（3–32位字母、数字或下划线）和密码（8–128字符）。新用户名自动创建；已有用户名校验原密码。默认记住30天无活动期限内的登录，继续同一存档；右上角登出仅撤销当前设备会话。另起江湖需确认，旧档案保留但本期不能切回。旧游客记录保留且暂不迁移，旧浏览器令牌不能登录账号。
+打开应用后输入用户名（3–32位字母、数字或下划线）和密码（8–128字符）。新用户名自动创建；已有用户名校验原密码。默认记住30天无活动期限内的登录，继续同一存档；右上角登出仅撤销当前设备会话。另起江湖需确认，旧档案保留但本期不能切回。仅支持账号会话，不保留游客入口。
 
 世界观文件默认是[WORLD.md](../mods/qingxi/WORLD.md)，服务端通过WORLDVIEW_PATH、WORLD_ID、WORLD_VERSION配置。编辑正文必须提升版本，再运行docker compose up --build -d。相同版本不同正文会拒绝启动，旧局保持已保存版本，新局绑定新版本。不得将模型Key或账号密码写入世界观。框架加载器上限16KiB；正文还需满足实际模型输入预算，超限会在调用前失败。
 

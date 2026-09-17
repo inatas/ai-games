@@ -1,12 +1,15 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { migrateMud } from '@game-ai/storage';
-import { lockRealm, mutateParty, sendMessage, socialProjection, sharedTask, retireCharacter } from '@game-ai/mud-core';
+import { migratePlatform } from '@game-ai/platform';
+import { migrateGameSystems } from '@game-ai/game-systems';
+import { lockRealm, mutateParty, sendMessage, socialProjection, retireCharacter } from '@game-ai/platform';
+import { sharedTask, spatialSocialPolicy, taskPartyLeft } from '@game-ai/game-systems';
+const socialPolicy = { ...spatialSocialPolicy, onPartyLeft: taskPartyLeft };
 import { startTestDatabase } from '../support/database.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
-before(async()=>{db=await startTestDatabase();await db.store.migrate();await db.store.transaction(migrateMud);});
+before(async()=>{db=await startTestDatabase();await db.store.migrate();await db.store.transaction(async tx => { await migratePlatform(tx); await migrateGameSystems(tx); });});
 after(async()=>{await db?.stop();});
 async function actor(realm:string){
   const id=randomUUID();
@@ -16,7 +19,7 @@ async function actor(realm:string){
     await tx.query("INSERT INTO mud_characters(scope_id,realm_id,name,room_id) VALUES($1,$2,'actor','start')",[id,realm]);
   });return id;
 }
-const party=(id:string,input:{action:string;targetScopeId?:string;inviteId?:string},requestId=randomUUID())=>db.store.transaction(tx=>mutateParty(tx,id,{requestId,...input}));
+const party=(id:string,input:{action:string;targetScopeId?:string;inviteId?:string},requestId=randomUUID())=>db.store.transaction(tx=>mutateParty(tx,id,{requestId,...input},socialPolicy));
 async function pair(a:string,b:string){const invite=await party(a,{action:'invite',targetScopeId:b});await party(b,{action:'accept',inviteId:invite.inviteId});}
 async function task(id:string,step:'accept'|'contribute'|'complete'|'claim') {return db.store.transaction(async tx=>{await lockRealm(tx,id);return sharedTask(tx,id,'delivery',step,2);});}
 
@@ -48,7 +51,7 @@ test('MF-09/10: frozen task participants, atomic claims and retirement invalidat
   await task(a,'complete');
   const claims=await Promise.allSettled([task(a,'claim'),task(a,'claim')]);
   assert.equal(claims.filter(r=>r.status==='fulfilled').length,1);
-  await db.store.transaction(tx=>retireCharacter(tx,b));
+  await db.store.transaction(tx=>retireCharacter(tx,b,socialPolicy));
   await assert.rejects(task(b,'claim'),/FORBIDDEN/);
   assert.equal(Number((await db.store.pool.query('SELECT count(*) n FROM mud_rewards')).rows[0].n),1);
 });

@@ -18,10 +18,10 @@ async function login() {
   return session;
 }
 type Session = Awaited<ReturnType<typeof login>>;
-async function read(g: Session) { const response = await built.app.inject({ url: `/api/wuxia/games/${g.id}`, headers: { cookie: g.cookie } }); assert.equal(response.statusCode, 200, response.body); return response.json(); }
+async function read(g: Session) { const response = await built.app.inject({ url: `/api/mud/current`, headers: { cookie: g.cookie } }); assert.equal(response.statusCode, 200, response.body); return response.json(); }
 async function act(g: Session, action: string, extra: Record<string,string> = {}, requestId = randomUUID()) {
   const version = (await read(g)).memoryVersion;
-  const response = await built.app.inject({ method: 'POST', url: `/api/wuxia/games/${g.id}/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId, expectedMemoryVersion: version, action, note: '', ...extra } });
+  const response = await built.app.inject({ method: 'POST', url: `/api/mud/actions`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload: { requestId, expectedMemoryVersion: version, action, note: '', ...extra } });
   assert.ok([200,202].includes(response.statusCode), response.body); await built.harness.drain(); return built.harness.get(g.id, requestId);
 }
 async function move(g: Session, to: string) { const from = (await read(g)).map.currentRoomId; const result = await act(g, 'move', { exitId: `${from}:${to}` }); assert.equal(result.status, 'committed', JSON.stringify(result)); }
@@ -97,7 +97,7 @@ test('SR-01/04/05/07/09/10: room visibility, message privacy and party idempoten
   const a = await login(); const b = await login(); const c = await login();
   await act(a, 'set_profile', { name: '阿青', gender: '女' }); await act(b, 'set_profile', { name: '无名', gender: '男' }); await move(c, 'street');
   assert.ok((await read(a)).playersHere.some((p: any) => p.scopeId === b.id));
-  async function post(g: Session, path: string, payload: Record<string,unknown>) { return built.app.inject({ method: 'POST', url: `/api/wuxia/games/${g.id}/social/${path}`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload }); }
+  async function post(g: Session, path: string, payload: Record<string,unknown>) { return built.app.inject({ method: 'POST', url: `/api/mud/social/${path}`, headers: { cookie: g.cookie, origin: 'http://localhost' }, payload }); }
   const sayId = randomUUID(); assert.equal((await post(a, 'messages', { requestId: sayId, channel: 'say', body: '诸位好。' })).statusCode, 200);
   const conflict = await post(a, 'messages', { requestId: sayId, channel: 'say', body: '不会重复' }); assert.equal(conflict.statusCode, 409); assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
   assert.ok((await read(b)).messages.some((m: any) => m.body === '诸位好。'));

@@ -24,7 +24,7 @@
 
 游戏行动登记与新局切换必须共享用户→scope的锁序并在登记事务内验证当前档案，避免“授权后被切换”的竞态。不得仅在HTTP前置检查一次。只有当前scope可提交行动或读取游戏；不同账号禁止互访。
 
-现有游客档案不自动认领：旧数据库记录保留，不删除；旧localStorage令牌不能冒充账号会话。升级后显示登录页，明确提示旧游客档案尚未关联。本期不实现游客迁移入口。
+仅支持账号会话，不保留游客凭据、提示或迁移入口。开发库允许按破坏性升级政策重建。
 
 ## 公共接口与数据
 
@@ -35,7 +35,7 @@
 | POST /api/auth/logout | 撤销当前会话，清Cookie；重复退出成功 |
 | POST /api/game/current/reset | requestId、expectedCurrentScopeId；原子开启新局 |
 
-新增fw_users（唯一规范用户名、密码派生值/盐、current_scope_id）、fw_sessions（令牌摘要、user_id、expires_at）、fw_game_resets（user_id/request_id唯一、完整请求中的旧scope字段、旧新scope关联）、fw_worldviews（world_id/version唯一、正文、内容摘要）。scope增加世界观版本外键。账号表和档案初始化由公共迁移与宿主回调协调；现有数据迁移不得破坏游客scope。
+新增fw_users（唯一规范用户名、密码派生值/盐、current_scope_id）、fw_sessions（令牌摘要、user_id、expires_at）、fw_game_resets（user_id/request_id唯一、完整请求中的旧scope字段、旧新scope关联）、fw_worldviews（world_id/version唯一、正文、内容摘要）。scope增加世界观版本外键。账号表和档案初始化由公共迁移与宿主回调协调；不提供旧数据库升级路径。
 
 公共档案服务通过login确保当前档案存在，提供reset与authorizeCurrent/行动登记事务契约；宿主提供initialize(tx, scopeId)回调，仅初始化题材数据和初始记忆，不拥有账号、Cookie或当前档案指针。
 
@@ -57,5 +57,5 @@
 
 ## 已确认范围
 
-用户已确认：用户名密码一次提交自动注册、30天滑动会话、每用户一个当前档案且旧局只保留不切回、游客档案暂不迁移、世界观版本在新局时绑定。本次实现严格限定于上述范围；未来调整继续先更新文档并获得确认。
+用户已确认：用户名密码一次提交自动注册、30天滑动会话、每用户一个当前档案且旧局只保留不切回、世界观版本在新局时绑定。本次实现严格限定于上述范围；未来调整继续先更新文档并获得确认。
 
