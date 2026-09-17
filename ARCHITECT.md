@@ -54,6 +54,8 @@ React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试
 
 ## 变更规则
 
+后续配置驱动运行扩展见[详细设计v1](docs/specs/configured-game-runtime.md)及需求015～018：事件基础设施归platform，Action、地图规则与行为树归game-systems，内容与规则实例归MOD。能力方向已确认，详细协议待确认，当前不视为已实现；不改变Harness无自主NPC循环的不变量。
+
 未发布阶段不维护旧包、旧API或旧数据升级路径，按当前结构初始化；必要时显式重建本项目开发库。旧代码通过Git查看，不留在运行路径。当前版本重启须保留状态，事务、授权和幂等规则不变。详见[需求014](.agents/note/014-breaking-cleanup.md)。
 
 地图与NPC分别定义：MapDefinition仅含房间、出口和地图版本；NpcDefinition含身份描述及可选initialRoomId（仅用于初始化）。World可组合两者；地图投影不依赖NPC。运行时位置继续以mud_npcs为准，updateNpc归NPC模块，保持锁与revision协议。MOD装配校验初始位置引用；无出生位置的NPC允许仅存在于目录。不新增实例系统或数据库迁移。

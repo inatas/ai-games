@@ -1,5 +1,12 @@
 # 需求 Notes
 
+配置运行升级（能力方向已确认，详细设计v1待确认；按顺序实施）：
+
+- [015 事实事件与投递](015-event-delivery.md)：in_progress，文档阶段。
+- [016 角色/NPC共用Action](016-shared-actions.md)：in_progress，文档阶段。
+- [017 配置地图与移动](017-configured-map.md)：in_progress，文档阶段。
+- [018 行为树与调度](018-behavior-trees.md)：in_progress，文档阶段。
+
 [014 未发布阶段移除旧版兼容](014-breaking-cleanup.md)：implemented；旧入口/迁移清理完成，61项测试通过，开发库已重建并部署健康。
 
 [013 三层游戏平台](013-three-layer-platform.md)：implemented；三层拆分、库存与钱包基础能力，63项回归及备份恢复通过，部署健康。

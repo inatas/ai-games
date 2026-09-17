@@ -14,7 +14,7 @@ Status: in_progress
 
 ## 验收
 
-- [ ] 按[Quickstart](../../examples/wuxia-mud/README.md)演示完整路径。
+- [ ] 按[Quickstart](../../mods/qingxi/README.md)演示完整路径。
 - [ ] D-*用例的数值和模型调用次数符合[测试文档](../../mods/qingxi/tests/README.md)。
 - [ ] 浏览器可创建存档、提交、刷新并恢复原结果。
 

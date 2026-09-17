@@ -1,5 +1,7 @@
 # 武侠游戏需求 Notes
 
+[006 配置运行接入](006-configured-runtime.md)：in_progress；详细接入v1待确认，现有玩法与数值保持，尚未实现。
+
 本目录存放武侠示例专属需求：角色设定、世界观正文、背景故事、行动规则、拜师、挑战和奇遇等。公共能力需求仍归[框架需求索引](../../../../.agents/note/README.md)。
 
 遵循[根目录开发指引](../../../../AGENTS.md)与[示例开发指引](../../AGENTS.md)，从[公共模板](../../../../.agents/note/TEMPLATE.md)开始，按本目录独立编号命名NNN-topic.md。模板中的相对链接须按本地位置调整；沿用draft、in_progress、implemented、rejected状态及需求、范围、验收、当前进展、待完善字段。每份note记录待确认版本或已确认范围，并链接设计、测试数据和实际验证证据。
