@@ -21,6 +21,8 @@
 
 ## 世界定义与实例
 
+地图契约MapDefinition独立于NpcDefinition。NPC的initialRoomId是可选出生位置，不是当前位置；MOD与World装配检查非空初始位置引用，允许未出生的NPC定义。地图校验与投影只接收地图。mud_npcs继续保存realm内唯一NPC的位置、状态与revision；NPC模块提供updateNpc，调用方验证目的房间。不增加实例表或自动剧情循环。
+
 MOD版本定义一种游戏：manifest包含modId、version、兼容契约版本、内容版本、世界观版本、配置Schema与规则入口。realm是该MOD版本的运行实例；相同MOD可运行多个独立realm。MVP只在启动时显式注册受信任本地MOD，不接受用户上传代码。
 
 加载时检查重复ID、引用完整性、规则注册、配置Schema及版本兼容；失败阻止对应realm启动，不静默加载其他版本。世界观是必需上下文，配置不能覆盖权限或工具契约。

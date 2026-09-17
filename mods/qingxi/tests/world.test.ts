@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { world, validateWorld, projectMap, type World } from '../src/world.ts';
+import { map } from '../src/map.ts';
+import { npcs } from '../src/npcs.ts';
+
+test('Qingxi map is independent of NPC content and preserves spawn defaults', () => {
+  assert.equal('npcs' in map, false);
+  assert.deepEqual(npcs.map(n => [n.id, n.initialRoomId]), [
+    ['waiter', 'tea'], ['herbalist', 'herbalist'], ['villager', 'square'],
+    ['master', 'dojo'], ['disciple', 'dojo-yard'],
+  ]);
+  assert.deepEqual(projectMap(map, 'gate', new Set(['gate']), false), projectMap(world, 'gate', new Set(['gate']), false));
+});
 
 test('WM-01/18: validate references, templates, reachability and directed exits', () => {
   validateWorld(world);

@@ -10,7 +10,8 @@ test('MF-02/03: registry validates content and rejects ambiguous or unsupported 
   assert.equal(registry.get('neutral', '1').id, 'neutral');
   assert.throws(() => registry.register(definition));
   assert.throws(() => new ModRegistry().register({ ...definition, contractVersion: 2 }));
-  assert.throws(() => new ModRegistry().register({ ...definition, npcs: [{ id: 'actor', roomId: 'missing' }] }));
+  assert.throws(() => new ModRegistry().register({ ...definition, npcs: [{ id: 'actor', initialRoomId: 'missing' }] }));
+  new ModRegistry().register({ ...definition, npcs: [{ id: 'offstage' }] });
   assert.throws(() => new ModRegistry().register({ ...definition, actions: ['inspect', 'inspect'] }));
   assert.throws(() => registry.get('neutral', '2'));
 });

@@ -29,11 +29,3 @@ export async function retireCharacter(tx: Transaction, scopeId: string) {
   await tx.query('DELETE FROM mud_presence WHERE scope_id=$1', [scopeId]);
   await tx.query('UPDATE mud_characters SET active=false WHERE scope_id=$1', [scopeId]);
 }
-
-/** Caller supplies a validated destination from the loaded MOD topology. */
-export async function updateNpc(tx: Transaction, realmId: string, npcId: string, roomId: string, status: string) {
-  await tx.query('SELECT id FROM mud_realms WHERE id=$1 FOR UPDATE',[realmId]);
-  const updated=await tx.query('UPDATE mud_npcs SET room_id=$3,status=$4,revision=revision+1 WHERE realm_id=$1 AND npc_id=$2 RETURNING npc_id',[realmId,npcId,roomId,status]);
-  if(!updated.rowCount) throw new HarnessError('NOT_FOUND',404);
-  await tx.query('UPDATE mud_realms SET revision=revision+1 WHERE id=$1',[realmId]);
-}

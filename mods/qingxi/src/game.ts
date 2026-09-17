@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { PostgresStore } from '@game-ai/storage';
 import { HarnessError, type Binding, type MemoryChange, type Transaction } from '@game-ai/core';
 import { ScriptedModel } from '@game-ai/model';
-import { world } from './world.ts';
+import { map as world } from './map.ts';
+import { npcs } from './npcs.ts';
 import { migrateMud } from '@game-ai/storage';
 import { lockRealm, sharedTask } from '@game-ai/mud-core';
 import { realmId, manifest } from './mod.ts';
@@ -63,16 +64,21 @@ export async function migrateGame(store: PostgresStore) {
       INSERT INTO wuxia_quests SELECT scope_id,'medicine','not_started' FROM wuxia_characters ON CONFLICT DO NOTHING;
       INSERT INTO wuxia_skills SELECT scope_id,'breathing',1 FROM wuxia_characters WHERE school_id='qingsong' ON CONFLICT DO NOTHING;`);
     // Legacy NPC rows are read only after migration. New characters use the shared realm NPCs.
-    for (const npc of world.npcs) await tx.query('INSERT INTO wuxia_npc_states(scope_id,npc_id,room_id) SELECT scope_id,$1,$2 FROM wuxia_characters WHERE NOT EXISTS(SELECT 1 FROM mud_npcs WHERE realm_id=$3 AND npc_id=$1) ON CONFLICT DO NOTHING', [npc.id, npc.roomId, realmId]);
+    for (const npc of npcs) {
+      if (npc.initialRoomId === undefined) continue;
+      await tx.query('INSERT INTO wuxia_npc_states(scope_id,npc_id,room_id) SELECT scope_id,$1,$2 FROM wuxia_characters WHERE NOT EXISTS(SELECT 1 FROM mud_npcs WHERE realm_id=$3 AND npc_id=$1) ON CONFLICT DO NOTHING', [npc.id, npc.initialRoomId, realmId]);
+    }
     await tx.query(`INSERT INTO mud_characters(scope_id,realm_id,name,room_id,active)
       SELECT c.scope_id,$1,c.player_name,c.current_room_id,NOT EXISTS(SELECT 1 FROM fw_game_resets r WHERE r.old_scope_id=c.scope_id)
       FROM wuxia_characters c ON CONFLICT DO NOTHING`, [realmId]);
-    for (const npc of world.npcs) {
+    for (const npc of npcs) {
       const prior = (await tx.query('SELECT 1 FROM mud_npcs WHERE realm_id=$1 AND npc_id=$2',[realmId,npc.id])).rowCount;
       if (!prior) {
         const variants = (await tx.query('SELECT DISTINCT room_id,status FROM wuxia_npc_states WHERE npc_id=$1',[npc.id])).rows;
         if (variants.length>1) throw new Error(`NPC_MIGRATION_CONFLICT:${JSON.stringify({npcId:npc.id,variants})}`);
-        await tx.query('INSERT INTO mud_npcs(realm_id,npc_id,room_id,status) VALUES($1,$2,$3,$4)',[realmId,npc.id,variants[0]?.room_id??npc.roomId,variants[0]?.status??'present']);
+        const initialRoomId = variants[0]?.room_id ?? npc.initialRoomId;
+        if (initialRoomId === undefined) continue;
+        await tx.query('INSERT INTO mud_npcs(realm_id,npc_id,room_id,status) VALUES($1,$2,$3,$4)',[realmId,npc.id,initialRoomId,variants[0]?.status??'present']);
       }
     }
     await tx.query(`CREATE TABLE IF NOT EXISTS qingxi_migrations(version text PRIMARY KEY)`);
@@ -224,7 +230,7 @@ export function gameBinding(store: PostgresStore, action: Action): Binding {
         await tx.query("UPDATE wuxia_quests SET status='completed' WHERE scope_id=$1 AND quest_id='medicine'", [context.scopeId]);
         row.silver += 2; message = '药师接过药包，赠你二两银钱。寻药委托已完成。';
       } else if (action === 'talk') {
-        const npc = world.npcs.find(n => n.id === input.targetId)!;
+        const npc = npcs.find(n => n.id === input.targetId)!;
         message = `${npc.name}：${answers[(proposal as any).answerId as keyof typeof answers]}`;
         if (npc.id === 'villager' && (await tx.query("SELECT 1 FROM fw_memory WHERE scope_id=$1 AND kind='event' AND payload->>'action'='good_deed' LIMIT 1", [context.scopeId])).rowCount) message += ' 多谢你先前的接济，我一直记在心里。';
       } else if (action === 'good_deed') {

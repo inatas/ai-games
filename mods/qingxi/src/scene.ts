@@ -1,6 +1,7 @@
 import type { Transaction } from '@game-ai/core';
 import { HarnessError } from '@game-ai/core';
-import { world, projectMap } from './world.ts';
+import { map as world, projectMap } from './map.ts';
+import { npcs } from './npcs.ts';
 import { schools, trainingDenial } from './training.ts';
 
 import type { GameAction, SceneObject } from '@game-ai/mud-core';
@@ -21,7 +22,7 @@ export type WorldState = Awaited<ReturnType<typeof readWorldState>>;
 export function makeScene(s: WorldState) {
   const room = world.rooms.find(r => r.id === s.row.current_room_id)!;
   const objects: SceneObject[] = s.npcs.filter(n => n.status === 'present').map((n, i) => {
-    const npc = world.npcs.find(x => x.id === n.npc_id)!;
+    const npc = npcs.find(x => x.id === n.npc_id)!;
     const actions: GameAction[] = [{ action: 'talk', label: '交谈 · 本地见闻', targetId: npc.id, topicId: 'news' }];
     if (npc.id === 'herbalist') {
       actions.push({action:'escort_accept',label:'两人领取护送委托'},{action:'escort_complete',label:'提交护送委托'},{action:'escort_claim',label:'领取护送奖励'});

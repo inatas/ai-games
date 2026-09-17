@@ -53,4 +53,6 @@ React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试
 
 ## 变更规则
 
+地图与NPC分别定义：MapDefinition仅含房间、出口和地图版本；NpcDefinition含身份描述及可选initialRoomId（仅用于初始化）。World可组合两者；地图投影不依赖NPC。运行时位置继续以mud_npcs为准，updateNpc归NPC模块，保持锁与revision协议。MOD装配校验初始位置引用；无出生位置的NPC允许仅存在于目录。不新增实例系统或数据库迁移。
+
 新增能力优先扩展已明确的Binding/ModelAdapter/记忆操作接口。涉及跨包协议、状态格式、事务边界或权限的改动，同步更新本文件、需求note和测试。协议详见[框架规格](docs/specs/framework.md)，框架验收详见[测试规格](docs/testing/framework.md)。

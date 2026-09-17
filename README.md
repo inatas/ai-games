@@ -10,7 +10,7 @@
 docker compose up --build -d
 ```
 
-打开 [http://localhost:3000](http://localhost:3000)。停止用`docker compose down`，保留开发存档卷。
+打开 [http://localhost:3000](http://localhost:3000)。Compose会监听主机网卡，局域网其他设备可通过宿主机IP访问；公网访问还需要路由器端口转发或云主机安全组放行。停止用`docker compose down`，保留开发存档卷。
 
 ```sh
 docker compose --profile test run --build --rm tests
