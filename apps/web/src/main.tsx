@@ -113,7 +113,7 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
     <h3>队伍</h3>{game.invites.map(i=><p key={i.id}>{i.fromName} 邀请你 <button disabled={socialBusy} onClick={()=>void social('party',{action:'accept',inviteId:i.id})}>接受</button></p>)}
     {game.party?<><p>{game.party.members.map(p=>p.name).join('、')}</p><button disabled={socialBusy} onClick={()=>void social('party',{action:'leave'})}>离队</button></>:<p>尚未组队。</p>}</section>
     <button disabled={!!pending||resetting} onClick={()=>setConfirmReset(true)}>开启新角色</button>
-    {(confirmReset||!!saved(resetKey))&&<div role="dialog" aria-label="新角色确认"><p>旧档保留，当前角色退出队伍，共享世界继续存在。</p><button disabled={resetting} onClick={()=>void reset()}>确认</button><button onClick={()=>setConfirmReset(false)}>取消</button></div>}
+    {(confirmReset||!!saved(resetKey))&&<div role="dialog" aria-label="新角色确认"><p>旧档保留，当前角色退出队伍，共享世界继续存在。</p><button disabled={resetting} onClick={()=>void reset()}>确认</button><button onClick={()=>{localStorage.removeItem(resetKey);setConfirmReset(false);}}>取消</button></div>}
   </aside></div></>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);
