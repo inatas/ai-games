@@ -18,4 +18,4 @@ CG-10修习可用性修正先由集成测试复现失败，再用青溪镇同一
 
 当前自动化执行环境未发现Docker CLI、PostgreSQL服务或`TEST_DATABASE_URL`，因此尚未运行PostgreSQL集成测试、完整Docker回归和浏览器端到端验收。新增的`v3-game.test.ts`已覆盖成长/战斗、死亡、技能、消息隐私、社交幂等和队伍流程，待Docker测试环境可用后执行。
 
-在上述集成测试实际通过前，002/003保持`in_progress`，不标记为implemented。
+本文是 v3 阶段的历史验证记录。当前需求状态以本地[需求索引](../.agents/note/README.md)为准；不要依据本文末尾的阶段性状态判断当前实现状态。

@@ -1,6 +1,6 @@
 # 武侠游戏需求 Notes
 
-[006 配置运行接入](006-configured-runtime.md)：implemented；现有玩法与数值保持，72项合并回归通过，开发服务尚未部署。
+[006 配置运行接入](006-configured-runtime.md)：implemented；现有玩法与数值保持，72项合并回归通过，开发服务可启动；真实模型仍未运行。
 
 本目录存放武侠示例专属需求：角色设定、世界观正文、背景故事、行动规则、拜师、挑战和奇遇等。公共能力需求仍归[框架需求索引](../../../../.agents/note/README.md)。
 
@@ -8,7 +8,7 @@
 
 ## 现有需求入口
 
-[005 角色属性完善](005-character-attributes.md)：draft；四维资质、资源、技能派生与旧档兼容设计v1待确认。
+[005 角色属性完善](005-character-attributes.md)：draft；四维资质、资源、技能派生方案仍未确认，当前版本不采用。
 
 | 入口 | 用途 |
 |---|---|
@@ -16,9 +16,9 @@
 | [Quickstart与游戏规则](../../README.md) | 当前地图、成长、社交及双人委托 |
 | [游戏测试与数据](../../tests/README.md) | 当前游戏验收与测试数据契约 |
 
-| [001 房间驱动的武侠世界](001-room-world.md) | implemented：世界MVP、L2＋轻量L3，v2已确认并部署；验证边界见记录 |
-| [002 角色成长与确定性战斗](002-character-growth-combat.md) | in_progress：v3已确认，执行成长、师门任务与战斗闭环 |
-| [003 共享江湖与轻量社交](003-shared-realm-social.md) | in_progress：v3已确认，执行共享空间、聊天与临时队伍 |
+| [001 房间驱动的武侠世界](001-room-world.md) | implemented：世界MVP、地图/NPC目录与共享运行时已接入 |
+| [002 角色成长与确定性战斗](002-character-growth-combat.md) | implemented：成长、师门任务与战斗闭环已接入 |
+| [003 共享江湖与轻量社交](003-shared-realm-social.md) | implemented：共享空间、聊天、临时队伍与双人委托已接入 |
 
 后续新增或调整游戏功能在本目录记录。跨层需求分别链接框架note与本地note，公共协议仅在框架文档维护。
 

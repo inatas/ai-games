@@ -2,7 +2,7 @@
 
 已实现青溪镇MOD：12个房间、5名共享NPC、3类复用场景、局部SVG地图、个人长期档案、两条师门成长路线、确定性战斗、聊天队伍及双人协作委托。玩家共享同一realm的公共状态；角色、背包、个人任务和记忆仍各自隔离。
 
-战斗伤害、内力消耗、任务奖励和死亡恢复全部由游戏规则计算。AI仍只参与受约束的NPC态度和剧情判定，不能决定数值或直接改写状态。详细规则见[成长与共享江湖v3](docs/v3-growth-social.md)。
+战斗伤害、内力消耗、任务奖励和死亡恢复全部由游戏规则计算。AI仍只参与受约束的NPC态度和剧情判定，不能决定数值或直接改写状态。当前 Qingxi 未启用 NPC 行为树；详见[配置运行接入](docs/configured-runtime.md)和[成长与共享江湖](docs/v3-growth-social.md)。
 
 ## 启动与游玩
 
@@ -12,7 +12,7 @@
 docker compose up --build -d
 ```
 
-打开[江湖一隅](http://localhost:3000/)，输入用户名和密码；新用户自动创建，已有账号恢复当前存档。默认保持登录，右上角登出。新角色从村口开始。破坏性升级可能清空开发档案，正常重启不重置进度。
+打开[江湖一隅](http://localhost:3100/)，输入用户名和密码；新用户自动创建，已有账号恢复当前存档。默认保持登录，右上角登出。新角色从村口开始。破坏性升级可能清空开发档案，正常重启不重置进度。
 
 点击场景人物或下方同名按钮查看操作；出口按钮负责移动。地图可拖动、缩放及回到当前位置；点击地图节点仅查看，不会瞬移。浅色节点是可见但尚未探索的相邻地点。手机界面切换地图、场景、行囊与任务；移动时保持所选面板。
 
@@ -40,8 +40,10 @@ docker compose up --build -d
 
 | 文件 | 职责 |
 |---|---|
+| [content/*.json](content/manifest.json) | 静态地图、NPC、行为和内容版本配置 |
+| [content.ts](src/content.ts) | 严格加载并校验 JSON 内容 |
 | [world.ts](src/world.ts) | 组合地图与NPC目录，校验内容 |
-| [map.ts](src/map.ts) / [npcs.ts](src/npcs.ts) | 地图拓扑与NPC定义分别维护 |
+| [map.ts](src/map.ts) / [npcs.ts](src/npcs.ts) | 地图与NPC领域规则及投影 |
 | [scene.ts](src/scene.ts) | 当前scope的世界状态读取、场景对象与可用动作 |
 | [game.ts](src/game.ts) | 当前结构建表、初始化、严格行动Binding与事务内规则执行 |
 | [mod.ts](src/mod.ts) | MOD manifest、内容版本和公共注册校验 |
@@ -50,15 +52,15 @@ docker compose up --build -d
 
 MOD通过platform使用realm与基础协作，通过game-systems使用地图、NPC、任务与库存。host显式装配同房社交和任务退出策略。prepare在短事务中读取授权事实，模型等待不占数据库事务；apply重新检查角色和realm版本、位置及资格。NPC不是常驻Agent。
 
-新增同类房间只修改游戏内容配置：稳定ID、模板、坐标和显式出口；双向需要两条出向记录。坐标不决定可达。部署不兼容的内容变更时可重建开发库，不维护旧存档升级代码。
+新增同类房间通常只修改 `content/map.json` 及相关内容配置：稳定ID、模板、坐标和显式出口；双向需要两条出向记录。坐标不决定可达。资格和奖励等受信任规则仍由 MOD 的 TypeScript 实现，不把任意代码放入 JSON。部署不兼容的内容变更时可重建开发库，不维护旧存档升级代码。
 
 ## 设计与验收
 
 - [本地开发指引](AGENTS.md)与[需求索引](.agents/note/README.md)。
-- [世界设计](docs/world-mvp.md)、[地图设计](docs/map-presentation.md)、[实施计划](docs/world-mvp-plan.md)。
-- [世界验收用例](docs/world-mvp-testing.md)与[既有四动作规则回归](tests/README.md)。
-- [实际验证记录](docs/world-mvp-verification.md)：自动化、浏览器、真实模型及数据备份证据。
-- [v3验证记录](docs/v3-verification.md)：成长、战斗与共享江湖的实际检查和待运行项。
+- [配置运行接入](docs/configured-runtime.md)：当前 JSON、地图、共享 Action 和 NPC 行为边界。
+- [世界设计（历史 MVP 文档）](docs/world-mvp.md)、[地图展示](docs/map-presentation.md)、[成长与共享江湖](docs/v3-growth-social.md)。
+- [当前测试入口](tests/README.md)：游戏规则、事务和配置接入验收。
+- [历史验证记录](docs/world-mvp-verification.md)与[v3历史验证记录](docs/v3-verification.md)：已完成阶段的证据。
 
 ```sh
 docker compose --profile test run --build --rm tests

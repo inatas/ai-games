@@ -18,7 +18,7 @@ Status: implemented
 
 2026-09-17：重构前检查点main/762bdfaa2cd7787032570ca41e87fdd650e6f85d。青溪12房间/23出口/5NPC已迁入JSON，通行判断与地图展示复用规则，move调用公共Action并产生事实事件。初始化保持幂等；其他玩法保留原Binding。
 
-各阶段检查点、命令和结果见[统一验证记录](../../../../docs/testing/configured-game-runtime-verification.md)。开发服务尚未部署，未修改开发库。
+各阶段检查点、命令和结果见[统一验证记录](../../../../docs/testing/configured-game-runtime-verification.md)。开发服务可通过 Compose 启动；真实模型评测仍未运行。
 
 ## 待完善
 

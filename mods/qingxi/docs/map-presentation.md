@@ -1,6 +1,6 @@
 # 武侠世界地图表现设计
 
-版本：v2，已确认并实现。配合[世界MVP](world-mvp.md)、[验收用例](world-mvp-testing.md)、[实施计划](world-mvp-plan.md)和[实际验证](world-mvp-verification.md)阅读。
+版本：v2，已确认并实现。配合[世界MVP历史设计](world-mvp.md)、[验收用例](world-mvp-testing.md)和[实际验证](world-mvp-verification.md)阅读。
 
 ## 1. 原则和交付范围
 

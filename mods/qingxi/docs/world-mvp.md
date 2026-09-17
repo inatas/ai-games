@@ -1,8 +1,10 @@
-# 武侠世界示例 MVP 设计
+# 武侠世界示例 MVP 设计（历史设计记录）
+
+> 本文保留世界 MVP 的设计与演进证据。当前运行时以[配置运行接入](configured-runtime.md)、[根架构说明](../../../ARCHITECT.md)和 `content/*.json` 为准；本文中的旧迁移、兼容或按用户独立保存世界状态描述不再是现行规则。
 
 > 2026-09-17修订：本文旧档保留、回填及游客兼容条款已取消。当前按空库结构初始化，重复启动保留当前状态；不维护旧版升级路径。其余游戏规则和隔离/事务测试仍适用。
 
-版本：v2，用户已通过“继续代码实现”确认并完成MVP实现。配套[地图表现设计](map-presentation.md)、[测试设计](world-mvp-testing.md)与[实施计划](world-mvp-plan.md)；实际覆盖范围见[验证记录](world-mvp-verification.md)。
+版本：v2，用户已确认并完成MVP实现。配套[地图表现设计](map-presentation.md)与[测试设计](world-mvp-testing.md)；实际覆盖范围见[验证记录](world-mvp-verification.md)。
 
 ## 1. 目标与参考
 

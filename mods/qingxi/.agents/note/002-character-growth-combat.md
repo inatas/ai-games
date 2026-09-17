@@ -12,7 +12,7 @@ Status: in_progress
 
 以上为已确认范围。
 
-设计、数据与接口见[成长与共享江湖v3](../../docs/v3-growth-social.md)，测试契约见[v3测试设计](../../docs/v3-testing.md)，执行顺序见[v3实施计划](../../docs/v3-plan.md)。
+设计、数据与接口见[成长与共享江湖](../../docs/v3-growth-social.md)，测试契约见[v3测试设计](../../docs/v3-testing.md)；执行顺序和当前状态以本需求及测试入口为准。
 
 ## 验收
 

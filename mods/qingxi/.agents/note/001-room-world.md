@@ -12,7 +12,7 @@ v2已由用户“继续代码实现”确认并实现，替代v1草案。包含�
 
 设计与接口、数据契约见[武侠世界MVP设计](../../docs/world-mvp.md)，验收与夹具说明见[测试设计](../../docs/world-mvp-testing.md)。公共上下文扩展关联[框架011](../../../../.agents/note/011-composable-game-context.md)，其v1仍待单独确认；本需求不改变公共协议。
 
-地图投影、信息边界及交互见[地图表现设计](../../docs/map-presentation.md)，开发阶段和版本回退见[实施计划](../../docs/world-mvp-plan.md)。
+地图投影、信息边界及交互见[地图表现设计](../../docs/map-presentation.md)，版本回退使用需求记录中的 Git 检查点。
 
 ## 验收
 
