@@ -55,3 +55,8 @@
 - W-01、W-02、W-04～W-08：core/worldview单元测试和integration/worldview测试覆盖必需预算、纠正调用、配置校验、不可变版本、scope版本隔离、非AI路径及失败调用追溯。W-03同时由现有严格Schema/非法额外奖励测试覆盖结构约束，真实模型对世界观语义的遵循未验收。
 
 执行入口仍为docker compose --profile test run --build --rm tests。账号与世界观功能落地时共28组测试通过；加入DeepSeek协议测试后的当前全量回归为29组。分组用例覆盖多个ID，不等于每个表格子场景都有独立自动化测试。
+## 新角色失败反馈与恢复
+
+1. 有 processing 行动时开启新角色，接口返回 `SCOPE_BUSY`，页面显示该原因且不会丢弃可重试请求。
+2. 当前 scope 已变化时开启新角色，接口返回 `STATE_CONFLICT`，页面清理旧请求并要求刷新当前档案。
+3. 成功开启新角色后，页面使用响应中的 `currentScopeId` 读取新角色；重复相同 requestId 不产生第二个 scope。

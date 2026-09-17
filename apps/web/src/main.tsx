@@ -78,7 +78,20 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
     setResetting(true);const request=saved(resetKey)??{requestId:crypto.randomUUID(),expectedCurrentScopeId:session.currentScopeId};
     localStorage.setItem(resetKey,JSON.stringify(request));
     try{await api('/api/game/current/reset',{method:'POST',body:JSON.stringify(request)});localStorage.removeItem(resetKey);localStorage.removeItem(pendingKey);localStorage.removeItem(socialKey);await restore();}
-    catch(e){if(e instanceof ApiError&&e.status<500)localStorage.removeItem(resetKey);setError('新角色尚未确认，请重试。');}
+    catch(e){
+      if(e instanceof ApiError){
+        const messages:Record<string,string>={
+          SCOPE_BUSY:'当前行动仍在处理中，请稍后再试。',
+          STATE_CONFLICT:'当前档案已变化，正在刷新后请重新操作。',
+          IDEMPOTENCY_CONFLICT:'该新角色请求已失效，请重新发起。',
+          FORBIDDEN:'当前会话无权开启新角色。',
+          UNAUTHENTICATED:'登录状态已过期，请重新登录。'
+        };
+        if(e.code!=='SCOPE_BUSY')localStorage.removeItem(resetKey);
+        setError(messages[e.code]??`新角色创建失败：${e.code}`);
+        if(e.code==='STATE_CONFLICT')await restore().catch(()=>{});
+      } else setError('新角色创建失败，请重试。');
+    }
     finally{setResetting(false);}
   }
   if(!game)return <p>{error||'正在读取世界…'}</p>;

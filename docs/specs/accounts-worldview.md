@@ -35,6 +35,8 @@
 | POST /api/auth/logout | 撤销当前会话，清Cookie；重复退出成功 |
 | POST /api/game/current/reset | requestId、expectedCurrentScopeId；原子开启新局 |
 
+重置失败时保持结构化错误码和 `detail`（例如 `SCOPE_BUSY`、`STATE_CONFLICT`、`IDEMPOTENCY_CONFLICT`），客户端应展示可理解的原因并清理不可重试的本地请求；成功响应中的 `currentScopeId` 是后续恢复档案的唯一依据。
+
 新增fw_users（唯一规范用户名、密码派生值/盐、current_scope_id）、fw_sessions（令牌摘要、user_id、expires_at）、fw_game_resets（user_id/request_id唯一、完整请求中的旧scope字段、旧新scope关联）、fw_worldviews（world_id/version唯一、正文、内容摘要）。scope增加世界观版本外键。账号表和档案初始化由公共迁移与宿主回调协调；不提供旧数据库升级路径。
 
 公共档案服务通过login确保当前档案存在，提供reset与authorizeCurrent/行动登记事务契约；宿主提供initialize(tx, scopeId)回调，仅初始化题材数据和初始记忆，不拥有账号、Cookie或当前档案指针。
