@@ -4,8 +4,10 @@ import { Ajv, type ValidateFunction } from 'ajv';
 import type { Json } from '@game-ai/core';
 import { validateMap, type Exit, type MapDefinition, type RuleCondition } from './map.ts';
 import { validateNpcs, type NpcDefinition } from './npc.ts';
+import { validateBehavior, type BehaviorDefinition } from './behavior.ts';
 
 export class RuleRegistry {
+  ids() { return [...this.rules.keys()]; }
   private readonly rules = new Map<string, { validate: ValidateFunction; check: (facts: Record<string, Json>, params: Json) => string | null }>();
   register(id: string, schema: object, check: (facts: Record<string, Json>, params: Json) => string | null) {
     if (!id || this.rules.has(id)) throw Error('DUPLICATE_RULE');
@@ -41,9 +43,9 @@ const manifestSchema = object({ id: text, contentVersion: text, startRoomId: tex
 export interface ContentManifest {
   id: string; contentVersion: string; startRoomId: string; map: string; npcs: string; behaviors: string; actions: string[]; rules: string[];
 }
-export interface GameContent { manifest: ContentManifest; map: MapDefinition; npcs: NpcDefinition[]; behaviors: Json[] }
+export interface GameContent { manifest: ContentManifest; map: MapDefinition; npcs: NpcDefinition[]; behaviors: BehaviorDefinition[] }
 
-export function loadContent(directory: string, rules: RuleRegistry, actionIds: readonly string[]): GameContent {
+export function loadContent(directory: string, rules: RuleRegistry, actionSchemas: Record<string, object>): GameContent {
   const root = realpathSync(directory);
   const ajv = new Ajv({ strict: true });
   function load<T>(path: string, schema: object): T {
@@ -57,10 +59,19 @@ export function loadContent(directory: string, rules: RuleRegistry, actionIds: r
     return value as T;
   }
   const manifest = load<ContentManifest>('manifest.json', manifestSchema);
-  if (manifest.actions.some(id => !actionIds.includes(id))) throw Error('UNKNOWN_ACTION');
+  if (manifest.actions.some(id => !Object.hasOwn(actionSchemas, id))) throw Error('UNKNOWN_ACTION');
+  if (manifest.rules.some(id => !rules.ids().includes(id))) throw Error('UNKNOWN_RULE');
   const map = load<MapDefinition>(manifest.map, mapSchema);
   const npcs = load<NpcDefinition[]>(manifest.npcs, npcSchema);
-  const behaviors = load<Json[]>(manifest.behaviors, { type: 'array', items: { type: 'object' } });
+  const behaviors = load<BehaviorDefinition[]>(manifest.behaviors, { type: 'array', items: { type: 'object' } });
+  const behaviorIds = new Set<string>(), behaviorNpcs = new Set<string>();
+  for (const behavior of behaviors) {
+    validateBehavior(behavior, manifest.actions, manifest.rules, (ruleId, params) => rules.validate([{ ruleId, params }]), (id, params) => {
+      if (!ajv.validate(actionSchemas[id], params)) throw Error('INVALID_ACTION_PARAMS');
+    });
+    if (behaviorIds.has(behavior.id) || behaviorNpcs.has(behavior.npcId) || !npcs.some(n => n.id === behavior.npcId)) throw Error('INVALID_BEHAVIOR_REFERENCE');
+    behaviorIds.add(behavior.id); behaviorNpcs.add(behavior.npcId);
+  }
   if (manifest.contentVersion !== map.version) throw Error('CONTENT_VERSION_CONFLICT');
   validateMap(map, manifest.startRoomId);
   validateNpcs(npcs, new Set(map.rooms.map(r => r.id)));

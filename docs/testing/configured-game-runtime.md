@@ -1,6 +1,6 @@
 # 配置驱动运行验收 v1（已确认）
 
-协议以[详细设计](../specs/configured-game-runtime.md)为唯一正文。以下为测试用例说明，尚未编写或运行可执行测试。
+协议以[详细设计](../specs/configured-game-runtime.md)为唯一正文。以下为验收用例说明；已运行的命令、覆盖和限制见[验证记录](configured-game-runtime-verification.md)。
 
 | ID | 场景与验收 |
 |---|---|

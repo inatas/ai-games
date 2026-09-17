@@ -1,11 +1,13 @@
 # 需求 Notes
 
-配置运行升级（能力方向已确认，详细设计v1待确认；按顺序实施）：
+配置运行升级（详细设计v1已确认，按015→018完成实现；最终验证见各note）：
 
-- [015 事实事件与投递](015-event-delivery.md)：in_progress，文档阶段。
-- [016 角色/NPC共用Action](016-shared-actions.md)：in_progress，文档阶段。
-- [017 配置地图与移动](017-configured-map.md)：in_progress，文档阶段。
-- [018 行为树与调度](018-behavior-trees.md)：in_progress，文档阶段。
+- [015 事实事件与投递](015-event-delivery.md)：implemented，原子落库、幂等投递与恢复。
+- [016 角色/NPC共用Action](016-shared-actions.md)：implemented，共用移动与独立NPC执行scope。
+- [017 配置地图与移动](017-configured-map.md)：implemented，严格JSON及最小MOD样板。
+- [018 行为树与调度](018-behavior-trees.md)：implemented，持久调度、有限模型决策与叙述边界。
+
+上述合并回归72/72通过；在线重建网络限制、未部署及真实模型未运行见[验证记录](../../docs/testing/configured-game-runtime-verification.md)。
 
 [014 未发布阶段移除旧版兼容](014-breaking-cleanup.md)：implemented；旧入口/迁移清理完成，61项测试通过，开发库已重建并部署健康。
 

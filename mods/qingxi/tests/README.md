@@ -6,6 +6,8 @@
 
 ## 1. 夹具与Mock
 
+配置接入QCR-01～04：地图/NPC来自content JSON；原D/WM/CG/SR/QX数据库回归验证数值、师承门槛、护送及私密投影保持。共用move额外写platform_events，不改变原fw_memory事件语义。NPC默认无行为树，游戏自主巡逻未启用。
+
 地图/NPC拆分：world.test.ts检查独立地图与组合世界投影一致、12房间及5个NPC出生位置不变；room-game.test.ts继续验证NPC移动后的场景和过时AI结果拒绝，以及重复初始化不覆盖NPC运行时位置。
 
 W0：silver20、virtue0、skill1、master=null、encounterDone=false、goodDeedItemId=null、hostVersion0；scope memoryVersion0；已初始化公开事实投影，无事件、摘要或开放事项。

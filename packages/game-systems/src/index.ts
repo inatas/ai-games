@@ -10,3 +10,6 @@ export * from './spatial.ts';
 export * from './inventory.ts';
 export * from './actions.ts';
 export * from './content.ts';
+export * from './behavior.ts';
+export * from './scheduler.ts';
+export * from './action-model.ts';

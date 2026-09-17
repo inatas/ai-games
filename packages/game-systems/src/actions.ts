@@ -72,11 +72,13 @@ export async function moveActor(tx: Transaction, actor: ActorState, exitId: stri
   return { from: actor.roomId!, to: exit.to, exitId };
 }
 
+export const moveInputSchema = { type: 'object', additionalProperties: false, required: ['exitId'], properties: { exitId: { type: 'string', minLength: 1 }, note: { type: 'string', maxLength: 200 }, causationId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, chainDepth: { type: 'integer', minimum: 0, maximum: 4 } } };
+
 export function moveBinding(store: HarnessStore, options: MoveOptions & { id: string }): Binding {
   validateMap(options.map);
   return {
     id: options.id, version: '1', mode: 'recordMemory',
-    inputSchema: { type: 'object', additionalProperties: false, required: ['exitId'], properties: { exitId: { type: 'string', minLength: 1 }, note: { type: 'string', maxLength: 200 }, causationId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, chainDepth: { type: 'integer', minimum: 0, maximum: 4 } } },
+    inputSchema: moveInputSchema,
     lockResources: (tx, scopeId) => lockActor(tx, scopeId, 'move'),
     async prepare(input, scopeId) {
       return store.transaction(async tx => {

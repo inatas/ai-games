@@ -34,6 +34,9 @@ export class Harness {
   private view(row: any): RequestView {
     return { requestId: row.request_id, status: row.status, result: row.result, error: row.error, memoryVersion: row.memory_version };
   }
+  validateInput(bindingId: string, input: Json): boolean {
+    return !!this.bindings.get(bindingId)?.input(input);
+  }
   async get(scopeId: string, requestId: string, tx: Transaction = this.store.pool): Promise<RequestView> {
     if (!uuid.test(scopeId) || !uuid.test(requestId)) throw new HarnessError('INVALID_INPUT');
     const { rows } = await tx.query('SELECT * FROM fw_requests WHERE scope_id=$1 AND request_id=$2', [scopeId, requestId]);

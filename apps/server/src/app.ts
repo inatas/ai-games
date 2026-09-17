@@ -28,10 +28,16 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   const harness = new Harness(store, model);
   bindings.forEach(binding=>harness.register(binding));
   await harness.recover();
+  const runtime = await host.startRuntime?.(harness);
   const app = Fastify({ logger: false, bodyLimit: 32768, ajv: { customOptions: { removeAdditional: false, coerceTypes: false } } });
   const recovery = setInterval(() => { void harness.recover().catch(() => {}); }, 5000);
   recovery.unref();
-  app.addHook('onClose', async () => { clearInterval(recovery); await harness.close(); });
+  let runtimeJob: Promise<void> | undefined;
+  const runtimeTimer = runtime ? setInterval(() => {
+    if (!runtimeJob) runtimeJob = runtime.tick().catch(error => { app.log.error({ code: error instanceof HarnessError ? error.code : 'RUNTIME_FAILED' }, 'Game runtime tick failed'); }).finally(() => { runtimeJob = undefined; });
+  }, 1000) : undefined;
+  runtimeTimer?.unref();
+  app.addHook('onClose', async () => { clearInterval(recovery); if (runtimeTimer) clearInterval(runtimeTimer); await runtimeJob; await harness.close(); });
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof HarnessError) return reply.code(error.httpStatus).send({ code: error.code, detail: error.detail });
     const err = error as { validation?: unknown; statusCode?: number };

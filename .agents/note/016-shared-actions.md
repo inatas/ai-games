@@ -1,32 +1,24 @@
 # 需求：角色与NPC共用Action
 
-Status: in_progress
+Status: implemented
 
 ## 需求
 
-玩家角色与NPC通过同一动作接口执行，统一资格、事务、版本与幂等保护。
+game-systems提供Actor解析、NPC执行scope及共用move，复用Harness请求/记忆/事务。青溪原move已接入，其他玩法继续保留既有Binding规则。
 
 ## 范围
 
-2026-09-17用户已确认四项能力纳入三层框架，并要求写详细设计、逐一重构且避免过度抽象。能力方向已确认；[详细设计v1](../../docs/specs/configured-game-runtime.md)的具体协议与数据变更待确认，确认前仅文档工作。
-
-Actor引用、NPC专用scope、既有Binding复用、共同move；不含统一实体数据库重建或游戏数值调整。
+2026-09-17用户以“ok，开始”确认[详细设计v1](../../docs/specs/configured-game-runtime.md)与逐项实施。三层边界和首版限制以设计为准；青溪接入见[本地006](../../mods/qingxi/.agents/note/006-configured-runtime.md)。
 
 ## 验收
 
-- [ ] [验收契约](../../docs/testing/configured-game-runtime.md) AC-01～05，先写失败行为测试再实现。
-- [ ] 类型、仓库边界及对应单元/数据库回归；实际证据完成后补记。
+- [x] 对应[验收契约](../../docs/testing/configured-game-runtime.md)的AC-01～05行为实现与自动化回归，证据及覆盖限制见验证记录。
+- [x] 最终源码在隔离Docker中TypeScript、72/72测试和Vite通过；最终锁文件离线npm ci成功。标准在线重建遇ECONNRESET，未伪记为通过，详见验证记录。
 
 ## 当前进展
 
-阶段2检查点main/63e103ffbc591c609204aa9505874964dbb64c89。实现Actor解析、NPC独立执行scope、公共move与actor.moved；青溪move已接入，原其他规则继续使用Binding。新增AC数据库测试先失败后通过；完整回归62项通过、1项因多余Schema关键字失败，移除该关键字后Action定向回归和TypeScript通过。开发库未修改。后续配置与行为阶段继续补强验收，尚不标记全部验收完成。
-
-2026-09-17：用户回复“ok，开始”，已确认详细设计v1及验收范围。重构前检查点main/762bdfaa2cd7787032570ca41e87fdd650e6f85d，包含已审阅文档和用户删除旧示例README的状态，无秘密/数据库文件。文档检查通过；宿主缺少tsc，功能基线未验证，不称稳定版本。后续以下待确认描述为本次确认前历史。
-
-仅完成v1设计及测试用例说明，尚未实现或运行功能测试。执行顺序第2阶段，依赖[上一阶段](015-event-delivery.md)验收完成。青溪接入见[本地需求](../../mods/qingxi/.agents/note/006-configured-runtime.md)。
-
-已观察HEAD为ec0aa82；它不是本次重构检查点，工作区存在用户删除旧示例README。正式编码前核实全部差异、建立本地Git检查点并记录完整哈希、分支、已运行检查和已知问题；数据库恢复流程见详细设计。
+已完成本阶段实现。检查点、先行失败测试、实际命令与阶段结果统一记录在[验证记录](../../docs/testing/configured-game-runtime-verification.md)，不将历史基线称为未经验证的稳定版本。按015→018顺序开发，全部本地提交，无push。
 
 ## 待完善
 
-待审阅v1后逐阶段实现；当前没有功能完成或性能验证证据。后续协议变更重新确认受影响范围。
+开发服务未部署、开发库未修改。真实模型、容量压测未运行；标准在线重建需网络恢复后再验证。未来扩展须另行确认。

@@ -24,4 +24,10 @@ export async function migrateGameSystems(tx: Transaction) {
     realm_id text NOT NULL, npc_id text NOT NULL, scope_id uuid UNIQUE NOT NULL REFERENCES fw_scopes(id),
     enabled boolean NOT NULL DEFAULT true, actions text[] NOT NULL,
     PRIMARY KEY(realm_id,npc_id), FOREIGN KEY(realm_id,npc_id) REFERENCES mud_npcs(realm_id,npc_id));`);
+  await tx.query(`CREATE TABLE IF NOT EXISTS game_npc_behaviors (
+    realm_id text NOT NULL, npc_id text NOT NULL, scope_id uuid UNIQUE NOT NULL REFERENCES game_npc_actors(scope_id),
+    behavior_id text NOT NULL, content_version text NOT NULL, definition jsonb NOT NULL,
+    enabled boolean NOT NULL DEFAULT true, next_wake_at bigint NOT NULL,
+    cursor jsonb NOT NULL DEFAULT '{}', pending jsonb, cause jsonb, revision integer NOT NULL DEFAULT 0, last_error text,
+    PRIMARY KEY(realm_id,npc_id), FOREIGN KEY(realm_id,npc_id) REFERENCES game_npc_actors(realm_id,npc_id));`);
 }
