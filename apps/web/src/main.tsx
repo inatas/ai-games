@@ -30,6 +30,10 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
   const [synced,setSynced]=useState(false),[socialBusy,setSocialBusy]=useState(false),[resetting,setResetting]=useState(false),[confirmReset,setConfirmReset]=useState(false);
   const active=useRef(true),busy=useRef(false),sequence=useRef(0);
   useEffect(()=>()=>{active.current=false;},[]);
+  useEffect(()=>{
+    const request=saved<{expectedCurrentScopeId?:string}>(resetKey);
+    if(request?.expectedCurrentScopeId && request.expectedCurrentScopeId!==session.currentScopeId) localStorage.removeItem(resetKey);
+  },[resetKey,session.currentScopeId]);
   async function refresh(){
     const n=++sequence.current;
     try{const incoming:Game=await api('/api/mud/current');if(active.current&&n===sequence.current){setGame(old=>acceptSnapshot(session.currentScopeId,old,incoming));setSynced(true);}}
@@ -77,7 +81,7 @@ function GameView({session,restore}:{session:UserSession;restore:()=>Promise<voi
   async function reset(){
     setResetting(true);const request=saved(resetKey)??{requestId:crypto.randomUUID(),expectedCurrentScopeId:session.currentScopeId};
     localStorage.setItem(resetKey,JSON.stringify(request));
-    try{await api('/api/game/current/reset',{method:'POST',body:JSON.stringify(request)});localStorage.removeItem(resetKey);localStorage.removeItem(pendingKey);localStorage.removeItem(socialKey);await restore();}
+    try{await api('/api/game/current/reset',{method:'POST',body:JSON.stringify(request)});localStorage.removeItem(resetKey);localStorage.removeItem(pendingKey);localStorage.removeItem(socialKey);setError('');await restore();}
     catch(e){
       if(e instanceof ApiError){
         const messages:Record<string,string>={
