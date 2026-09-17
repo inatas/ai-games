@@ -20,4 +20,8 @@ export async function migrateGameSystems(tx: Transaction) {
       task_id uuid, scope_id uuid, reward_key text, PRIMARY KEY(task_id,scope_id,reward_key),
       FOREIGN KEY(task_id,scope_id) REFERENCES mud_participants(task_id,scope_id));
   `);
+  await tx.query(`CREATE TABLE IF NOT EXISTS game_npc_actors (
+    realm_id text NOT NULL, npc_id text NOT NULL, scope_id uuid UNIQUE NOT NULL REFERENCES fw_scopes(id),
+    enabled boolean NOT NULL DEFAULT true, actions text[] NOT NULL,
+    PRIMARY KEY(realm_id,npc_id), FOREIGN KEY(realm_id,npc_id) REFERENCES mud_npcs(realm_id,npc_id));`);
 }

@@ -19,6 +19,8 @@ Actor引用、NPC专用scope、既有Binding复用、共同move；不含统一�
 
 ## 当前进展
 
+阶段2检查点main/63e103ffbc591c609204aa9505874964dbb64c89。实现Actor解析、NPC独立执行scope、公共move与actor.moved；青溪move已接入，原其他规则继续使用Binding。新增AC数据库测试先失败后通过；完整回归62项通过、1项因多余Schema关键字失败，移除该关键字后Action定向回归和TypeScript通过。开发库未修改。后续配置与行为阶段继续补强验收，尚不标记全部验收完成。
+
 2026-09-17：用户回复“ok，开始”，已确认详细设计v1及验收范围。重构前检查点main/762bdfaa2cd7787032570ca41e87fdd650e6f85d，包含已审阅文档和用户删除旧示例README的状态，无秘密/数据库文件。文档检查通过；宿主缺少tsc，功能基线未验证，不称稳定版本。后续以下待确认描述为本次确认前历史。
 
 仅完成v1设计及测试用例说明，尚未实现或运行功能测试。执行顺序第2阶段，依赖[上一阶段](015-event-delivery.md)验收完成。青溪接入见[本地需求](../../mods/qingxi/.agents/note/006-configured-runtime.md)。

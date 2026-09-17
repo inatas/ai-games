@@ -24,7 +24,7 @@ export interface Prepared {
   subjectIds: string[]; tags: string[]; requiredMemoryIds: string[];
   visibility?: Visibility[];
 }
-export interface ExecutionContext { scopeId: string; input: Json; gameVersion: string }
+export interface ExecutionContext { scopeId: string; requestId: string; input: Json; gameVersion: string }
 export interface Binding {
   /** Acquire host shared resources before the coordinator locks the player scope. No network I/O. */
   lockResources?(tx: Transaction, scopeId: string): Promise<unknown>;

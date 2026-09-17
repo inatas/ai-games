@@ -122,7 +122,7 @@ export class Harness {
         if (request.status !== 'processing' || Number(request.lease_expires_at) <= this.clock.now()) throw new HarnessError('PROCESSING_EXPIRED');
         if (controller.signal.aborted || this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
         if (scope.memory_version !== input.expectedMemoryVersion) throw new HarnessError('STATE_CONFLICT');
-        const result = await binding.apply(tx, proposal, { scopeId: input.scopeId, input: input.input, gameVersion: prepared.gameVersion });
+        const result = await binding.apply(tx, proposal, { scopeId: input.scopeId, requestId: input.requestId, input: input.input, gameVersion: prepared.gameVersion });
         await this.options.hook?.('host', input);
         await this.store.applyMemory(tx, input.scopeId, result.memoryChanges);
         await this.options.hook?.('memory', input);

@@ -5,7 +5,7 @@ import { ScriptedModel } from '@game-ai/model';
 import { map as world } from './map.ts';
 import { npcs } from './npcs.ts';
 import { lockRealm, migratePlatform } from '@game-ai/platform';
-import { sharedTask, changeItemQuantity, migrateGameSystems } from '@game-ai/game-systems';
+import { sharedTask, changeItemQuantity, migrateGameSystems, createActionEvents, moveActor, lockActor } from '@game-ai/game-systems';
 import { realmId, manifest } from './mod.ts';
 import { readWorldState, makeScene, type WorldState } from './scene.ts';
 import { schools, trainingDenial } from './training.ts';
@@ -126,6 +126,7 @@ function check(action: Action, input: Input, s: WorldState) {
 }
 const answers = { GUIDE: '若想熟悉青溪镇，可去药铺帮药师解忧，也可到武馆问道。', KINDNESS: '善行自有回响。镇上的人会记得你的相助。' };
 export function gameBinding(store: PostgresStore, action: Action): Binding {
+  const events = createActionEvents(store);
   const ai = ['encounter', 'apprenticeship', 'talk'].includes(action);
   const choices = action === 'encounter' ? ['GIFT', 'GUIDANCE'] : ['ACCEPT', 'DEFER'];
   const outputSchema = action === 'talk'
@@ -168,7 +169,10 @@ export function gameBinding(store: PostgresStore, action: Action): Binding {
         if(outcome.awarded) { row.experience += 5; row.potential += 2; }
         message = ({escort_accept:'两人接下护送药箱委托。',escort_contribute:'你勘察了林地药路。',escort_complete:'药箱已安全送达。',escort_claim:'领取护送奖励：经验+5，潜能+2。'} as Record<string,string>)[action];
       } else if (action === 'move') {
-        row.current_room_id = world.exits.find(e => e.id === input.exitId)!.to;
+        const actor = await lockActor(tx, context.scopeId, 'move');
+        const moved = await moveActor(tx, actor, input.exitId!, context.requestId, { map: world, events,
+          denial: async () => deny('move', input, s) });
+        row.current_room_id = moved.to;
         await tx.query('INSERT INTO wuxia_discovered_rooms VALUES($1,$2) ON CONFLICT DO NOTHING', [context.scopeId, row.current_room_id]);
         message = `你来到${world.rooms.find(r => r.id === row.current_room_id)!.name}。`;
       } else if (action === 'accept_quest') {
