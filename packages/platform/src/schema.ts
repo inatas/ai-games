@@ -38,4 +38,19 @@ export async function migratePlatform(tx: Transaction) {
     CREATE TABLE IF NOT EXISTS mud_writes (
       scope_id uuid REFERENCES mud_characters(scope_id), request_id uuid, hash text NOT NULL, result jsonb NOT NULL, PRIMARY KEY(scope_id,request_id));
 `);
+  await tx.query(`
+    CREATE TABLE IF NOT EXISTS platform_events (
+      id uuid PRIMARY KEY, realm_id text NOT NULL REFERENCES mud_realms(id), type text NOT NULL,
+      actor jsonb NOT NULL, request_id uuid NOT NULL, causation_id uuid REFERENCES platform_events(id),
+      chain_depth integer NOT NULL CHECK(chain_depth BETWEEN 0 AND 4), content_version text NOT NULL,
+      payload jsonb NOT NULL, created_at bigint NOT NULL, hash text NOT NULL);
+    CREATE TABLE IF NOT EXISTS platform_event_deliveries (
+      id uuid PRIMARY KEY, event_id uuid NOT NULL REFERENCES platform_events(id), consumer_id text NOT NULL,
+      recipient_kind text NOT NULL, recipient_id text NOT NULL,
+      status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','done','failed')),
+      lease_until bigint, attempts integer NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 3),
+      next_attempt_at bigint NOT NULL, error_code text,
+      UNIQUE(event_id,consumer_id,recipient_kind,recipient_id));
+    CREATE INDEX IF NOT EXISTS platform_delivery_due ON platform_event_deliveries(next_attempt_at) WHERE status IN ('pending','processing');
+  `);
 }
