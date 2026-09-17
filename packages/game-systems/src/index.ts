@@ -9,3 +9,4 @@ export * from './schema.ts';
 export * from './spatial.ts';
 export * from './inventory.ts';
 export * from './actions.ts';
+export * from './content.ts';

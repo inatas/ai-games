@@ -1,0 +1,32 @@
+[
+  {
+    "id": "waiter",
+    "name": "店小二",
+    "initialRoomId": "tea",
+    "description": "熟悉镇上见闻，待人爽朗。"
+  },
+  {
+    "id": "herbalist",
+    "name": "药师",
+    "initialRoomId": "herbalist",
+    "description": "悬壶济世，正在寻找遗失的药包。"
+  },
+  {
+    "id": "villager",
+    "name": "村民",
+    "initialRoomId": "square",
+    "description": "生活清苦，记得旅人的善意。"
+  },
+  {
+    "id": "master",
+    "name": "青松道人",
+    "initialRoomId": "dojo",
+    "description": "重品行，亦重勤学。"
+  },
+  {
+    "id": "disciple",
+    "name": "武馆弟子",
+    "initialRoomId": "dojo-yard",
+    "description": "以武会友，点到即止。"
+  }
+]

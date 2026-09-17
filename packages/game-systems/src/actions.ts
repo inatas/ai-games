@@ -59,6 +59,7 @@ export async function moveActor(tx: Transaction, actor: ActorState, exitId: stri
   const exit = options.map.exits.find(e => e.id === exitId && e.from === actor.roomId);
   if (!exit || !options.map.rooms.some(r => r.id === exit.to)) throw new HarnessError('RULE_REJECTED', 409, 'NOT_ADJACENT');
   if (actor.contentVersion !== options.map.version) throw new HarnessError('CONTENT_VERSION_CONFLICT');
+  if (exit.conditions?.length && !options.denial) throw new HarnessError('RULE_REJECTED', 409, 'MISSING_RULE_EVALUATOR');
   const denial = await options.denial?.(tx, actor, exit);
   if (denial) throw new HarnessError('RULE_REJECTED', 409, denial);
   const event: FactEvent = { eventId: randomUUID(), realmId: actor.realmId, type: 'actor.moved', actor: { kind: actor.ref.kind, id: actor.ref.kind === 'character' ? actor.scopeId : actor.ref.npcId }, requestId,
@@ -75,7 +76,7 @@ export function moveBinding(store: HarnessStore, options: MoveOptions & { id: st
   validateMap(options.map);
   return {
     id: options.id, version: '1', mode: 'recordMemory',
-    inputSchema: { type: 'object', additionalProperties: false, required: ['exitId'], properties: { exitId: { type: 'string', minLength: 1 }, causationId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, chainDepth: { type: 'integer', minimum: 0, maximum: 4 } } },
+    inputSchema: { type: 'object', additionalProperties: false, required: ['exitId'], properties: { exitId: { type: 'string', minLength: 1 }, note: { type: 'string', maxLength: 200 }, causationId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, chainDepth: { type: 'integer', minimum: 0, maximum: 4 } } },
     lockResources: (tx, scopeId) => lockActor(tx, scopeId, 'move'),
     async prepare(input, scopeId) {
       return store.transaction(async tx => {

@@ -1,0 +1,14 @@
+{
+  "id": "qingxi",
+  "contentVersion": "1",
+  "startRoomId": "gate",
+  "map": "map.json",
+  "npcs": "npcs.json",
+  "behaviors": "behaviors.json",
+  "actions": [
+    "move"
+  ],
+  "rules": [
+    "qingxi.master"
+  ]
+}

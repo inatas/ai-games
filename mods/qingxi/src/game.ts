@@ -4,6 +4,7 @@ import { HarnessError, type Binding, type MemoryChange, type Transaction } from 
 import { ScriptedModel } from '@game-ai/model';
 import { map as world } from './map.ts';
 import { npcs } from './npcs.ts';
+import { mapRules } from './content.ts';
 import { lockRealm, migratePlatform } from '@game-ai/platform';
 import { sharedTask, changeItemQuantity, migrateGameSystems, createActionEvents, moveActor, lockActor } from '@game-ai/game-systems';
 import { realmId, manifest } from './mod.ts';
@@ -61,6 +62,9 @@ export function publicState(row: any) {
     name: row.player_name, gender: row.gender, hp: row.hp, maxHp: 30, qi: row.qi, maxQi: 10, experience: row.experience, potential: row.potential, schoolId: row.school_id };
 }
 export async function initializeGame(store: PostgresStore, tx: Transaction, id: string) {
+  await tx.query('SELECT id FROM mud_realms WHERE id=$1 FOR UPDATE', [realmId]);
+  await tx.query('SELECT id FROM fw_scopes WHERE id=$1 FOR UPDATE', [id]);
+  if ((await tx.query('SELECT 1 FROM wuxia_characters WHERE scope_id=$1', [id])).rowCount) return;
   const row = (await tx.query("INSERT INTO wuxia_characters(scope_id,current_room_id,world_content_version,player_name,last_active_at) VALUES($1,'gate',$2,$4,$3) RETURNING *", [id, world.version, Date.now(),`少侠-${id.slice(0,4)}`])).rows[0];
   await tx.query("INSERT INTO mud_characters(scope_id,realm_id,name,room_id) VALUES($1,$2,$3,'gate')", [id,realmId,row.player_name]);
   await tx.query("INSERT INTO wuxia_discovered_rooms VALUES($1,'gate')", [id]);
@@ -76,7 +80,8 @@ function deny(action: Action, input: Input, s: WorldState): string | null {
   if (action === 'move') {
     const exit = world.exits.find(e => e.id === input.exitId && e.from === row.current_room_id);
     if (!exit) return 'NOT_ADJACENT';
-    if (exit.requirement === 'master' && !row.master) return 'EXIT_LOCKED';
+    const reason = mapRules.denial(exit, { master: !!row.master });
+    if (reason) return reason;
   }
   if (action === 'talk' && input.topicId !== 'news') return 'INVALID_TOPIC';
   if (['accept_quest', 'give'].includes(action) && input.questId !== 'medicine') return 'QUEST_NOT_ACTIVE';

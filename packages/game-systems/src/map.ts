@@ -3,7 +3,8 @@ export interface Room {
   id: string; name: string; kind: RoomKind; templateId: RoomKind;
   description: string; layout: { x: number; y: number };
 }
-export interface Exit { id: string; from: string; to: string; direction: string; requirement?: string }
+export interface RuleCondition { ruleId: string; params: import('@game-ai/core').Json }
+export interface Exit { id: string; from: string; to: string; direction: string; conditions?: RuleCondition[] }
 export interface MapDefinition { version: string; rooms: Room[]; exits: Exit[] }
 const indices = new WeakMap<MapDefinition, { rooms: Map<string, Room>; exits: Map<string, Exit[]> }>();
 export function validateMap(value: MapDefinition, start = value.rooms[0]?.id) {

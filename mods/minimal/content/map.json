@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "rooms": [
+    {"id":"a","name":"Entrance","kind":"street","templateId":"street","description":"An entrance.","layout":{"x":0,"y":0}},
+    {"id":"b","name":"Hall","kind":"indoor","templateId":"indoor","description":"A hall.","layout":{"x":1,"y":0}}
+  ],
+  "exits": [
+    {"id":"east","from":"a","to":"b","direction":"east","conditions":[{"ruleId":"permit","params":{}}]},
+    {"id":"west","from":"b","to":"a","direction":"west"}
+  ]
+}

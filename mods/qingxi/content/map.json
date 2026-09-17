@@ -1,0 +1,283 @@
+{
+  "version": "1",
+  "rooms": [
+    {
+      "id": "gate",
+      "name": "村口",
+      "kind": "street",
+      "templateId": "street",
+      "layout": {
+        "x": 70,
+        "y": 60
+      },
+      "description": "旧木牌写着青溪镇。远山如黛，石路向镇中延伸。"
+    },
+    {
+      "id": "street",
+      "name": "青石街",
+      "kind": "street",
+      "templateId": "street",
+      "layout": {
+        "x": 210,
+        "y": 60
+      },
+      "description": "青石被岁月磨得温润，街边传来茶香与药香。"
+    },
+    {
+      "id": "tea",
+      "name": "茶馆",
+      "kind": "indoor",
+      "templateId": "indoor",
+      "layout": {
+        "x": 350,
+        "y": 60
+      },
+      "description": "梁下茶烟袅袅，店小二正擦拭桌案。"
+    },
+    {
+      "id": "tea-yard",
+      "name": "茶馆后院",
+      "kind": "street",
+      "templateId": "street",
+      "layout": {
+        "x": 490,
+        "y": 60
+      },
+      "description": "竹影扫过石墙，一扇便门通向青石街，只可由内推开。"
+    },
+    {
+      "id": "herbalist",
+      "name": "药铺",
+      "kind": "indoor",
+      "templateId": "indoor",
+      "layout": {
+        "x": 210,
+        "y": 190
+      },
+      "description": "药柜排列整齐，老药师似乎正为一件事发愁。"
+    },
+    {
+      "id": "square",
+      "name": "广场",
+      "kind": "street",
+      "templateId": "street",
+      "layout": {
+        "x": 210,
+        "y": 320
+      },
+      "description": "老树下歇着一位村民，向来往旅人拱手致意。"
+    },
+    {
+      "id": "dojo",
+      "name": "武馆",
+      "kind": "indoor",
+      "templateId": "indoor",
+      "layout": {
+        "x": 350,
+        "y": 320
+      },
+      "description": "青松道人静坐堂前，听院中习武之声。"
+    },
+    {
+      "id": "dojo-yard",
+      "name": "武馆后院",
+      "kind": "street",
+      "templateId": "street",
+      "layout": {
+        "x": 490,
+        "y": 320
+      },
+      "description": "木桩旁，武馆弟子邀人切磋。内室门扉半掩。"
+    },
+    {
+      "id": "inner",
+      "name": "内室",
+      "kind": "indoor",
+      "templateId": "indoor",
+      "layout": {
+        "x": 630,
+        "y": 320
+      },
+      "description": "一室清静，案上放着入门心法。"
+    },
+    {
+      "id": "trail",
+      "name": "山道",
+      "kind": "wild",
+      "templateId": "wild",
+      "layout": {
+        "x": 210,
+        "y": 450
+      },
+      "description": "山路渐窄，风过松梢。"
+    },
+    {
+      "id": "forest",
+      "name": "林地",
+      "kind": "wild",
+      "templateId": "wild",
+      "layout": {
+        "x": 350,
+        "y": 450
+      },
+      "description": "树影交错，落叶覆着林间小径。"
+    },
+    {
+      "id": "stream",
+      "name": "溪边",
+      "kind": "wild",
+      "templateId": "wild",
+      "layout": {
+        "x": 490,
+        "y": 450
+      },
+      "description": "溪水绕过旧石碑，仿佛留着前人的故事。"
+    }
+  ],
+  "exits": [
+    {
+      "id": "gate:street",
+      "from": "gate",
+      "to": "street",
+      "direction": "东"
+    },
+    {
+      "id": "street:gate",
+      "from": "street",
+      "to": "gate",
+      "direction": "西"
+    },
+    {
+      "id": "street:tea",
+      "from": "street",
+      "to": "tea",
+      "direction": "东"
+    },
+    {
+      "id": "tea:street",
+      "from": "tea",
+      "to": "street",
+      "direction": "西"
+    },
+    {
+      "id": "tea:tea-yard",
+      "from": "tea",
+      "to": "tea-yard",
+      "direction": "后门"
+    },
+    {
+      "id": "tea-yard:tea",
+      "from": "tea-yard",
+      "to": "tea",
+      "direction": "前厅"
+    },
+    {
+      "id": "street:herbalist",
+      "from": "street",
+      "to": "herbalist",
+      "direction": "南"
+    },
+    {
+      "id": "herbalist:street",
+      "from": "herbalist",
+      "to": "street",
+      "direction": "北"
+    },
+    {
+      "id": "herbalist:square",
+      "from": "herbalist",
+      "to": "square",
+      "direction": "南"
+    },
+    {
+      "id": "square:herbalist",
+      "from": "square",
+      "to": "herbalist",
+      "direction": "北"
+    },
+    {
+      "id": "square:dojo",
+      "from": "square",
+      "to": "dojo",
+      "direction": "东"
+    },
+    {
+      "id": "dojo:square",
+      "from": "dojo",
+      "to": "square",
+      "direction": "西"
+    },
+    {
+      "id": "dojo:dojo-yard",
+      "from": "dojo",
+      "to": "dojo-yard",
+      "direction": "后门"
+    },
+    {
+      "id": "dojo-yard:dojo",
+      "from": "dojo-yard",
+      "to": "dojo",
+      "direction": "前厅"
+    },
+    {
+      "id": "dojo-yard:inner",
+      "from": "dojo-yard",
+      "to": "inner",
+      "direction": "内室",
+      "conditions": [
+        {
+          "ruleId": "qingxi.master",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "id": "inner:dojo-yard",
+      "from": "inner",
+      "to": "dojo-yard",
+      "direction": "出门"
+    },
+    {
+      "id": "square:trail",
+      "from": "square",
+      "to": "trail",
+      "direction": "南"
+    },
+    {
+      "id": "trail:square",
+      "from": "trail",
+      "to": "square",
+      "direction": "北"
+    },
+    {
+      "id": "trail:forest",
+      "from": "trail",
+      "to": "forest",
+      "direction": "东"
+    },
+    {
+      "id": "forest:trail",
+      "from": "forest",
+      "to": "trail",
+      "direction": "西"
+    },
+    {
+      "id": "forest:stream",
+      "from": "forest",
+      "to": "stream",
+      "direction": "东"
+    },
+    {
+      "id": "stream:forest",
+      "from": "stream",
+      "to": "forest",
+      "direction": "西"
+    },
+    {
+      "id": "tea-yard:street",
+      "from": "tea-yard",
+      "to": "street",
+      "direction": "便门"
+    }
+  ]
+}
