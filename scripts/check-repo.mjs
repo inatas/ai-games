@@ -18,6 +18,15 @@ for(const p of files){
  if(p.includes(`${process.platform==='win32'?'\\':'/'}packages${process.platform==='win32'?'\\':'/'}`)&&/\.[cm]?tsx?$/.test(p)){
    const norm=p.replaceAll('\\','/');
    if(norm.includes('/src/')){
+     // The two game frameworks are peers; shared base packages cannot depend on either.
+     const dependencies = [...text.matchAll(/(?:from\s+|import\s*\()['"]([^'"]+)['"]/g)].map(m => m[1]);
+     const importsTurnBased = dependencies.some(dep => dep === '@game-ai/turn-based' || dep.startsWith('@game-ai/turn-based/') || /(?:^|\/)turn-based\//.test(dep));
+     if (/\/packages\/(?:core|model|identity|storage|platform|game-systems)\/src\//.test(norm) && importsTurnBased) errors.push(`${p}: lower layer or MUD imports turn-based framework`);
+     if (norm.includes('/turn-based/src/')) {
+       for (const dep of dependencies) {
+         if (!(dep.startsWith('./') || dep.startsWith('node:') || dep === '@game-ai/core' || dep === 'ajv')) errors.push(`${p}: turn-based imports outside its base contracts: ${dep}`);
+       }
+     }
      for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('examples/')||m[1].includes('mods/')||m[1].includes('apps/'))errors.push(`${p}: source imports host ${m[1]}`);
      if(/from ['"]@game-ai\/mud-core['"]/.test(text))errors.push(`${p}: removed compatibility package imported`);
      if(norm.includes('/storage/src/')&&/from ['"]@game-ai\/(?:platform|game-systems)['"]/.test(text))errors.push(`${p}: storage imports upper layer`);

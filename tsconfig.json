@@ -5,6 +5,7 @@
     "allowImportingTsExtensions": true, "noEmit": true, "jsx": "react-jsx",
     "types": ["node"], "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
+      "@game-ai/turn-based": ["./packages/turn-based/src/index.ts"],
       "@game-ai/platform": ["./packages/platform/src/index.ts"],
       "@game-ai/game-systems": ["./packages/game-systems/src/index.ts"],
       "@game-ai/core": ["./packages/core/src/index.ts"],

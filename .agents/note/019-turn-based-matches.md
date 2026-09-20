@@ -12,13 +12,22 @@ Status: draft
 
 ## 验收
 
-- [ ] 详细规则确认后补充接口、数据和行为验收；当前仅记录验收方向。
+- [x] TB-01～TB-08通用框架契约已实现并有可执行测试。正文见[框架测试契约](../../docs/testing/turn-based-matches.md)，实现契约见[设计](../../docs/specs/turn-based-matches.md)。
+- [ ] 狼人杀接入与只读旁观UI不在本轮范围，随[狼人杀001](../../mods/werewolf/.agents/note/001-ai-spectator-mvp.md)另行确认。
 
 ## 当前进展
 
-仅编写文档，未修改实现、可执行测试、数据库或部署。检查时main/c1f4dcf20040a1f11b4b813dba9c1375ff893fe8工作区干净；未重新验证基线运行结果。大改实施前重新核对并建立包含本次文档的本地检查点。
+2026-09-21：通用框架已按已授权边界实现，狼人杀细则仍待用户提供，本轮未实现MOD、HTTP路由或UI。
+
+- 实现：`packages/turn-based/src`（types/engine/runtime/schema）。独立入口`@game-ai/turn-based`，只依赖`@game-ai/core`公共入口与ajv；新表仅`tb_rooms`、`tb_seats`。MUD包与底层包均未反向引用，由`npm run check:repo`强制。
+- 测试证据（本次实际运行）：
+  - `packages/turn-based/tests/engine.test.ts`：6/6通过（纯引擎：满员开局、顺序/封闭收集、信息隔离、预算中止不揭密）。
+  - `tests/integration/turn-based.test.ts`：15/15通过，真实PostgreSQL 18容器，覆盖TB-01～TB-08，含并发tick共享请求、过期响应拒绝、结算回滚、阶段变更拒绝陈旧输出、大关停时序、12席独立scope。
+  - 全量回归：93/93通过（core、model、game-systems、turn-based、tests/integration、mods/qingxi）。
+  - `npm run check`（tsc --noEmit）与`npm run check:repo`通过（205文件，26需求）。
+- 未运行：Docker镜像构建（`docker compose --profile test run --build --rm tests`）与真实LLM对局。本轮以ScriptedModel验证框架契约，真实模型证据留待狼人杀接入后按MOD验收记录。未使用Mock冒充真实PostgreSQL或真实模型。
 
 ## 待完善
 
-既有架构方向不重复索取确认；细化接口、数据和验收设计后按仓库流程提交审阅，再实施。正常结束后揭密，进行中旁观者仅见公共信息。
+狼人杀规则细节（平票、狼队合刀、遗言、警长、双爆吞警徽）由用户后续提供后再细化MOD设计与验收。既有架构方向不重复索取确认。正常结束后揭密，进行中旁观者仅见公共信息。
 

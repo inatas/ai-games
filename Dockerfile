@@ -9,6 +9,7 @@ COPY packages/game-systems/package.json packages/game-systems/package.json
 COPY packages/identity/package.json packages/identity/package.json
 COPY packages/model/package.json packages/model/package.json
 COPY packages/storage/package.json packages/storage/package.json
+COPY packages/turn-based/package.json packages/turn-based/package.json
 RUN npm ci --ignore-scripts --registry=${NPM_REGISTRY}
 
 FROM dependencies AS build
