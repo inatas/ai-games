@@ -2,13 +2,16 @@
 
 ## 产品边界
 
-项目产品方向已调整为AI驱动的多人在线角色扮演MUD框架。通用MUD运行层提供共享世界、实体、授权视角与协作机制；MOD拥有具体题材、内容与可执行游戏规则。青溪镇是首个MOD，门派、武功、内力和伤害公式均属于该MOD。
+项目采用统一基础框架，第二层分别承载MUD游戏框架与房间制回合游戏框架，第三层MOD拥有具体游戏内容与规则。2026-09-20用户已确认房间制回合框架独立建设，不强制整合MUD；该扩展尚未实现，见[需求019](.agents/note/019-turn-based-matches.md)及[架构大纲](docs/specs/turn-based-matches.md)。现有MUD运行层提供共享世界、实体、授权视角与协作机制，青溪镇为其首个MOD，门派、武功、内力和伤害公式均属于该MOD。
 
 Game AI Harness是其中供游戏按需调用的AI判定子系统。NPC与历史事件持久存在；当游戏需要综合推理时才调用模型。Harness不内置回合、题材、战斗、数值成长、剧情触发或NPC自主循环。
 
 当前三层契约见[三层设计](docs/specs/three-layer-architecture.md)和[需求013](.agents/note/013-three-layer-platform.md)。用户已确认；原[需求012](.agents/note/012-ai-mud-framework.md)保留MUD迁移历史。基础层负责realm、通信、组队和钱包；可选系统负责地图、NPC、任务与库存；MOD负责玩法。真实支付为可选平台集成，尚未接入渠道。
 
 ## 依赖方向
+
+下图为现有实现。目标扩展增加独立房间制回合框架及狼人杀MOD：狼人杀→房间制回合框架→统一底层；房间制回合框架与game-systems互不依赖，底层不得反向导入任一框架。应用分别装配两种游戏类型。
+
 
 ```text
 apps/server ──► registered MOD host + platform + game-systems + identity + core + model + storage
@@ -54,6 +57,9 @@ React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试
 
 ## 变更规则
 
+跨游戏框架的系统按实际需求抽象。背包、道具等当前保持已有归属，未来多个框架确有共用需求后再提取共同契约；本轮不预建公共玩法系统或将库存迁入底层。
+
+
 配置驱动运行见[详细设计v1](docs/specs/configured-game-runtime.md)及需求015～018：用户已确认并实施。事件基础设施归platform，Action、地图规则与行为树归game-systems，JSON内容与受信任规则函数归MOD。NPC有独立执行scope，但没有账号/玩家角色；调度位于Harness上方，保持Harness无自主NPC循环的不变量。事件与状态同事务提交，模型决策和后续动作分别提交，叙述不成为权威事实。
 
 未发布阶段不维护旧包、旧API或旧数据升级路径，按当前结构初始化；必要时显式重建本项目开发库。旧代码通过Git查看，不留在运行路径。当前版本重启须保留状态，事务、授权和幂等规则不变。详见[需求014](.agents/note/014-breaking-cleanup.md)。
@@ -61,3 +67,5 @@ React页面消费通用WorldView；青溪镇是首个受信任MOD。中性测试
 地图与NPC分别定义：MapDefinition含房间、出口、注册条件引用和地图版本；NpcDefinition含身份描述及可选initialRoomId（仅用于初始化）。World可组合两者；地图投影不依赖NPC。运行时位置以mud_npcs为准，玩家/NPC普通移动共用moveActor；既有管理/任务状态更新保留锁与revision协议。MOD装配校验初始位置引用；无出生位置的NPC允许仅存在于目录。配置不执行任意代码，首版无Lua、YAML解析或通用规则DSL。
 
 新增能力优先扩展已明确的Binding/ModelAdapter/记忆操作接口。涉及跨包协议、状态格式、事务边界或权限的改动，同步更新本文件、需求note和测试。协议详见[框架规格](docs/specs/framework.md)，框架验收详见[测试规格](docs/testing/framework.md)。
+
+

@@ -37,3 +37,5 @@
 | [011](011-composable-game-context.md) | draft | 可组合的多游戏上下文（v1待确认） |
 | [012](012-ai-mud-framework.md) | in_progress | AI驱动MUD框架与MOD边界；主要代码和数据迁移已验收，窄屏/键盘人工验收待做 |
 
+
+[019 房间制回合游戏框架](019-turn-based-matches.md)：draft，大纲待确认；首个游戏见[狼人杀需求](../../mods/werewolf/.agents/note/README.md)。
