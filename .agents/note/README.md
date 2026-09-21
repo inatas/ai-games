@@ -19,7 +19,7 @@
 
 命名：`NNN-topic.md`。状态：draft（未纳入当前开发）、in_progress（已实现部分或仍待验收）、implemented（对应验收有证据）、rejected（记录理由）。按同一个文件持续完善，不因小修订重复创建需求。
 
-从[TEMPLATE.md](TEMPLATE.md)开始。架构不变量归[ARCHITECT.md](../../ARCHITECT.md)，开发流程归[AGENTS.md](../../AGENTS.md)，具体测试契约归[docs/testing](../../docs/testing/framework.md)。需求状态变更必须引用实际证据；尚未运行的Docker或真实模型检查不算通过。
+从[TEMPLATE.md](TEMPLATE.md)开始。架构不变量归[ARCHITECT.md](../../ARCHITECT.md)，开发流程按[项目规则索引](../rules/README.md)加载，具体测试契约归[docs/testing](../../docs/testing/framework.md)。需求状态变更必须引用实际证据；尚未运行的Docker或真实模型检查不算通过。
 
 | 需求 | 状态 | 内容 |
 |---|---|---|
