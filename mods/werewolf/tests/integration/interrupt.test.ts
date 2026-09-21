@@ -17,6 +17,10 @@ const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
 
 /** Omniscient deterministic acceptance driver, never presented as AI performance. */
 function decision(request: ModelRequest, state: Match, seat: number, nominate: boolean, hunterChain: boolean): Json {
+  if (state.stage === 'wolves') {
+    if (state.game.players.find(p => p.seat === seat)!.role === 'seer') return { kind: 'inspect', target: state.game.players.find(p => p.alive && p.seat !== state.game.inspections.at(-1)?.target)!.seat };
+    return { kind: 'knife', target: hunterChain && state.game.night === 1 ? state.game.players.find(p => p.role === 'hunter')!.seat : null };
+  }
   const root = request.outputSchema as { oneOf?: object[]; properties?: Record<string, { const?: string; enum?: Json[] }> };
   if (root.oneOf) return { kind: 'pass' };
   const properties = root.properties!;

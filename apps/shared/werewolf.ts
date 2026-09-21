@@ -3,6 +3,9 @@ import type { Json } from '@game-ai/core';
 export interface DemoSnapshot {
   id: string;
   revision: number;
+  playing: boolean;
+  timing: { remainingMs: number };
+  speeches: { sequence: number; day: number; phase: string; seat: number; text: string }[];
   status: 'running' | 'finished' | 'aborted' | 'waiting' | 'blocked';
   day: number;
   period: 'day' | 'night';

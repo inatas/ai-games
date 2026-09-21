@@ -14,7 +14,7 @@ function transition(match: Match, eventOffset: number): Transition {
 export function werewolfDefinition(options: MatchOptions): RoomDefinition {
   const config = { ...options };
   return {
-    id: 'werewolf', version: `3.${config.seed}.${config.sheriff}`, seats: 12,
+    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}`, seats: 12,
     instructions: '你是十二人预女猎白的一名玩家。只根据授权事实和自己的身份决策，不得假设未知身份。按当前JSON Schema选择行动；发言最多300字。狼人屠边，好人消灭狼人，双方同时达标平局；所有出局链结束再结算。狼刀忽略空刀票，女巫不可自救且每夜单药，预言家不可连续查验同一人。警长放逐票权1.5，白痴翻牌后无投票权且不可被投。',
     initialize: () => {
       const match = createMatch(config);
@@ -22,7 +22,7 @@ export function werewolfDefinition(options: MatchOptions): RoomDefinition {
     },
     project: (state, viewer) => {
       const match = state as unknown as Match;
-      const phase = ['wolves', 'witch', 'seer'].includes(match.stage) ? match.stage as 'wolves' | 'witch' | 'seer' : 'day';
+      const phase = ['wolves', 'witch'].includes(match.stage) ? match.stage as 'wolves' | 'witch' : 'day';
       return projectGame(match.game, viewer, { phase, knife: match.knife }) as unknown as Json;
     },
     validate: (state, _phase, seat, value) => {

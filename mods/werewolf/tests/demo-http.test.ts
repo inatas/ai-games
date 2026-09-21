@@ -39,3 +39,19 @@ test('UI-06: demo plugin stays isolated from the original application routes', a
   assert.deepEqual((await app.inject({ url: '/api/existing', headers: { origin: 'https://unrelated.example' } })).json(), { retained: true });
   assert.equal((await app.inject({ method: 'POST', url: '/api/werewolf/demo', payload: { seed: 42, strategy: 'fixed' } })).statusCode, 200);
 });
+
+test('WD-07: playback HTTP validates boolean and rejects multiplier without changing the session', async t => {
+  const app = await buildWerewolfDemo();
+  t.after(() => app.close());
+  const first = (await app.inject({ method: 'POST', url: '/api/werewolf/demo', payload: { seed: 42, strategy: 'random' } })).json();
+  const url = `/api/werewolf/demo/${first.id}/control`;
+  for (const payload of [{ revision: 0, playing: 'true' }, { revision: 0, playing: true, speed: 2 }]) {
+    assert.equal((await app.inject({ method: 'POST', url, payload })).statusCode, 400);
+  }
+  assert.deepEqual((await app.inject({ url: `/api/werewolf/demo/${first.id}` })).json(), first);
+  const payload = { revision: 0, playing: true };
+  const [a, b] = await Promise.all([1, 2].map(() => app.inject({ method: 'POST', url, payload })));
+  assert.deepEqual(a.json(), b.json());
+  assert.equal(a.json().playing, true);
+  assert.equal(a.json().revision, 1);
+});

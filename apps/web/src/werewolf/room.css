@@ -55,9 +55,8 @@ body { margin: 0; background: #151b1b; }
 .ww-controls { position: absolute; top: 92%; left: 1.9%; width: 96.2%; height: 3.6%; display: flex; align-items: center; gap: 1cqw; padding: .3cqw 3cqw; border: .65cqw solid #997344; border-radius: 3cqw 3cqw 1cqw 1cqw; box-shadow: 0 0 0 .35cqw #302012, inset 0 0 0 .25cqw #302012; background: repeating-linear-gradient(5deg, #624125, #624125 .3cqw, #72482b .5cqw, #503721 .8cqw); }
 .ww-controls button { background: none; border: 0; color: #fff1c1; font-size: 3.2cqw; font-weight: bold; text-shadow: .2cqw .2cqw #261b0e; white-space: nowrap; }
 .ww-autoplay { width: 30%; text-align: left; }
-.ww-speeds { display: flex; border: .3cqw solid #b99563; border-radius: 5cqw; background: #362917b3; height: 5.3cqw; flex: 1; }
-.ww-speeds button { width: 33.333%; height: 100%; font-family: Georgia, serif; font-weight: normal; }
-.ww-speeds button[aria-pressed=true] { border: .4cqw solid #ffe358; border-radius: 5cqw; color: #ffde35; background: #81651d; box-shadow: 0 0 .5cqw #ffdc27; }
+.ww-playback-label { flex: 1; text-align: center; font-size: 3cqw; color: #d8bb86; }
+.ww-countdown { color: #f5d578; white-space: nowrap; }
 .ww-restart { border: .3cqw solid #cfaa68 !important; border-radius: 4cqw; margin-left: auto; padding: .5cqw 1.8cqw !important; }
 .ww-caption { position: absolute; top: 96.6%; margin: 0; width: 100%; text-align: center; font-size: 1.9cqw; letter-spacing: .2cqw; color: #d8c491; }
 .ww-dialog { color-scheme: light; background: linear-gradient(115deg, #f3e5b9, #fff4d1 48%, #e5c98e); color: #3d2c1b; border: 5px double #896035; border-radius: 18px; padding: 20px; width: min(88vw, 440px); max-height: 78dvh; box-shadow: 0 15px 70px #000b; font: 16px/1.6 'KaiTi', 'SimSun', serif; }
@@ -106,5 +105,4 @@ body { margin: 0; background: #151b1b; }
 .ww-identity { left:37%; width:26%; top:auto; bottom:0; border:.7cqw solid #9f692f; box-shadow:0 0 0 .35cqw #160e08,inset 0 0 0 .45cqw #edc77f; background:#e2bf7b; font-size:4.5cqw; }
 .ww-controls { top:92%; left:1%; width:98%; height:3.7%; padding:.3cqw 4cqw; border:.6cqw solid #b27b3f; border-radius:3.5cqw 3.5cqw 1.2cqw 1.2cqw; box-shadow:0 0 0 .4cqw #160f0a,inset 0 0 0 .35cqw #352013; background:#68462e url('/werewolf/wood-panel.svg') center / 100% 100%; }
 .ww-controls button { font-size:3.5cqw; font-weight:normal; }
-.ww-speeds { height:5.8cqw; }
 .ww-caption { top:97%; font-size:2cqw; }

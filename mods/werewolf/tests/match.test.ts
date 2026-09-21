@@ -9,9 +9,10 @@ import { werewolfDefinition } from '../src/definition.ts';
 function choice(state: Match, seat: number): Json {
   const living = state.game.players.filter(p => p.alive);
   switch (state.stage) {
-    case 'wolves': return { kind: 'knife', target: living.find(p => p.role === 'villager')!.seat };
+    case 'wolves': return state.game.players.find(p => p.seat === seat)!.role === 'seer'
+      ? { kind: 'inspect', target: living.find(p => p.seat !== state.game.inspections.at(-1)?.target)!.seat }
+      : { kind: 'knife', target: living.find(p => p.role === 'villager')!.seat };
     case 'witch': return { kind: 'pass' };
-    case 'seer': return { kind: 'inspect', target: living.find(p => p.seat !== state.game.inspections.at(-1)?.target)!.seat };
     case 'nominations': return { kind: 'nominate', run: state.game.players.find(p => p.seat === seat)!.role === 'seer' };
     case 'direction': return { kind: 'direction', direction: 'clockwise' };
     case 'speech': case 'pk': return { kind: 'speak', text: '公开发言' };
@@ -164,7 +165,7 @@ test('WW-40,75: empty nights and successive wolf exiles end in good victory only
   for (let i = 0; state.stage !== 'finished' && i < 500; i++) {
     const actor = matchPhase(state)!.actors[0];
     let action = choice(state, actor);
-    if (state.stage === 'wolves') action = { kind: 'knife', target: null };
+    if (state.stage === 'wolves' && state.game.players.find(p => p.seat === actor)!.role === 'wolf') action = { kind: 'knife', target: null };
     if (state.stage === 'vote') action = { kind: 'vote', target: state.game.players.find(p => p.alive && p.role === 'wolf')!.seat };
     if (!state.game.players.some(p => p.alive && p.role === 'wolf')) {
       assert.equal(state.stage, 'settlement');

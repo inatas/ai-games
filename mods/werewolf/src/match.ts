@@ -9,7 +9,7 @@ import {
 import { beginElection, electionAllowsExplosion, advanceElection, explodeElection, resumeElection, type Election, type ElectionAction, type SheriffMode } from './election.ts';
 import { beginSettlement, advanceSettlement, type Settlement, type SettlementAction } from './settlement.ts';
 
-export type MatchStage = 'wolves' | 'witch' | 'seer' | 'nominations' | 'election'
+export type MatchStage = 'wolves' | 'witch' | 'nominations' | 'election'
   | 'settlement' | 'direction' | 'speech' | 'vote' | 'pk' | 'finished';
 export interface MatchOptions { seed: number; sheriff: SheriffMode }
 export interface Match {
@@ -51,14 +51,14 @@ export function createMatch(options: MatchOptions): Match {
     pending: [], choices: [], nominations: [], knife: null, poison: null, nightDeaths: [], runoff: [],
     election: null, settlement: null, afterSettlement: 'day', events: [], result: null,
   };
-  state.pending = alive(state).filter(p => p.role === 'wolf').map(p => p.seat);
+  state.pending = alive(state).filter(p => p.role === 'wolf' || p.role === 'seer').map(p => p.seat);
   return state;
 }
 
 function startNight(state: Match): void {
   state.game.night++;
   state.stage = 'wolves';
-  state.pending = alive(state).filter(p => p.role === 'wolf').map(p => p.seat);
+  state.pending = alive(state).filter(p => p.role === 'wolf' || p.role === 'seer').map(p => p.seat);
   state.choices = [];
   state.knife = null;
   state.poison = null;
@@ -122,10 +122,23 @@ function dawn(state: Match): void {
   }
 }
 
-function startSeer(state: Match): void {
-  const seer = roleSeat(state, 'seer');
-  if (seer !== undefined) { state.stage = 'seer'; state.pending = [seer]; }
+function finishNightChoices(state: Match): void {
+  if (state.pending.length) return;
+  const resolved = resolveWolfKnife(state.game, state.choices);
+  state.game = resolved.state; state.knife = resolved.target;
+  state.events.push({ type: 'wolf-choices', audience: state.game.players.filter(p => p.role === 'wolf').map(p => p.seat), data: state.choices as unknown as Json });
+  const witch = roleSeat(state, 'witch');
+  if (witch !== undefined) { state.stage = 'witch'; state.pending = [witch]; }
   else dawn(state);
+}
+
+export function nightActionSchema(state: Match, seat: number): object {
+  const livingSeats = alive(state).map(p => p.seat);
+  if (state.game.players.find(p => p.seat === seat)?.role === 'seer') {
+    const last = state.game.inspections.at(-1);
+    return actionSchema('inspect', { target: targetSchema(livingSeats.filter(target => !(last?.night === state.game.night - 1 && last.target === target)), false) });
+  }
+  return actionSchema('knife', { target: targetSchema(livingSeats) });
 }
 
 function startVote(state: Match): void {
@@ -150,17 +163,14 @@ export function matchPhase(state: Match): Phase | null {
   let key: string = state.stage;
   let label = '公开发言';
   switch (state.stage) {
-    case 'wolves': schema = actionSchema('knife', { target: targetSchema(livingSeats) }); mode = 'sealed'; label = '夜间行动'; break;
+    case 'wolves':
+      schema = { oneOf: [actionSchema('knife', { target: targetSchema(livingSeats) }), actionSchema('inspect', { target: targetSchema(livingSeats, false) })] };
+      mode = 'sealed'; label = '夜间行动'; break;
     case 'witch': {
       const options = [actionSchema('pass')];
       if (state.game.antidote && state.knife !== null && state.knife !== actors[0]) options.push(actionSchema('save'));
       if (state.game.poison) options.push(actionSchema('poison', { target: targetSchema(livingSeats, false) }));
       schema = { oneOf: options }; label = '夜间行动'; break;
-    }
-    case 'seer': {
-      const last = state.game.inspections.at(-1);
-      const targets = livingSeats.filter(seat => !(last?.night === state.game.night - 1 && last.target === seat));
-      schema = actionSchema('inspect', { target: targetSchema(targets, false) }); label = '夜间行动'; break;
     }
     case 'nominations': schema = actionSchema('nominate', { run: { type: 'boolean' } }); mode = 'sealed'; label = '上警报名'; break;
     case 'direction': schema = actionSchema('direction', { direction: { enum: ['clockwise', 'counterclockwise'] } }); label = '发言方向'; break;
@@ -198,6 +208,7 @@ export function decideMatch(source: Match, revision: number, seat: number, value
   const phase = matchPhase(source);
   if (!phase || !phase.actors.includes(seat)) throw new Error('INELIGIBLE_MATCH_ACTOR');
   if (!ajv.compile(phase.schema)(value)) throw new Error('INVALID_MATCH_ACTION');
+  if (source.stage === 'wolves' && !ajv.compile(nightActionSchema(source, seat))(value)) throw new Error('INVALID_ROLE_ACTION');
   const action = value as unknown as MatchAction;
   const state = structuredClone(source);
   state.revision++;
@@ -205,27 +216,20 @@ export function decideMatch(source: Match, revision: number, seat: number, value
   switch (action.kind) {
     case 'knife': {
       state.choices.push({ seat, target: action.target });
-      if (!state.pending.length) {
-        const resolved = resolveWolfKnife(state.game, state.choices);
-        state.game = resolved.state; state.knife = resolved.target;
-        state.events.push({ type: 'wolf-choices', audience: state.game.players.filter(p => p.role === 'wolf').map(p => p.seat), data: state.choices as unknown as Json });
-        const witch = roleSeat(state, 'witch');
-        if (witch !== undefined) { state.stage = 'witch'; state.pending = [witch]; }
-        else startSeer(state);
-      }
+      finishNightChoices(state);
       break;
     }
     case 'save': case 'poison': case 'pass': {
       const used = useMedicine(state.game, seat, state.knife, action);
       state.game = used.state; state.knife = used.knife; state.poison = used.poison;
       state.events.push({ type: 'medicine', audience: [seat], data: { seat, action } });
-      startSeer(state); break;
+      dawn(state); break;
     }
     case 'inspect': {
       const inspected = inspectSeat(state.game, seat, action.target!);
       state.game = inspected.state;
       state.events.push({ type: 'inspection', audience: [seat], data: { target: action.target, alignment: inspected.alignment } });
-      dawn(state); break;
+      finishNightChoices(state); break;
     }
     case 'nominate':
       if (action.run) state.nominations.push(seat);

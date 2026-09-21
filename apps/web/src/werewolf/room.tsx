@@ -10,6 +10,7 @@ type Modal = 'history' | 'samples' | 'settings' | 'restart' | 'votes' | 'player'
 const roleNames: Record<string, string> = { wolf: '狼人', villager: '村民', seer: '预言家', witch: '女巫', hunter: '猎人', idiot: '白痴' };
 const preview: DemoSnapshot = {
   id: 'preview', revision: 0, status: 'running', day: 2, period: 'day', phaseLabel: '放逐投票', actor: 5,
+  playing: false, timing: { remainingMs: 0 }, speeches: [],
   progress: { submitted: 5, eligible: 9 }, sheriff: 1,
   players: Array.from({ length: 12 }, (_, i) => ({ seat: i + 1, alive: ![3, 8].includes(i + 1), ...(i === 9 ? { revealedRole: 'idiot' as const } : {}) })),
   events: [
@@ -23,7 +24,7 @@ async function request(path: string, body?: object): Promise<DemoSnapshot> {
   const response = await fetch(`/api/werewolf/demo${path}`, body ? {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   } : undefined);
-  if (response.status === 409 && path.endsWith('/step')) return request(path.slice(0, -5));
+  if (response.status === 409 && /\/(step|control)$/.test(path)) return request(path.replace(/\/(step|control)$/, ''));
   if (!response.ok) {
     const error = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(error?.error ?? '连接中断，请重试');
@@ -36,9 +37,9 @@ function describe(event: Event): string {
   switch (event.type) {
     case 'sheriff-result': return data.seat ? `${data.seat}号 当选警长` : '警徽流失 · 本局无警长';
     case 'night-deaths': return data.seats?.length ? `昨夜 ${seats} 出局` : '昨夜平安夜，无人出局';
-    case 'speech': return '本轮发言已静默跳过';
-    case 'sheriff-speech': return '竞选发言已静默跳过';
-    case 'last-words': return `${data.seat}号 遗言已静默跳过`;
+    case 'speech': return `${data.seat}号 已发言 · 内容见历史`;
+    case 'sheriff-speech': return `${data.seat}号 已完成竞选发言 · 内容见历史`;
+    case 'last-words': return `${data.seat}号 已留遗言 · 内容见历史`;
     case 'sheriff-candidates': return `上警名单：${seats || '无人上警'}`;
     case 'sheriff-withdrawal': return `${data.seat}号 退水`;
     case 'sheriff-pk': return `警长平票：${seats} 进入PK`;
@@ -71,7 +72,6 @@ function Dialog({ title, close, children }: { title: string; close: () => void; 
 export default function WerewolfRoom() {
   const [game, setGame] = useState<DemoSnapshot>(preview);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
   const [selected, setSelected] = useState(5);
   const [modal, setModal] = useState<Modal>(null);
   const [expanded, setExpanded] = useState(true);
@@ -120,14 +120,29 @@ export default function WerewolfRoom() {
     finally { setBusy(false); inFlight.current = false; }
   }
   useEffect(() => {
-    if (!playing || modal || busy || game.status !== 'running') return;
-    const timer = window.setTimeout(() => void advance(), 800 / speed);
+    if (isPreview || busy || error || game.status !== 'running') return;
+    const desired = playing && !modal;
+    if (!desired && !game.playing) return;
+    const timer = window.setTimeout(async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setBusy(true);
+      try {
+        const next = game.playing !== desired
+          ? await request(`/${game.id}/control`, { revision: game.revision, playing: desired })
+          : await request(`/${game.id}`);
+        setGame(current => current.id === next.id && current.revision <= next.revision ? next : current);
+        if (next.status !== 'running') setPlaying(false);
+      } catch (cause) { setError(cause instanceof Error ? cause.message : '连接中断，请重试'); setPlaying(false); }
+      finally { inFlight.current = false; setBusy(false); }
+    }, game.playing !== desired ? 0 : 250);
     return () => window.clearTimeout(timer);
-  }, [playing, modal, busy, speed, game]);
+  }, [playing, modal, busy, error, game]);
   useEffect(() => {
     if (!isPreview && atLatest && log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [game.events.length, expanded]);
   function togglePlay() {
+    setError('');
     if (isPreview) void advance(true, true);
     else setPlaying(value => !value);
   }
@@ -152,7 +167,7 @@ export default function WerewolfRoom() {
       {!atLatest && expanded && <button className="ww-latest" onClick={() => { log.current!.scrollTop = log.current!.scrollHeight; setAtLatest(true); }}>回到最新 ↓</button>}
     </section>
     <button className="ww-record-toggle" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}><span>{expanded ? '⋀' : '⋁'}</span>公开记录<span>{expanded ? '⋀' : '⋁'}</span></button>
-    <div className={`ww-status ${error ? 'has-error' : ''}`} role="status">{status}{error && <button onClick={() => void advance()}>重试</button>}</div>
+    <div className={`ww-status ${error ? 'has-error' : ''}`} role="status">{status}{!isPreview && !ended && !error && <span className="ww-countdown"> · {Math.ceil(game.timing.remainingMs / 1000)}秒</span>}{error && <button onClick={() => void advance()}>重试</button>}</div>
     {game.players.map(player => {
       const state = publicSeatState(player.seat, player.alive, game.events, game.phaseLabel === '警长竞选');
       const identity = ended ? roleNames[game.roles?.find(item => item.seat === player.seat)?.role ?? '']
@@ -170,14 +185,14 @@ export default function WerewolfRoom() {
     <div className="ww-observer">◉ 旁观中</div>
     <button className="ww-history-entry" aria-label="查看历史发言" onClick={() => setModal('history')}><HistoryIcon/>历史</button>
     <button className="ww-play ww-round" onClick={togglePlay} disabled={game.status !== 'running' || busy} aria-label={playing ? '暂停演示' : '播放演示'}><span>{playing ? 'Ⅱ' : '▶'}</span>{playing ? '暂停' : '播放'}</button>
-    <button className="ww-step ww-round" onClick={() => { setPlaying(false); void advance(); }} disabled={playing || game.status !== 'running' || busy} aria-label="单步推进"><span>▸▸</span>单步</button>
-    <div className="ww-nameplate"><b>{selected}号玩家</b><span className="ww-identity">{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴' : '?'}</span><small>{selectedPlayer.alive ? '静默旁观' : '已出局'}</small></div>
+    <button className="ww-step ww-round" onClick={() => { setPlaying(false); void advance(); }} disabled={playing || game.playing || game.status !== 'running' || busy} aria-label="单步推进"><span>▸▸</span>单步</button>
+    <div className="ww-nameplate"><b>{selected}号玩家</b><span className="ww-identity">{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴' : '?'}</span><small>{selectedPlayer.alive ? '游戏旁观' : '已出局'}</small></div>
     <nav className="ww-controls" aria-label="演示控制">
-      {ended ? <><button onClick={() => setModal('roles')}>查看身份</button><button onClick={() => { setReplayIndex(0); setModal('replay'); }}>完整回放</button></> : <><button className="ww-autoplay" onClick={togglePlay} disabled={busy}>▷ {playing ? '自动演示' : isPreview ? '开始演示' : '继续演示'}</button><div className="ww-speeds">{[1, 2, 4].map(value => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}×</button>)}</div></>}
+      {ended ? <><button onClick={() => setModal('roles')}>查看身份</button><button onClick={() => { setReplayIndex(0); setModal('replay'); }}>完整回放</button></> : <><button className="ww-autoplay" onClick={togglePlay} disabled={busy}>▷ {playing ? '暂停演示' : isPreview ? '开始演示' : '继续演示'}</button><span className="ww-playback-label">标准速度</span></>}
       <button className="ww-restart" onClick={() => setModal('restart')}>⟳ {ended ? '再来一局' : '重开'}</button>
     </nav>
-    <p className="ww-caption">{isPreview ? '原型示意 · 女巫视角 · 点击开始演示' : ended ? '静默对局 · 终局公开' : '无模型 · 静默自动对局'}</p>
-    {modal === 'history' && <SpeechHistory key={game.id} preview={isPreview} currentDay={game.day} close={() => setModal(null)} />}
+    <p className="ww-caption">{isPreview ? '原型示意 · 女巫视角 · 点击开始演示' : ended ? '无模型对局 · 终局公开' : '无模型 · 固定短句发言 · 随机或固定行动'}</p>
+    {modal === 'history' && <SpeechHistory key={game.id} preview={isPreview} currentDay={game.day} records={game.speeches} close={() => setModal(null)} />}
     {modal && modal !== 'history' && <Dialog title={{ samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', votes: '放逐投票详情', player: `${selected}号玩家`, roles: '终局身份', replay: '完整回放' }[modal]} close={() => setModal(null)}>
       {modal === 'samples' && <AvatarExamples />}
       {modal === 'settings' && <div className="ww-form"><label><input type="checkbox" checked={reduced} onChange={event => setReduced(event.target.checked)} />减少动效</label><label><input type="checkbox" checked={largeText} onChange={event => setLargeText(event.target.checked)} />放大记录文字</label><p>所有玩家使用固定或随机操作，不接入模型，不进行语音发言。打开面板时暂停自动推进。</p><button onClick={() => setModal('samples')}>头像状态预览</button></div>}

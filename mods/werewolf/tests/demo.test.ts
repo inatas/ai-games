@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DemoRooms } from '../src/demo.ts';
 
-test('UI-02/03: seeded silent demo completes, repeated revision cannot duplicate a decision', () => {
+test('UI-02/03: seeded fixed-text demo completes, repeated revision cannot duplicate a decision', () => {
   const rooms = new DemoRooms();
   let game = rooms.create(42, 'random');
   const initial = game;
@@ -16,7 +16,7 @@ test('UI-02/03: seeded silent demo completes, repeated revision cannot duplicate
   assert.ok(game.replay!.filter(frame => frame.events.some(event => event.type === 'wolf-choices')).every(frame => frame.period === 'night'));
   assert.ok(game.events.every(event => !['decision', 'interrupt'].includes(event.type)));
   assert.ok(game.replay!.every(frame => frame.events.every(event => !['decision', 'interrupt'].includes(event.type))));
-  assert.ok(game.events.filter(e => ['speech', 'last-words', 'sheriff-speech'].includes(e.type)).every(e => (e.data as {text:string}).text === ''));
+  assert.ok(game.events.filter(e => ['speech', 'last-words', 'sheriff-speech'].includes(e.type)).every(e => (e.data as {text:string}).text === '我是狼人杀玩家'));
   let repeat = rooms.create(42, 'random');
   while (repeat.status === 'running') repeat = rooms.step(repeat.id, repeat.revision);
   assert.deepEqual(repeat.result, game.result);

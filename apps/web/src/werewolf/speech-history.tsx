@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { DemoSnapshot } from '../../../shared/werewolf.ts';
 import { portraitStyle } from './seat-avatar.tsx';
 import './speech-history.css';
 
@@ -24,11 +25,11 @@ export function HistoryIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15M5 7h4M5 10h4M15 7h4M15 10h4"/></svg>;
 }
 
-export function SpeechHistory({ preview, currentDay, close }: { preview: boolean; currentDay: number; close: () => void }) {
+export function SpeechHistory({ preview, currentDay, records, close }: { preview: boolean; currentDay: number; records: DemoSnapshot['speeches']; close: () => void }) {
   const [day, setDay] = useState(currentDay);
   const dialog = useRef<HTMLDialogElement>(null);
   const messages = useRef<HTMLDivElement>(null);
-  const speeches = preview ? exampleDays[day - 1] ?? [] : [];
+  const speeches = preview ? exampleDays[day - 1] ?? [] : records.filter(record => record.day === day);
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => { if (messages.current) messages.current.scrollTop = 0; }, [day]);
 
@@ -37,7 +38,7 @@ export function SpeechHistory({ preview, currentDay, close }: { preview: boolean
     <nav className="ww-history-days" aria-label="选择发言天数">{Array.from({ length: currentDay }, (_, index) => index + 1).map(value => <button type="button" key={value} aria-pressed={value === day} onClick={() => setDay(value)}>第{value}天</button>)}</nav>
     <p className="ww-history-context">第{day}天 · {preview ? '原型示例 · 非实际AI发言' : '公开发言'}</p>
     <div className="ww-history-messages" ref={messages} tabIndex={0} role="region" aria-label={`第${day}天发言记录`}>
-      {speeches.length === 0 && <div className="ww-history-empty"><HistoryIcon/><p>当天暂无发言</p><small>当前演示使用静默策略，尚未接入文字发言。</small></div>}
+      {speeches.length === 0 && <div className="ww-history-empty"><HistoryIcon/><p>当天暂无发言</p><small>发言结束后会按顺序记录在这里。</small></div>}
       {speeches.map((speech, index) => <section key={`${day}-${index}`}>
         {speech.phase !== speeches[index - 1]?.phase && <h3 className="ww-history-phase">{speech.phase}</h3>}
         <article className="ww-speech" aria-label={`${speech.seat}号玩家，${speech.phase}`}>

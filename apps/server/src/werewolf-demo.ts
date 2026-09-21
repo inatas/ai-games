@@ -24,6 +24,11 @@ export async function werewolfDemoRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string }; Body: { revision: number } }>('/api/werewolf/demo/:id/step', {
     schema: { body: { type: 'object', additionalProperties: false, required: ['revision'], properties: { revision: { type: 'integer', minimum: 0 } } } },
   }, async (request): Promise<DemoSnapshot> => rooms.step(request.params.id, request.body.revision));
+  app.post<{ Params: { id: string }; Body: { revision: number; playing: boolean } }>('/api/werewolf/demo/:id/control', {
+    schema: { body: { type: 'object', additionalProperties: false, required: ['revision', 'playing'], properties: {
+      revision: { type: 'integer', minimum: 0 }, playing: { type: 'boolean' },
+    } } },
+  }, async (request): Promise<DemoSnapshot> => rooms.control(request.params.id, request.body.revision, request.body.playing));
 }
 
 export async function buildWerewolfDemo() {
