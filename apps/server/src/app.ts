@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { werewolfDemoRoutes } from './werewolf-demo.ts';
 import fastifyStatic from '@fastify/static';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -91,7 +92,11 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   app.post('/api/mud/social/party', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','action'], properties: {
     requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, action: { type: 'string', enum: ['invite','accept','leave'] }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, inviteId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
   } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any, host.socialPolicy); }));
+  await app.register(werewolfDemoRoutes);
   const root = resolve('dist');
-  if (existsSync(root)) await app.register(fastifyStatic, { root });
+  if (existsSync(root)) {
+    await app.register(fastifyStatic, { root });
+    app.get('/werewolf', (_request, reply) => reply.sendFile('index.html'));
+  }
   return { app, harness, identity };
 }

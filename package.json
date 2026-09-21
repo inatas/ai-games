@@ -12,7 +12,8 @@
     "start": "tsx apps/server/src/main.ts",
     "dev": "docker compose up --build",
     "test:docker": "docker compose --profile test run --build --rm tests",
-    "verify": "npm run check && npm run check:repo && npm test && npm run build"
+    "verify": "npm run check && npm run check:repo && npm test && npm run build",
+    "demo:werewolf": "tsx apps/server/src/werewolf-demo.ts"
   },
   "dependencies": {
     "@fastify/static": "10.1.3",
