@@ -40,19 +40,6 @@ body { margin: 0; background: #151b1b; }
 .ww-status { position: absolute; top: 56.4%; left: 19.5%; width: 61%; height: 2.8%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 3.4cqw; background: #071d24c9; color: #ffe285; border-bottom: .3cqw solid #94733a; text-shadow: .2cqw .2cqw #1f261b; }
 .ww-status.has-error { font-size: 2.6cqw; color: #ffc7a9; }
 .ww-status button { margin-left: 1cqw; background: #644d32; border: 1px solid #d4b365; }
-.ww-seat { position: absolute; z-index: 3; left: calc(1.2% + var(--side) * 80.7%); top: calc(13.15% + var(--row) * 9.85%); width: 17.6%; height: 8.8%; border-radius: 50%; background: linear-gradient(110deg, #f6d992, #a17038 45%, #eacc80); border: .5cqw solid #2b2012; box-shadow: inset 0 0 0 .5cqw #d0b071, inset 0 0 0 .9cqw #30251c, .5cqw .5cqw .2cqw #0e2023; }
-.ww-seat::before { content: ''; position: absolute; width: 55%; height: 35%; top: -.3cqw; left: -.4cqw; border: .2cqw solid #2a1a10; border-radius: .5cqw; background: linear-gradient(135deg, #e6d5a7, #907650); z-index: -1; }
-.ww-avatar { position: absolute; inset: 1.35cqw; border-radius: 50%; overflow: hidden; background-image: url('/werewolf/portrait-atlas.png'); background-repeat: no-repeat; border: .3cqw solid #3e2c1c; }
-.ww-seat-number { position: absolute; bottom: -1.4cqw; left: 0; right: 0; text-align: center; font: bold 6.6cqw/.95 Georgia, serif; color: #fff; -webkit-text-stroke: .6cqw #080c0b; paint-order: stroke fill; text-shadow: .3cqw .3cqw #000; }
-.ww-seat.dead { background: #161b1d; box-shadow: inset 0 0 0 .6cqw #5b151e, inset 0 0 0 1.1cqw #211d1d, .7cqw .6cqw #132125; }
-.ww-seat.dead .ww-avatar { background-color: #35141e; border-color: #7c2026; }
-.ww-avatar svg { width: 100%; height: 100%; }
-.ww-seat.selected { box-shadow: 0 0 2.7cqw #ffdd37, 0 0 1cqw .5cqw #ffe272, inset 0 0 0 .5cqw #ffd66b; border-color: #a77618; }
-.ww-seat.active::after { content: ''; position: absolute; inset: -1cqw; border: .5cqw solid #ffdd50; border-radius: 50%; box-shadow: 0 0 1.2cqw #ffed63; animation: ww-pulse 1.8s ease-in-out infinite; pointer-events: none; }
-.ww-badge { position: absolute; right: -1cqw; bottom: -.2cqw; font-size: 4cqw; line-height: .7; color: #f3c764; text-shadow: .2cqw .2cqw #2c2014; }
-.ww-badge small { display: block; margin-top: .4cqw; background: #543b20; border: .3cqw solid #deb255; border-radius: .8cqw; font-size: 2.5cqw; line-height: 1.3; color: #fff6d5; padding: .1cqw .35cqw; }
-.ww-role-badge, .ww-revealed { position: absolute; left: -1cqw; bottom: .3cqw; background: #944774; border: .35cqw solid #e49fc1; border-radius: .8cqw; color: #fff1f9; font-size: 3cqw; font-weight: bold; text-shadow: .2cqw .2cqw #703254; padding: .2cqw; }
-.ww-revealed { left: 0; right: 0; bottom: 3cqw; font-size: 2.2cqw; background: #332d22e8; border-color: #cba965; }
 .ww-character { position: absolute; left: 31.5%; top: 62%; width: 34%; height: 25.7%; background-image: url('/werewolf/portrait-atlas.png'); background-repeat: no-repeat; }
 .ww-character.villager-art { background-size: 294.1176% 389.105%; background-position: 47.7273% 83.4455%; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
 .ww-character.portrait-art { top: 64%; left: 28%; width: 44%; height: 22%; border-radius: 48% 48% 35% 35%; border: .7cqw solid #c39a56; box-shadow: 0 0 5cqw #162627, inset 0 0 0 1cqw #2c251a; }
@@ -105,8 +92,19 @@ body { margin: 0; background: #151b1b; }
 .ww-card { padding: 2.2cqw 3.5cqw; font-size: 3.2cqw; }
 .ww-preview-vote { padding: 1.7cqw; font-size: 3.1cqw; line-height: 1.2; }
 .ww-preview-vote .ww-green { font-size: 3.2cqw !important; padding: .6cqw 2.5cqw !important; }
-.ww-seat::before { clip-path: polygon(0 0, 100% 0, 0 100%); }
-.ww-seat.right::before { clip-path: polygon(0 0, 100% 0, 100% 100%); left: auto; right: -.4cqw; }
 .ww-back, .ww-settings { color: transparent !important; text-shadow: none; border: none; box-shadow: none; background-image: url('/werewolf/portrait-atlas.png'); background-repeat: no-repeat; background-size: 985.55% 1971.11%; }
 .ww-back { background-position: 1.38% 6.6%; }
 .ww-settings { background-position: 98.12% 6.6%; }
+
+/* Match the approved stepped wooden nameplate and its inset identity seal. */
+.ww-nameplate { top:87.4%; left:24.5%; width:51%; height:4.5%; padding:0; isolation:isolate; }
+.ww-nameplate::before, .ww-nameplate::after { content:""; position:absolute; clip-path:polygon(0 80%,5% 43%,12% 43%,16% 5%,84% 5%,88% 43%,95% 43%,100% 80%,96% 100%,4% 100%); }
+.ww-nameplate::before { inset:0; border:0; background:#17100b; box-shadow:none; z-index:-2; }
+.ww-nameplate::after { inset:.65cqw; background:#68462e url('/werewolf/wood-panel.svg') center / cover; border:.55cqw solid #a16f42; z-index:-1; }
+.ww-nameplate b { left:17%; top:35%; font-size:3.1cqw; font-weight:normal; text-shadow:1px 1px #120d09; }
+.ww-nameplate small { right:10%; top:51%; font-size:1.8cqw; }
+.ww-identity { left:37%; width:26%; top:auto; bottom:0; border:.7cqw solid #9f692f; box-shadow:0 0 0 .35cqw #160e08,inset 0 0 0 .45cqw #edc77f; background:#e2bf7b; font-size:4.5cqw; }
+.ww-controls { top:92%; left:1%; width:98%; height:3.7%; padding:.3cqw 4cqw; border:.6cqw solid #b27b3f; border-radius:3.5cqw 3.5cqw 1.2cqw 1.2cqw; box-shadow:0 0 0 .4cqw #160f0a,inset 0 0 0 .35cqw #352013; background:#68462e url('/werewolf/wood-panel.svg') center / 100% 100%; }
+.ww-controls button { font-size:3.5cqw; font-weight:normal; }
+.ww-speeds { height:5.8cqw; }
+.ww-caption { top:97%; font-size:2cqw; }

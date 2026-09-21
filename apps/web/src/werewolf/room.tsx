@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { DemoSnapshot } from '../../../shared/werewolf.ts';
+import { SeatAvatar, AvatarExamples, portraitStyle, deathNames } from './seat-avatar.tsx';
+import { publicSeatState } from './seat-state.ts';
+import { HistoryIcon, SpeechHistory } from './speech-history.tsx';
 import './room.css';
 
 type Event = DemoSnapshot['events'][number];
-type Modal = 'settings' | 'restart' | 'votes' | 'player' | 'roles' | 'replay' | null;
+type Modal = 'history' | 'samples' | 'settings' | 'restart' | 'votes' | 'player' | 'roles' | 'replay' | null;
 const roleNames: Record<string, string> = { wolf: '狼人', villager: '村民', seer: '预言家', witch: '女巫', hunter: '猎人', idiot: '白痴' };
 const preview: DemoSnapshot = {
   id: 'preview', revision: 0, status: 'running', day: 2, period: 'day', phaseLabel: '放逐投票', actor: 5,
@@ -58,13 +61,6 @@ function compact(events: Event[]): Event[] {
   return events.filter((event, index) => !['speech', 'sheriff-speech'].includes(event.type) || events[index - 1]?.type !== event.type);
 }
 
-// Cropped art comes from the approved atlas; all labels, state and controls are DOM elements.
-function portraitStyle(seat: number): CSSProperties {
-  const artSeat = seat === 3 ? 6 : seat === 8 ? 9 : seat;
-  const x = artSeat <= 6 ? 29 : 747;
-  const y = 250 + ((artSeat - 1) % 6) * 174;
-  return { backgroundSize: '964.13% 1928.26%', backgroundPosition: `${x / (887 - 92) * 100}% ${y / (1774 - 92) * 100}%` };
-}
 function Dialog({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
@@ -89,6 +85,15 @@ export default function WerewolfRoom() {
   const [replayIndex, setReplayIndex] = useState(0);
   const [voteIndex, setVoteIndex] = useState(-1);
   const [atLatest, setAtLatest] = useState(true);
+  const [marks, setMarks] = useState<Record<string, Record<number, string>>>(() => {
+    try { return JSON.parse(sessionStorage.getItem('werewolf:marks:v2') ?? '{}'); } catch { return {}; }
+  });
+  function setMark(value: string) {
+    const next = { ...marks, [game.id]: { ...marks[game.id], [selected]: value } };
+    setMarks(next);
+    try { sessionStorage.setItem('werewolf:marks:v2', JSON.stringify(next)); }
+    catch { setError('标记仅在当前页面保留'); }
+  }
   const log = useRef<HTMLDivElement>(null);
   const inFlight = useRef(false);
   const isPreview = game.id === 'preview';
@@ -97,7 +102,7 @@ export default function WerewolfRoom() {
   const votes = game.events.filter(event => event.type === 'exile-votes');
   const vote = votes[voteIndex < 0 ? votes.length - 1 : voteIndex];
   const selectedPlayer = game.players.find(player => player.seat === selected)!;
-  const selectedRole = game.roles?.find(player => player.seat === selected)?.role;
+  const selectedRole = isPreview && selected === 5 ? 'witch' : game.roles?.find(player => player.seat === selected)?.role;
   const result = game.events.findLast(event => event.type === 'game-result');
   const events = compact(game.events);
 
@@ -148,15 +153,22 @@ export default function WerewolfRoom() {
     </section>
     <button className="ww-record-toggle" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}><span>{expanded ? '⋀' : '⋁'}</span>公开记录<span>{expanded ? '⋀' : '⋁'}</span></button>
     <div className={`ww-status ${error ? 'has-error' : ''}`} role="status">{status}{error && <button onClick={() => void advance()}>重试</button>}</div>
-    {game.players.map(player => <button key={player.seat} className={`ww-seat ${player.seat > 6 ? 'right' : 'left'} ${player.alive ? '' : 'dead'} ${selected === player.seat ? 'selected' : ''} ${game.actor === player.seat && !night ? 'active' : ''}`} style={{ '--row': (player.seat - 1) % 6, '--side': player.seat <= 6 ? 0 : 1 } as CSSProperties} onClick={() => { setSelected(player.seat); setModal('player'); }} aria-label={`${player.seat}号玩家，${player.alive ? '存活' : '已出局'}${player.revealedRole ? '，白痴已翻牌' : ''}`}>
-      <span className="ww-avatar" style={player.alive ? portraitStyle(player.seat) : { backgroundSize: '704% 1408%', backgroundPosition: '3.94% 36.2%' }} /><span className="ww-seat-number">{player.seat}</span>
-      {game.sheriff === player.seat && <span className="ww-badge">♛<small>警长</small></span>}
-      {player.revealedRole && <span className="ww-role-badge">白痴</span>}
-      {ended && <span className="ww-revealed">{roleNames[game.roles?.find(item => item.seat === player.seat)?.role ?? '']}</span>}
-    </button>)}
+    {game.players.map(player => {
+      const state = publicSeatState(player.seat, player.alive, game.events, game.phaseLabel === '警长竞选');
+      const identity = ended ? roleNames[game.roles?.find(item => item.seat === player.seat)?.role ?? '']
+        : isPreview && player.seat === 5 ? '女巫' : player.revealedRole ? '白痴' : state.death === 'explode' ? '狼' : undefined;
+      return <SeatAvatar key={player.seat} seat={player.seat}
+        death={isPreview && player.seat === 8 ? 'poison' : state.death}
+        sheriff={game.sheriff === player.seat} self={isPreview && player.seat === 5}
+        identity={identity} nominated={state.nominated}
+        mark={marks[game.id]?.[player.seat] ?? (isPreview && player.seat === 7 ? '狼' : undefined)}
+        selected={selected === player.seat} active={game.actor === player.seat && !night}
+        onClick={() => { setSelected(player.seat); setModal('player'); }} />;
+    })}
     <div className={`ww-character ${selected === 5 ? 'villager-art' : 'portrait-art'}`} style={selected !== 5 ? portraitStyle(selected) : undefined} aria-hidden="true" />
     <div className="ww-seat-bubble" aria-hidden="true">{selected}</div>
     <div className="ww-observer">◉ 旁观中</div>
+    <button className="ww-history-entry" aria-label="查看历史发言" onClick={() => setModal('history')}><HistoryIcon/>历史</button>
     <button className="ww-play ww-round" onClick={togglePlay} disabled={game.status !== 'running' || busy} aria-label={playing ? '暂停演示' : '播放演示'}><span>{playing ? 'Ⅱ' : '▶'}</span>{playing ? '暂停' : '播放'}</button>
     <button className="ww-step ww-round" onClick={() => { setPlaying(false); void advance(); }} disabled={playing || game.status !== 'running' || busy} aria-label="单步推进"><span>▸▸</span>单步</button>
     <div className="ww-nameplate"><b>{selected}号玩家</b><span className="ww-identity">{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴' : '?'}</span><small>{selectedPlayer.alive ? '静默旁观' : '已出局'}</small></div>
@@ -164,11 +176,13 @@ export default function WerewolfRoom() {
       {ended ? <><button onClick={() => setModal('roles')}>查看身份</button><button onClick={() => { setReplayIndex(0); setModal('replay'); }}>完整回放</button></> : <><button className="ww-autoplay" onClick={togglePlay} disabled={busy}>▷ {playing ? '自动演示' : isPreview ? '开始演示' : '继续演示'}</button><div className="ww-speeds">{[1, 2, 4].map(value => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}×</button>)}</div></>}
       <button className="ww-restart" onClick={() => setModal('restart')}>⟳ {ended ? '再来一局' : '重开'}</button>
     </nav>
-    <p className="ww-caption">{isPreview ? '画面预览 · 点击开始演示' : ended ? '静默对局 · 终局公开' : '无模型 · 静默自动对局'}</p>
-    {modal && <Dialog title={{ settings: '显示设置', restart: '开启新对局', votes: '放逐投票详情', player: `${selected}号玩家`, roles: '终局身份', replay: '完整回放' }[modal]} close={() => setModal(null)}>
-      {modal === 'settings' && <div className="ww-form"><label><input type="checkbox" checked={reduced} onChange={event => setReduced(event.target.checked)} />减少动效</label><label><input type="checkbox" checked={largeText} onChange={event => setLargeText(event.target.checked)} />放大记录文字</label><p>所有玩家使用固定或随机操作，不接入模型，不进行语音发言。打开面板时暂停自动推进。</p></div>}
+    <p className="ww-caption">{isPreview ? '原型示意 · 女巫视角 · 点击开始演示' : ended ? '静默对局 · 终局公开' : '无模型 · 静默自动对局'}</p>
+    {modal === 'history' && <SpeechHistory key={game.id} preview={isPreview} currentDay={game.day} close={() => setModal(null)} />}
+    {modal && modal !== 'history' && <Dialog title={{ samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', votes: '放逐投票详情', player: `${selected}号玩家`, roles: '终局身份', replay: '完整回放' }[modal]} close={() => setModal(null)}>
+      {modal === 'samples' && <AvatarExamples />}
+      {modal === 'settings' && <div className="ww-form"><label><input type="checkbox" checked={reduced} onChange={event => setReduced(event.target.checked)} />减少动效</label><label><input type="checkbox" checked={largeText} onChange={event => setLargeText(event.target.checked)} />放大记录文字</label><p>所有玩家使用固定或随机操作，不接入模型，不进行语音发言。打开面板时暂停自动推进。</p><button onClick={() => setModal('samples')}>头像状态预览</button></div>}
       {modal === 'restart' && <div className="ww-form"><p>当前演示将被替换。新局从第1夜开始，所有角色重新分配。</p><label>对局种子<input type="number" min="0" max="4294967295" value={seed} onChange={event => setSeed(Number(event.target.value))} /></label><label>行动方式<select value={strategy} onChange={event => setStrategy(event.target.value as 'fixed' | 'random')}><option value="random">随机操作</option><option value="fixed">固定操作</option></select></label><button disabled={busy || !Number.isSafeInteger(seed) || seed < 0 || seed > 4294967295} onClick={() => { setModal(null); setSelected(5); void advance(true, true); }}>确认重开</button><button onClick={() => setModal(null)}>取消</button></div>}
-      {modal === 'player' && <div className="ww-player-info"><div className="ww-profile" style={portraitStyle(selected)} /><h3>{selectedPlayer.alive ? '存活' : '已公开出局'}{game.sheriff === selected ? ' · 警长' : ''}</h3><p>身份：{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴（已翻牌）' : '尚未公开'}</p><p>{selectedPlayer.revealedRole ? '保留发言权，没有放逐投票权。' : '仅展示已公开的游戏信息。'}</p></div>}
+      {modal === 'player' && <div className="ww-player-info"><div className="ww-profile" style={portraitStyle(selected)} /><h3>{selectedPlayer.alive ? '存活' : deathNames[isPreview && selected === 8 ? 'poison' : publicSeatState(selected, false, game.events, false).death ?? 'night']}{game.sheriff === selected ? ' · 警长' : ''}</h3><p>身份：{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴（已翻牌）' : '尚未公开'}</p><p>{selectedPlayer.revealedRole ? '保留发言权，没有放逐投票权。' : '仅展示当前视角可见的游戏信息。'}</p>{!(isPreview && selected === 5) && <><h3>个人标记</h3><p>仅自己可见，不代表真实身份。</p><div className="ww-mark-options">{['狼人', '好人', '金水', '查杀', '可疑', ''].map(value => <button key={value} aria-pressed={(marks[game.id]?.[selected] ?? '') === value} onClick={() => setMark(value)}>{value || '清除'}</button>)}</div></>}</div>}
       {modal === 'votes' && (!vote ? <p>{isPreview ? '当前为布局预览。开始演示后，已完成的放逐投票会在此展示真实票型。' : '尚无已结算的放逐投票。'}</p> : <VoteDetails event={vote} />)}
       {modal === 'roles' && <div className="ww-roles">{game.roles?.map(player => <p key={player.seat}><b>{player.seat}号</b><span>{roleNames[player.role]}</span></p>)}</div>}
       {modal === 'replay' && <div className="ww-replay"><label>日夜记录<select value={replayIndex} onChange={event => setReplayIndex(Number(event.target.value))}>{game.replay?.map((frame, index) => <option key={index} value={index}>第{frame.day}{frame.period === 'night' ? '夜' : '天'} · 记录{index + 1}</option>)}</select></label>{game.replay?.[replayIndex]?.events.map((event, index) => <div key={index}><h3>{describe(event)}</h3>{['wolf-choices', 'medicine', 'inspection'].includes(event.type) && <ReplayDetails event={event} />}{event.type === 'exile-votes' && <VoteDetails event={event} />}</div>)}</div>}

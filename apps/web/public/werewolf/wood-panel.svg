@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">
+  <rect width="512" height="128" fill="#68462e"/>
+  <g fill="none" stroke="#38251b" stroke-width="2" opacity=".7">
+    <path d="M-20 12Q92 2 170 15T340 10T530 15M-20 26Q64 35 151 23T332 29T530 21M-10 45Q68 30 128 43T252 40T408 46T530 38M-20 61Q87 74 183 60T358 61T530 54M-10 84Q75 76 174 85T343 80T530 89M-10 108Q97 96 199 109T365 103T530 112M-10 121Q84 113 177 124T346 119T530 124"/>
+    <path d="M10 54Q50 49 81 53Q111 65 81 73Q57 77 29 74M48 60Q80 54 90 63Q75 73 48 67M267 91Q312 69 358 91Q326 112 282 101M290 92Q317 82 341 92Q321 100 303 96M386 22Q419 8 452 20T513 24"/>
+  </g>
+  <g fill="none" stroke="#ab7b4f" stroke-width="1" opacity=".4">
+    <path d="M0 16Q100 7 169 19T345 15T512 19M0 39Q85 29 147 39T308 36T512 37M0 80Q87 73 177 79T350 75T512 81M0 114Q100 103 200 115T365 111T512 118"/>
+  </g>
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".035 .5" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+  <rect width="512" height="128" filter="url(#grain)" opacity=".065"/>
+</svg>
