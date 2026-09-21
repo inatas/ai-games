@@ -29,7 +29,7 @@ await runtime.close();
 
 `models`的键对应modelProfile，值为ModelAdapter。允许多个席位使用同一提供商适配器，但每席有独立执行scope与上下文；使用现有ChatCompletionsAdapter即可接入LLM，凭据由服务器环境注入。
 
-可运行的中性定义见[测试夹具](../../tests/support/turn-based.ts)，真实数据库装配见[集成测试](../../tests/integration/turn-based.test.ts)。狼人杀接入未在本轮实现。
+可运行的中性定义见[测试夹具](../../tests/support/turn-based.ts)，真实数据库装配见[集成测试](../../tests/integration/turn-based.test.ts)。具体MOD的接入和验证记录归其本地文档。
 
 ## 游戏定义
 
