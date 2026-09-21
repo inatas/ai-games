@@ -1,6 +1,6 @@
 import { Ajv } from 'ajv';
 import { HarnessError, canonical, type Json } from '@game-ai/core';
-import type { GameEvent, Phase, Room, RoomDefinition, RoomLimits, Seat, SpectatorView, VisibleEvent } from './types.ts';
+import type { GameEvent, Phase, Room, RoomDefinition, RoomLimits, Seat, SpectatorView, VisibleEvent, Transition } from './types.ts';
 
 const ajv = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false });
 const fail = (code: string): never => { throw new HarnessError(code, 409); };
@@ -23,7 +23,10 @@ export function assertPhase(room: Room, phase: Phase): void {
       new Set(phase.actors).size !== phase.actors.length ||
       phase.actors.some(seat => !room.seats.some(s => s.seat === seat)) ||
       !phase.schema || typeof phase.schema !== 'object') fail('INVALID_PHASE');
-  try { ajv.compile(phase.schema); } catch { fail('INVALID_PHASE_SCHEMA'); }
+  if (phase.interrupt && (!text(phase.interrupt.key) || !Array.isArray(phase.interrupt.actors) ||
+      !phase.interrupt.actors.length || new Set(phase.interrupt.actors).size !== phase.interrupt.actors.length ||
+      phase.interrupt.actors.some(actor => !room.seats.some(s => s.seat === actor)))) fail('INVALID_PHASE');
+  try { ajv.compile(phase.schema); if (phase.interrupt) ajv.compile(phase.interrupt.schema); } catch { fail('INVALID_PHASE_SCHEMA'); }
 }
 
 export function createRoom(id: string, runKey: string, def: RoomDefinition, limits: Partial<RoomLimits> = {}): Room {
@@ -34,7 +37,7 @@ export function createRoom(id: string, runKey: string, def: RoomDefinition, limi
   return {
     id, runKey, definitionId: def.id, definitionVersion: def.version, capacity: def.seats,
     status: 'waiting', revision: 0, seats: [], state: null, phase: null, phaseInstance: 0,
-    decisions: [], events: [], result: null, limits: actual, requests: 0, pending: null, error: null,
+    decisions: [], events: [], result: null, limits: actual, requests: 0, decisionEpoch: 0, pendingJobs: {}, error: null,
   };
 }
 
@@ -52,14 +55,15 @@ function appendEvents(room: Room, events: GameEvent[]): void {
 export function occupySeat(source: Room, seat: Seat, def: RoomDefinition): Room {
   assertVersion(source, def);
   if (!seat || !positive(seat.seat) || seat.seat > source.capacity ||
-      !text(seat.name) || !text(seat.modelProfile) || !text(seat.scopeId)) fail('INVALID_SEAT');
+      !text(seat.name) || !text(seat.modelProfile) || !text(seat.scopeId) || !text(seat.interruptScopeId)) fail('INVALID_SEAT');
   const existing = source.seats.find(s => s.seat === seat.seat);
   if (existing) {
     if (canonical(existing) !== canonical(seat)) fail('SEAT_CONFLICT');
     return structuredClone(source);
   }
   if (source.status !== 'waiting') fail('ROOM_ALREADY_STARTED');
-  if (source.seats.some(s => s.scopeId === seat.scopeId)) fail('SCOPE_CONFLICT');
+  const scopes = source.seats.flatMap(s => [s.scopeId, s.interruptScopeId]);
+  if (seat.scopeId === seat.interruptScopeId || scopes.includes(seat.scopeId) || scopes.includes(seat.interruptScopeId)) fail('SCOPE_CONFLICT');
   const room = structuredClone(source);
   room.seats.push(structuredClone(seat));
   room.seats.sort((a, b) => a.seat - b.seat);
@@ -102,29 +106,56 @@ export function acceptDecision(source: Room, instance: number, seat: number, val
     appendEvents(room, def.onDecision?.(structuredClone(room.state), structuredClone(phase), seat, structuredClone(value)) ?? []);
   }
   room.revision++;
+  room.decisionEpoch++;
   if (room.decisions.length === phase.actors.length) {
     // Normalize ordering so concurrent arrival cannot change game resolution.
     const decisions = phase.actors.map(actor => room.decisions.find(d => d.seat === actor)!);
     const next = def.resolve(structuredClone(room.state), structuredClone(phase), structuredClone(decisions));
-    if (!next || next.state === undefined || (next.phase === undefined) === (next.result === undefined)) fail('INVALID_TRANSITION');
-    appendEvents(room, next.events ?? []);
-    room.state = structuredClone(next.state);
-    room.decisions = [];
-    if (next.phase !== undefined) {
-      assertPhase(room, next.phase);
-      if (room.phaseInstance >= room.limits.maxPhases) {
-        room.status = 'aborted';
-        room.error = 'PHASE_BUDGET_EXCEEDED';
-      } else {
-        room.phase = structuredClone(next.phase);
-        room.phaseInstance++;
-      }
-    } else {
-      room.status = 'finished';
-      room.result = structuredClone(next.result!);
-      room.phase = null;
-    }
+    applyTransition(room, next);
   }
+  return room;
+}
+
+function applyTransition(room: Room, next: Transition): void {
+  if (!next || next.state === undefined || (next.phase === undefined) === (next.result === undefined)) fail('INVALID_TRANSITION');
+  appendEvents(room, next.events ?? []);
+  room.state = structuredClone(next.state);
+  room.decisions = [];
+  if (next.phase !== undefined) {
+    assertPhase(room, next.phase);
+    if (room.phaseInstance >= room.limits.maxPhases) {
+      room.status = 'aborted';
+      room.error = 'PHASE_BUDGET_EXCEEDED';
+    } else {
+      room.phase = structuredClone(next.phase);
+      room.phaseInstance++;
+    }
+  } else {
+    room.status = 'finished';
+    room.result = structuredClone(next.result!);
+    room.phase = null;
+  }
+}
+
+export function validateInterrupt(room: Room, instance: number, seat: number, value: Json, def: RoomDefinition): void {
+  assertVersion(room, def);
+  if (room.status !== 'running' || !room.phase) fail('ROOM_NOT_RUNNING');
+  if (room.phaseInstance !== instance) fail('PHASE_CONFLICT');
+  if (!room.phase!.interrupt?.actors.includes(seat)) fail('ACTOR_NOT_ELIGIBLE');
+  if (!def.validateInterrupt || !def.resolveInterrupt) fail('INVALID_DEFINITION');
+  if (!ajv.compile(room.phase!.interrupt!.schema)(value)) fail('INVALID_DECISION');
+  if (def.validateInterrupt!(structuredClone(room.state), structuredClone(room.phase!), seat, structuredClone(value)) !== true) fail('RULE_REJECTED');
+}
+
+export function acceptInterrupt(source: Room, instance: number, seat: number, value: Json, def: RoomDefinition): Room {
+  validateInterrupt(source, instance, seat, value, def);
+  const room = structuredClone(source);
+  const next = def.resolveInterrupt!(structuredClone(room.state), structuredClone(room.phase!), seat, structuredClone(value));
+  if (next && 'pass' in next && next.pass === true) return room;
+  appendEvents(room, [{ type: 'interrupt', audience: [seat], data: { seat, value } }]);
+  applyTransition(room, next as Transition);
+  room.revision++;
+  room.decisionEpoch++;
   return room;
 }
 

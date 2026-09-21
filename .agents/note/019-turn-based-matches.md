@@ -1,6 +1,6 @@
 # 需求：房间制回合游戏框架
 
-Status: in_progress
+Status: implemented
 
 ## 需求
 
@@ -8,21 +8,22 @@ Status: in_progress
 
 ## 范围
 
-2026-09-20架构方向已确认：编写独立房间制回合游戏框架，不强制整合MUD，最底层统一。两个第二层框架并列，具体狼人杀规则留在MOD。用户进一步明确背包、道具等跨框架系统未来出现实际共用需求后再抽象，本轮不预先迁移。通用v1已授权并实现；阶段抢占v2增量待确认。见[大纲](../../docs/specs/turn-based-matches.md)。
+2026-09-20架构方向已确认：编写独立房间制回合游戏框架，不强制整合MUD，最底层统一。两个第二层框架并列，具体狼人杀规则留在MOD。用户进一步明确背包、道具等跨框架系统未来出现实际共用需求后再抽象，本轮不预先迁移。通用v1已授权并实现；阶段抢占v2增量已于2026-09-21明确确认并实现。见[大纲](../../docs/specs/turn-based-matches.md)。
 
 ## 验收
 
 - [x] TB-01～TB-08通用框架契约已实现并有可执行测试。正文见[框架测试契约](../../docs/testing/turn-based-matches.md)，实现契约见[设计](../../docs/specs/turn-based-matches.md)。
-- [ ] 狼人杀接入与只读旁观UI不在本轮范围，随[狼人杀001](../../mods/werewolf/.agents/note/001-ai-spectator-mvp.md)另行确认。
+- [x] TB-09～14抢占契约实现并通过真实PostgreSQL验收。
+- MOD接入与只读旁观UI归[狼人杀001](../../mods/werewolf/.agents/note/001-ai-spectator-mvp.md)另行确认。
 
 ## 当前进展
 
-2026-09-21续做：狼人杀规则v2已确认。现有单pending无法满足随时插队；已补[抢占设计v2](../../docs/specs/turn-based-interrupts.md)及TB-09～14验收说明，待确认新增接口、双执行scope、epoch、数据和恢复范围后实施。框架代码未改。
+2026-09-21当前：用户在019 v2与001 v3范围提交审阅后回复“确认执行”。独立抢占通道、双scope、pendingJobs、epoch与受信任宿主调度已实现，具体证据见下文。
 
-2026-09-21：通用框架已按已授权边界实现，狼人杀细则仍待用户提供，本轮未实现MOD、HTTP路由或UI。
+历史v1实施记录：通用框架按当时已授权边界实现，该阶段未实现MOD、HTTP路由或UI。
 
 - 实现：`packages/turn-based/src`（types/engine/runtime/schema）。独立入口`@game-ai/turn-based`，只依赖`@game-ai/core`公共入口与ajv；新表仅`tb_rooms`、`tb_seats`。MUD包与底层包均未反向引用，由`npm run check:repo`强制。
-- 测试证据（本次实际运行）：
+- 历史v1测试证据（原实施阶段实际运行）：
   - `packages/turn-based/tests/engine.test.ts`：6/6通过（纯引擎：满员开局、顺序/封闭收集、信息隔离、预算中止不揭密）。
   - `tests/integration/turn-based.test.ts`：15/15通过，真实PostgreSQL 18容器，覆盖TB-01～TB-08，含并发tick共享请求、过期响应拒绝、结算回滚、阶段变更拒绝陈旧输出、大关停时序、12席独立scope。
   - 全量回归：93/93通过（core、model、game-systems、turn-based、tests/integration、mods/qingxi）。
@@ -31,12 +32,12 @@ Status: in_progress
 
 ## 待完善
 
-狼人杀规则已确认；下一步确认通用抢占v2增量。既有架构方向不重复索取确认。正常结束后揭密，进行中旁观者仅见公共信息。
+v2已实现并通过真实数据库验收。应用侧自动开局与HTTP/UI不在本次范围；当前开发库未执行迁移或清理。正常结束后揭密，进行中旁观者仅见公共信息。
 
 
-## 下一步开发方案 v2（2026-09-21，待确认）
+## 开发方案 v2（2026-09-21，已确认执行）
 
-目标：普通模型等待期间独立受理合法抢占，同时保持授权隔离、原子提交、幂等及可恢复。具体协议唯一正文为[抢占v2](../../docs/specs/turn-based-interrupts.md)，验收为[TB-09～14](../../docs/testing/turn-based-matches.md)。v1既有确认不变，本节仅申请v2增量。
+目标：普通模型等待期间独立受理合法抢占，同时保持授权隔离、原子提交、幂等及可恢复。具体协议唯一正文为[抢占v2](../../docs/specs/turn-based-interrupts.md)，验收为[TB-09～14](../../docs/testing/turn-based-matches.md)。v1既有确认不变，本节记录已批准的v2增量。
 
 本次范围：packages/turn-based的types、engine、runtime、schema与公共导出；Phase.interrupt、两个纯回调、tickInterrupt；pendingJobs、decisionEpoch及每席interruptScopeId；框架可由受信任宿主调用的调度生命周期（阶段/事件触发、pass间隔、预算与关闭）。同步更新仓库内受影响调用方和测试。core保持同scope串行及原子记忆契约，不增加游戏规则。
 
@@ -48,4 +49,15 @@ Status: in_progress
 
 完成标准：TB-01～14通过，类型与仓库检查通过，真实数据库证明抢占后无旧动作/有效记忆提交、重复请求不重复执行、事务回滚无部分结果、重启无重复行动。未取得的环境或模型证据明确标为未运行，不将单元测试代作数据库验收。
 
-确认记录：2026-09-21用户在019 v2及001 v3具体范围提交审阅后明确回复“确认执行”，批准该范围实施。历史v1数据库与93项回归证据属于原实施记录，本次文档整理未重跑。没有新增待裁定的业务规则；本次待确认内容为接口、持久数据、调度及验收方案。
+确认记录：2026-09-21用户在019 v2及001 v3具体范围提交审阅后明确回复“确认执行”，批准该范围实施。历史v1数据库与93项回归证据保留为原实施记录；本次新增接口、持久数据、调度及验收范围已经获批，完整回归证据见下文。
+
+实施记录（2026-09-21）：用户“确认执行”后建立main/92beb7a检查点，保留全部待验收代码及规则文档。基线文档检查224文件/26需求通过，历史单元56项；基线数据库和真实模型本机未验证，不称稳定版本。
+
+## v2实施与验证证据（2026-09-21）
+
+- 实现：Phase.interrupt、validateInterrupt/resolveInterrupt、acceptInterrupt、tickInterrupt与run；Seat双scope、Room.pendingJobs/decisionEpoch及tb_seats.interrupt_scope_id。所有调用方和原持久化测试已更新，无旧pending兼容分支。
+- 一致性：登记提交Harness前及最终提交均重验job/phase/epoch；失效job不污染新阶段，活跃scope租约不被复用。普通提交、成功抢占递增epoch；pass只产生本通道内部记录，不产生公共事件或游戏状态变化。
+- 测试先行证据：新纯引擎测试首先因acceptInterrupt未导出失败；新集成测试类型检查因tickInterrupt、pendingJobs等缺失失败。额外登记竞态测试实际暴露SCOPE_BUSY：旧登记在新请求开始后仍尝试claim；增加提交前room锁重验后通过。
+- 真实PostgreSQL：专用临时postgres:18-bookworm容器，127.0.0.1随机端口；显式TEST_DATABASE_URL，各测试使用随机schema。通用框架8组单元、25组数据库测试通过，其中v2新增2组单元和10组数据库测试，覆盖TB-09～14及原TB-01～08。
+- 全量npm test：150/150通过，包含core、MUD、框架和MOD回归；无跳过。npm run check、npm run check:repo（229文件/26需求）与git diff --check通过。
+- 未执行现有开发库重建、备份恢复或应用镜像构建；未运行真实LLM。本次Runtime重建、持久登记恢复与过期租约测试不冒充现有开发库备份恢复验收。临时库没有需保留的开发数据。

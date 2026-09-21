@@ -43,7 +43,7 @@ test('WW-01–03,42,46: actual public RoomDefinition engine runs a full seeded g
   const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
   let room = createRoom('whole-game', 'scripted-run', definition);
   for (let seat = 1; seat <= 12; seat++) {
-    room = occupySeat(room, { seat, name: `AI ${seat}`, modelProfile: 'scripted', scopeId: `scope-${seat}` }, definition);
+    room = occupySeat(room, { seat, name: `AI ${seat}`, modelProfile: 'scripted', scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}` }, definition);
     assert.equal(room.status, seat < 12 ? 'waiting' : 'running');
   }
   let steps = 0;

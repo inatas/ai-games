@@ -6,7 +6,7 @@ import {
   electionEligible, speakingOrder, tallyVotes, exile, kill,
   type GameState, type Ballot, type Medicine,
 } from './rules.ts';
-import { beginElection, advanceElection, explodeElection, resumeElection, type Election, type ElectionAction, type SheriffMode } from './election.ts';
+import { beginElection, electionAllowsExplosion, advanceElection, explodeElection, resumeElection, type Election, type ElectionAction, type SheriffMode } from './election.ts';
 import { beginSettlement, advanceSettlement, type Settlement, type SettlementAction } from './settlement.ts';
 
 export type MatchStage = 'wolves' | 'witch' | 'seer' | 'nominations' | 'election'
@@ -135,6 +135,12 @@ function startVote(state: Match): void {
   if (!state.pending.length) startNight(state);
 }
 
+export function explosionActors(state: Match): number[] {
+  const allowed = state.stage === 'election' ? electionAllowsExplosion(state.election!)
+    : ['speech', 'pk', 'vote'].includes(state.stage);
+  return allowed ? state.game.players.filter(p => p.role === 'wolf' && electionEligible(state.game, p.seat)).map(p => p.seat) : [];
+}
+
 export function matchPhase(state: Match): Phase | null {
   if (state.stage === 'finished') return null;
   const livingSeats = alive(state).map(p => p.seat);
@@ -180,7 +186,11 @@ export function matchPhase(state: Match): Phase | null {
     }
   }
   if (!actors.length) throw new Error('EMPTY_MATCH_PHASE');
-  return { key, label, round: state.game.night, mode, actors: mode === 'sealed' ? [...actors] : actors.slice(0, 1), schema };
+  const interruptActors = explosionActors(state);
+  const interrupt = interruptActors.length ? { key: 'self-explosion', actors: interruptActors,
+    schema: { type: 'object', additionalProperties: false, required: ['kind'], properties: { kind: { enum: ['pass', 'explode'] } } },
+  } : undefined;
+  return { ...(interrupt ? { interrupt } : {}), key, label, round: state.game.night, mode, actors: mode === 'sealed' ? [...actors] : actors.slice(0, 1), schema };
 }
 
 export function decideMatch(source: Match, revision: number, seat: number, value: Json): Match {
@@ -256,9 +266,10 @@ export function decideMatch(source: Match, revision: number, seat: number, value
   return state;
 }
 
-/** Rules-only interrupt entry point; v1 RoomRuntime does not dispatch this concurrently. */
+/** Pure transition used by the independent interrupt lane. */
 export function explodeMatch(source: Match, revision: number, seat: number): Match {
   if (revision !== source.revision) throw new Error('REVISION_CONFLICT');
+  if (!explosionActors(source).includes(seat)) throw new Error('EXPLOSION_NOT_ALLOWED');
   const state = structuredClone(source);
   state.revision++;
   if (state.stage === 'election') {

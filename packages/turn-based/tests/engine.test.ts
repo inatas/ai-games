@@ -23,14 +23,14 @@ const definition: RoomDefinition = {
 };
 function ready(def = definition): Room {
   let room = createRoom('room-1', 'run-1', def);
-  room = occupySeat(room, { seat: 1, name: 'First', modelProfile: 'model-a', scopeId: 'scope-1' }, def);
-  return occupySeat(room, { seat: 2, name: 'Second', modelProfile: 'model-b', scopeId: 'scope-2' }, def);
+  room = occupySeat(room, { seat: 1, name: 'First', modelProfile: 'model-a', scopeId: 'scope-1', interruptScopeId: 'interrupt-1' }, def);
+  return occupySeat(room, { seat: 2, name: 'Second', modelProfile: 'model-b', scopeId: 'scope-2', interruptScopeId: 'interrupt-2' }, def);
 }
 
 test('TB-01: seats gate automatic start and repeated occupancy is idempotent', () => {
   let room = createRoom('room-1', 'run-1', definition);
   assert.equal(room.status, 'waiting');
-  const seat = { seat: 1, name: 'First', modelProfile: 'model-a', scopeId: 'scope-1' };
+  const seat = { seat: 1, name: 'First', modelProfile: 'model-a', scopeId: 'scope-1', interruptScopeId: 'interrupt-1' };
   room = occupySeat(room, seat, definition);
   assert.equal(room.status, 'waiting');
   assert.deepEqual(occupySeat(room, seat, definition), room);

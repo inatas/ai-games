@@ -81,7 +81,7 @@ test('WW-43,46: actual framework views isolate private events and only finish en
   };
   let room = createRoom('view-room', 'view-run', definition);
   for (let seat = 1; seat <= 12; seat++) {
-    room = occupySeat(room, { seat, name: `AI ${seat}`, modelProfile: 'test', scopeId: `seat-${seat}` }, definition);
+    room = occupySeat(room, { seat, name: `AI ${seat}`, modelProfile: 'test', scopeId: `seat-${seat}`, interruptScopeId: `interrupt-${seat}` }, definition);
   }
   assert.ok(JSON.stringify(actorView(room, 1, definition)).includes('wolf-knife'));
   assert.equal(JSON.stringify(actorView(room, 5, definition)).includes('wolf-knife'), false);

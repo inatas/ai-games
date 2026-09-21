@@ -13,6 +13,8 @@ export async function migrateTurnBased(tx: Transaction): Promise<void> {
       room_id uuid NOT NULL REFERENCES tb_rooms(id),
       seat integer NOT NULL CHECK (seat > 0),
       scope_id uuid NOT NULL UNIQUE REFERENCES fw_scopes(id),
+      interrupt_scope_id uuid NOT NULL UNIQUE REFERENCES fw_scopes(id),
+      CHECK (scope_id <> interrupt_scope_id),
       PRIMARY KEY (room_id, seat)
     );
   `);

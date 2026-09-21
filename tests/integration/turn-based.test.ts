@@ -138,7 +138,7 @@ test('TB-05/06: unsubmitted reservations recover; expired executions cannot comm
   const { r } = runtime(slow);
   const room = await ready(r);
   const executing = r.tick(room.id); await gate.ready;
-  const pending = (await r.inspect(room.id)).pending!;
+  const pending = (await r.inspect(room.id)).pendingJobs.normal!;
   try {
     await db.store.pool.query('UPDATE fw_requests SET lease_expires_at=0 WHERE scope_id=$1 AND request_id=$2', [pending.scopeId, pending.requestId]);
     await runtime().r.tick(room.id);
@@ -154,10 +154,10 @@ test('TB-05/06: unsubmitted reservations recover; expired executions cannot comm
   const fresh = await ready(recovery);
   // Simulate a crash after durable reservation but before Harness submission.
   const job = {
-    requestId: randomUUID(), scopeId: fresh.seats[0].scopeId, seat: 1,
+    lane: 'normal' as const, decisionEpoch: 0, requestId: randomUUID(), scopeId: fresh.seats[0].scopeId, seat: 1,
     modelProfile: 'first', memoryVersion: 0, phaseInstance: 1, facts: { ownClue: 'reserved-private' },
   };
-  fresh.pending = job; fresh.requests = 1;
+  fresh.pendingJobs.normal = job; fresh.requests = 1;
   await db.store.pool.query('UPDATE tb_rooms SET document=$2 WHERE id=$1', [fresh.id, JSON.stringify(fresh)]);
   await recovery.tick(fresh.id);
   assert.equal(model.calls.length, 1);
@@ -175,7 +175,7 @@ test('TB-06: phase changed during model wait rejects stale output without memory
   } finally { gate.release(); }
   await executing;
   const final = await r.inspect(room.id);
-  assert.equal(final.status, 'blocked'); assert.equal(final.error, 'PHASE_CONFLICT');
+  assert.equal(final.status, 'running'); assert.equal(final.error, null);
   assert.deepEqual(final.decisions, []);
   assert.equal((await db.store.memory(room.seats[0].scopeId, ['internal'])).length, 0);
 });

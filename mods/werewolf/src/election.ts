@@ -130,11 +130,16 @@ export function advanceElection(source: Election, revision: number, seat: number
   return election;
 }
 
+export function electionAllowsExplosion(election: Election): boolean {
+  const continuing = election.firstExplosionNight !== null && election.game.night > election.firstExplosionNight;
+  return ['speech', 'withdrawal', 'pk'].includes(election.stage) || (election.stage === 'voting' && continuing);
+}
+
 /** Immediate rules transition, independent of the scheduled speaker; runtime dispatch is separate. */
 export function explodeElection(source: Election, revision: number, seat: number): Election {
   checkRevision(source, revision);
   const continuing = source.firstExplosionNight !== null && source.game.night > source.firstExplosionNight;
-  if (!['speech', 'withdrawal', 'pk'].includes(source.stage) && !(source.stage === 'voting' && continuing)) {
+  if (!electionAllowsExplosion(source)) {
     throw new Error('EXPLOSION_NOT_ALLOWED');
   }
   const election = structuredClone(source);

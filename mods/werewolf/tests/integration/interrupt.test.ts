@@ -1,0 +1,133 @@
+import { after, before, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import type { ModelRequest, Json } from '@game-ai/core';
+import { ScriptedModel } from '@game-ai/model';
+import { RoomRuntime } from '@game-ai/turn-based';
+import { startTestDatabase } from '../../../../tests/support/database.ts';
+import { barrier } from '../../../../tests/support/counter.ts';
+import { werewolfDefinition } from '../../src/definition.ts';
+import type { Match } from '../../src/match.ts';
+
+let db: Awaited<ReturnType<typeof startTestDatabase>>;
+const runtimes: RoomRuntime[] = [];
+before(async () => { db = await startTestDatabase(); await db.store.migrate(); });
+after(async () => { await Promise.all(runtimes.map(r => r.close())); await db?.stop(); });
+const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
+
+/** Omniscient deterministic acceptance driver, never presented as AI performance. */
+function decision(request: ModelRequest, state: Match, seat: number, nominate: boolean, hunterChain: boolean): Json {
+  const root = request.outputSchema as { oneOf?: object[]; properties?: Record<string, { const?: string; enum?: Json[] }> };
+  if (root.oneOf) return { kind: 'pass' };
+  const properties = root.properties!;
+  if (properties.kind.enum) return { kind: 'explode' };
+  const kind = properties.kind.const!;
+  switch (kind) {
+    case 'knife': return { kind, target: hunterChain && state.game.night === 1 ? state.game.players.find(p => p.role === 'hunter')!.seat : null };
+    case 'shot': return { kind, target: state.game.players.find(p => p.alive && p.role === 'wolf')!.seat };
+    case 'inspect': return { kind, target: properties.target.enum![0] };
+    case 'nominate': return { kind, run: nominate && seat <= 2 };
+    case 'withdraw': return { kind, withdraw: false };
+    case 'direction': return { kind, direction: 'clockwise' };
+    case 'speak': case 'last-words': return { kind, text: `seat-${seat}-public` };
+    case 'vote': return { kind, target: state.stage === 'election' ? state.election!.candidates[0]
+      : state.game.players.find(p => p.alive && p.role === 'wolf')!.seat };
+    default: return { kind, target: null };
+  }
+}
+async function game(nominate = false, hold?: (request: ModelRequest) => Promise<void>, hunterChain = false) {
+  let roomId = '';
+  let reader: RoomRuntime;
+  const profiles = Object.fromEntries(Array.from({ length: 12 }, (_, i) => {
+    const seat = i + 1;
+    return [`seat-${seat}`, new ScriptedModel(async request => {
+      await hold?.(request);
+      return JSON.stringify(decision(request, (await reader.inspect(roomId)).state as unknown as Match, seat, nominate, hunterChain));
+    })];
+  }));
+  function restart() { reader = new RoomRuntime(db.store, definition, profiles, { harness: { inputBudget: 64_000, modelWindow: 128_000 } }); runtimes.push(reader); return reader; }
+  const r = restart(); await r.migrate(); const room = await r.create(randomUUID()); roomId = room.id;
+  for (let seat = 1; seat <= 12; seat++) await r.seat(roomId, { seat, name: `AI ${seat}`, modelProfile: `seat-${seat}` });
+  async function until(predicate: (match: Match) => boolean, runtime = reader) {
+    for (let i = 0; i < 500; i++) {
+      const snapshot = await runtime.inspect(roomId);
+      if (predicate(snapshot.state as unknown as Match)) return snapshot;
+      assert.equal(snapshot.status, 'running', snapshot.error + ':' + snapshot.phase?.key);
+      await runtime.tick(roomId);
+    }
+    throw new Error('SCRIPT_LIMIT');
+  }
+  return { r, roomId, profiles, restart, until };
+}
+
+test('WW-73/77/79/80: real database interrupts waiting speech, restarts and finishes without late facts', async () => {
+  const gate = barrier(); let holdSpeech = false;
+  const gameRun = await game(false, async request => {
+    const schema = request.outputSchema as { properties?: { kind?: { const?: string } } };
+    if (holdSpeech && schema.properties?.kind?.const === 'speak') await gate.wait();
+  });
+  const { r, roomId, profiles, until, restart } = gameRun;
+  const dawn = await until(state => state.stage === 'speech');
+  const state = dawn.state as unknown as Match;
+  const speaker = dawn.phase!.actors[0];
+  const wolf = state.game.players.find(p => p.role === 'wolf' && p.seat !== speaker)!.seat;
+  holdSpeech = true; const normal = r.tick(roomId); await gate.ready;
+  try {
+    await r.tickInterrupt(roomId, wolf);
+    const after = await r.inspect(roomId);
+    assert.equal((after.state as unknown as Match).game.night, 2);
+    assert.equal(after.events.filter(e => e.type === 'wolf-explosion').length, 1);
+  } finally { holdSpeech = false; gate.release(); await normal; }
+  assert.equal((await db.store.memory(dawn.seats[speaker - 1].scopeId, ['internal'])).filter(m => JSON.stringify(m.payload).includes('speak')).length, 0);
+  const interruptInput = profiles[`seat-${wolf}`].calls.at(-1)!;
+  assert.doesNotMatch(JSON.stringify(interruptInput.messages), /antidote|inspections/);
+  assert.doesNotMatch(JSON.stringify(await r.spectate(roomId)), /interruptScopeId|antidote|inspections/);
+  const restored = restart();
+  await until(match => match.stage === 'finished', restored);
+  const final = await restored.spectate(roomId);
+  assert.equal(final.status, 'finished'); assert.ok(final.replay);
+  assert.equal(final.events.filter(e => e.type === 'wolf-explosion').length, 1);
+  assert.equal((final.result as { winner: string }).winner, 'good');
+});
+
+test('WW-78/79: actual runtime preserves nominations across first explosion and restart; second loses badge', async () => {
+  const { r, roomId, until, restart } = await game(true);
+  const election = await until(state => state.stage === 'election');
+  const state = election.state as unknown as Match;
+  const wolves = state.game.players.filter(p => p.role === 'wolf').map(p => p.seat);
+  const nominations = state.election!.registered;
+  const firstWolf = wolves.find(seat => !nominations.includes(seat))!;
+  await r.tickInterrupt(roomId, firstWolf);
+  const restored = restart();
+  const nextDay = await until(match => match.stage === 'election', restored);
+  assert.deepEqual((nextDay.state as unknown as Match).election!.registered, nominations);
+  await restored.tickInterrupt(roomId, wolves.find(seat => seat !== firstWolf)!);
+  const next = await restored.inspect(roomId);
+  const match = next.state as unknown as Match;
+  assert.equal(match.game.sheriff, null);
+  assert.equal(match.game.night, 3);
+  assert.equal(match.election!.stage, 'finished');
+  assert.equal(next.events.filter(e => e.type === 'wolf-explosion').length, 2);
+  await until(current => current.stage === 'finished', restart());
+  assert.equal((await r.inspect(roomId)).events.filter(e => e.type === 'wolf-explosion').length, 2);
+});
+
+test('WW-75/79: persisted hunter death chain resumes after gun without repeating shot or early reveal', async () => {
+  const { r, roomId, until, restart } = await game(false, undefined, true);
+  const shot = await until(state => state.stage === 'settlement' && state.settlement!.queue[0].kind === 'shot');
+  assert.equal((await r.spectate(roomId)).replay, undefined);
+  await r.tick(roomId);
+  const after = await r.inspect(roomId);
+  const match = after.state as unknown as Match;
+  assert.equal(match.stage, 'settlement');
+  assert.equal(match.settlement!.queue[0].kind, 'last-words');
+  assert.equal(after.events.filter(event => event.type === 'hunter-shot').length, 1);
+  const restored = restart();
+  await until(state => state.stage === 'finished', restored);
+  const final = await restored.spectate(roomId);
+  assert.equal(final.events.filter(event => event.type === 'hunter-shot').length, 1);
+  assert.ok(final.replay);
+  const hunterScope = shot.seats.find(seat => seat.seat === shot.phase!.actors[0])!.scopeId;
+  const effective = await db.store.memory(hunterScope, ['internal']);
+  assert.equal(effective.filter(memory => (memory.payload as { decision?: { kind?: string } }).decision?.kind === 'shot').length, 1);
+});

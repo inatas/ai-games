@@ -5,6 +5,7 @@ export interface Seat {
   name: string;
   modelProfile: string;
   scopeId: string;
+  interruptScopeId: string;
 }
 export interface Phase {
   key: string;
@@ -13,6 +14,7 @@ export interface Phase {
   mode: 'sequential' | 'sealed';
   actors: number[];
   schema: object;
+  interrupt?: { key: string; actors: number[]; schema: object };
 }
 export interface GameEvent {
   type: string;
@@ -39,10 +41,15 @@ export interface RoomDefinition {
   validate(state: Json, phase: Phase, seat: number, decision: Json): boolean;
   onDecision?(state: Json, phase: Phase, seat: number, decision: Json): GameEvent[];
   resolve(state: Json, phase: Phase, decisions: readonly Decision[]): Transition;
+  validateInterrupt?(state: Json, phase: Phase, seat: number, value: Json): boolean;
+  resolveInterrupt?(state: Json, phase: Phase, seat: number, value: Json): { pass: true } | Transition;
   reveal?(state: Json): Json;
 }
 export interface RoomLimits { maxPhases: number; maxRequests: number }
+export type Lane = 'normal' | `interrupt:${number}`;
 export interface PendingDecision {
+  lane: Lane;
+  decisionEpoch: number;
   requestId: string;
   scopeId: string;
   seat: number;
@@ -69,7 +76,8 @@ export interface Room {
   result: Json;
   limits: RoomLimits;
   requests: number;
-  pending: PendingDecision | null;
+  decisionEpoch: number;
+  pendingJobs: Partial<Record<Lane, PendingDecision>>;
   error: string | null;
 }
 export interface VisibleEvent { sequence: number; phaseInstance: number; type: string; data: Json }
