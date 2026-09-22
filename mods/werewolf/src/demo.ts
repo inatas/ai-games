@@ -1,3 +1,4 @@
+import { projectPerspective } from './perspective.ts';
 import { randomUUID } from 'node:crypto';
 import type { Json } from '@game-ai/core';
 import { acceptDecision, createRoom, eligibleActors, occupySeat, spectatorView, type Room, type RoomDefinition } from '@game-ai/turn-based';
@@ -10,19 +11,15 @@ interface Session {
   definition: RoomDefinition;
   random: number;
   strategy: 'fixed' | 'random';
-  lastRevision: number | null;
   revision: number;
-  playing: boolean;
-  remaining: number;
-  clock: number;
+  dueAt: number;
   nightTail: boolean;
-  lastControl: { revision: number; playing: boolean } | null;
   touched: number;
   phases: Map<number, { day: number; period: 'day' | 'night' }>;
 }
 interface Schema { const?: Json; enum?: Json[]; oneOf?: Schema[]; type?: string; properties?: Record<string, Schema> }
 
-/** Local demonstration only: private state and deterministic decisions never leave this host. */
+/** Local demonstration only: private state and deterministic decisions stay on this host. */
 export class DemoRooms {
   private readonly sessions = new Map<string, Session>();
   private readonly now: () => number;
@@ -50,7 +47,7 @@ export class DemoRooms {
 
   create(seed: number, strategy: 'fixed' | 'random') {
     if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff || !['fixed', 'random'].includes(strategy)) throw new Error('INVALID_DEMO_OPTIONS');
-    for (const [id, session] of this.sessions) if (this.now() - session.touched > 3_600_000) this.sessions.delete(id);
+    this.expire();
     if (this.sessions.size >= 100) throw new Error('DEMO_CAPACITY');
     const definition = werewolfDefinition({ seed, sheriff: 'double' });
     const id = randomUUID();
@@ -58,65 +55,52 @@ export class DemoRooms {
     for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
       seat, name: `${seat}号玩家`, modelProfile: 'fixed-text-demo', scopeId: `seat-${seat}`, interruptScopeId: `interrupt-${seat}`,
     }, definition);
-    const session: Session = { room, definition, random: (seed ^ 20260963) >>> 0, strategy, lastRevision: null,
-      revision: 0, playing: false, remaining: 60_000, clock: this.now(), nightTail: false, lastControl: null,
-      touched: this.now(), phases: new Map() };
+    const session: Session = { room, definition, random: (seed ^ 20260963) >>> 0, strategy,
+      revision: 0, dueAt: this.now() + 60_000, nightTail: false, touched: this.now(), phases: new Map() };
     session.phases.set(room.phaseInstance, { day: 1, period: 'night' });
     this.sessions.set(id, session);
     return this.snapshot(session);
   }
 
-  private session(id: string): Session {
+  private expire(): void {
+    for (const [id, session] of this.sessions) if (this.now() - session.touched > 3_600_000) this.sessions.delete(id);
+  }
+
+  get(id: string, viewer: number | null = null) {
     const session = this.sessions.get(id);
     if (!session || this.now() - session.touched > 3_600_000) { this.sessions.delete(id); throw new Error('DEMO_NOT_FOUND'); }
     session.touched = this.now();
-    return session;
+    return this.snapshot(session, viewer);
   }
 
-  private tick(session: Session, advance: boolean): void {
+  /** Called by the host independently of page reads. Catch up against original deadlines. */
+  tick(): void {
+    this.expire();
     const now = this.now();
-    if (session.playing) session.remaining = Math.max(0, session.remaining - Math.max(0, now - session.clock));
-    session.clock = now;
-    // Show every public transition, even when the browser was in the background.
-    if (advance && session.playing && session.remaining === 0) this.advance(session);
-  }
-
-  get(id: string) {
-    const session = this.session(id);
-    this.tick(session, true);
-    return this.snapshot(session);
-  }
-
-  control(id: string, revision: number, playing: boolean) {
-    const session = this.session(id);
-    if (session.lastControl?.revision === revision && session.lastControl.playing === playing) return this.snapshot(session);
-    if (revision !== session.revision) throw new Error('REVISION_CONFLICT');
-    this.tick(session, false);
-    session.playing = playing && session.room.status === 'running';
-    session.revision++;
-    session.lastControl = { revision, playing };
-    return this.snapshot(session);
-  }
-
-  step(id: string, revision: number) {
-    const session = this.session(id);
-    if (revision === session.lastRevision) return this.snapshot(session);
-    if (revision !== session.revision) throw new Error('REVISION_CONFLICT');
-    this.advance(session);
-    session.lastRevision = revision;
-    session.playing = false;
-    return this.snapshot(session);
+    for (const session of this.sessions.values()) {
+      for (let steps = 0; session.room.status === 'running' && session.dueAt <= now && steps < 600; steps++) {
+        const draft = { ...session, phases: new Map(session.phases) };
+        try {
+          this.advance(draft);
+          Object.assign(session, draft);
+        } catch {
+          // No partial choices, random state or events escape a failed transition.
+          session.room = { ...session.room, status: 'blocked', error: 'DEMO_TICK_FAILED' };
+          session.revision++;
+          break;
+        }
+      }
+    }
   }
 
   private advance(session: Session): void {
     const room = session.room;
     if (room.status !== 'running' || !room.phase) return;
     const match = room.state as unknown as Match;
-    // Preserve the same public night duration when the witch is dead.
+    // Preserve the same public night duration even when the witch is dead.
     if (match.stage === 'wolves' && !session.nightTail && !match.game.players.some(p => p.alive && p.role === 'witch')) {
       session.nightTail = true;
-      session.remaining = 30_000;
-      session.clock = this.now();
+      session.dueAt += 30_000;
       session.revision++;
       return;
     }
@@ -140,46 +124,48 @@ export class DemoRooms {
       const schema = match.stage === 'wolves' ? nightActionSchema(match, actor) : room.phase.schema;
       next = acceptDecision(next, room.phaseInstance, actor, sample(schema as Schema), session.definition);
     }
-    // Commit random state and game together only after the pure transition succeeds.
     session.room = next;
     session.random = random;
     session.nightTail = false;
     session.revision++;
-    session.remaining = this.waitTime(session);
-    session.clock = this.now();
-    if (next.status !== 'running') { session.playing = false; session.remaining = 0; }
+    session.dueAt += this.waitTime(session);
     const view = spectatorView(next, session.definition).state as unknown as GameView;
     if (!session.phases.has(next.phaseInstance)) session.phases.set(next.phaseInstance, { day: view.night, period: view.period });
   }
 
-  private snapshot(session: Session) {
+  private snapshot(session: Session, viewer: number | null = null) {
     const { room, definition } = session;
     const publicView = spectatorView(room, definition);
     const view = publicView.state as unknown as GameView;
     const vote = view.period === 'day' && room.phase?.key === 'vote';
     const visibleEvents = publicView.events.filter(event => !['decision', 'interrupt'].includes(event.type));
-    const events = visibleEvents.map(({ type, data }) => ({ type, data }));
+    const publicSequences = new Set(room.events.filter(event => event.audience === 'public').map(event => event.sequence));
+    // Public ordinals have no gaps caused by private night actions; they stay stable at finish.
+    const events = visibleEvents.filter(event => publicSequences.has(event.sequence))
+      .map(({ phaseInstance, type, data }, index) => ({ sequence: index + 1, ...session.phases.get(phaseInstance)!, type, data }));
     const finished = room.status === 'finished';
-    const speeches = visibleEvents.filter(event => ['speech', 'sheriff-speech', 'last-words'].includes(event.type)).map(event => {
+    const running = room.status === 'running';
+    const speeches = events.filter(event => ['speech', 'sheriff-speech', 'last-words'].includes(event.type)).map(event => {
       const data = event.data as { seat: number; text: string; runoff?: boolean };
-      return { sequence: event.sequence, day: session.phases.get(event.phaseInstance)!.day,
+      return { sequence: event.sequence, day: event.day,
         phase: event.type === 'last-words' ? '遗言' : event.type === 'sheriff-speech' ? (data.runoff ? '警长PK发言' : '上警发言') : (data.runoff ? '放逐PK发言' : '放逐发言'),
         seat: data.seat, text: data.text };
     });
     const nightExtra = room.phase?.key === 'wolves' && !session.nightTail ? 30_000 : 0;
+    const nightSegment: 'shared' | 'medicine' | null = !running || view.period !== 'night' ? null : nightExtra ? 'shared' : 'medicine';
+    const speakerSeat = running && view.period === 'day' && ['speech', 'pk', 'election-speech', 'election-pk', 'last-words'].includes(room.phase?.key ?? '') ? eligibleActors(room)[0] ?? null : null;
     const revealed = publicView.replay as unknown as { players: { seat: number; role: string }[] } | undefined;
     return {
-      id: room.id, revision: session.revision, status: room.status,
-      playing: session.playing, speeches,
-      timing: { remainingMs: finished ? 0 : session.remaining + this.budget(session) - this.waitTime(session) + nightExtra },
-      day: view.night, period: view.period, phaseLabel: room.phase?.label ?? (finished ? '对局结束' : '演示已停止'),
-      actor: view.period === 'day' && room.phase?.mode === 'sequential' ? eligibleActors(room)[0] ?? null : null,
+      perspective: projectPerspective(room.state as unknown as Match, viewer), id: room.id, revision: session.revision, status: room.status, speeches, speakerSeat, nightSegment, currentSpeech: speakerSeat === null ? null : { seat: speakerSeat, text: this.speechText, revision: session.revision },
+      timing: { remainingMs: running ? Math.max(0, session.dueAt - this.now()) + this.budget(session) - this.waitTime(session) + nightExtra : 0 },
+      day: view.night, period: view.period, phaseLabel: !running ? (finished ? '对局结束' : '对局异常停止') : room.phase!.label,
+      actor: running && view.period === 'day' && room.phase?.mode === 'sequential' ? eligibleActors(room)[0] ?? null : null,
       progress: vote ? { submitted: room.decisions.length, eligible: room.phase!.actors.length } : null,
       sheriff: view.sheriff, players: view.players, events, result: publicView.result,
       ...(finished ? {
         roles: revealed!.players.map(({ seat, role }) => ({ seat, role })),
         replay: [...session.phases.entries()].map(([instance, phase]) => ({ ...phase,
-          events: visibleEvents.filter(event => event.phaseInstance === instance).map(({ type, data }) => ({ type, data })),
+          events: visibleEvents.filter(event => event.phaseInstance === instance).map(({ sequence, type, data }) => ({ sequence, ...phase, type, data })),
         })).filter(frame => frame.events.length).reduce<{ day: number; period: 'day' | 'night'; events: typeof events }[]>((frames, frame) => {
           const last = frames.at(-1);
           if (last?.day === frame.day && last.period === frame.period) last.events.push(...frame.events);

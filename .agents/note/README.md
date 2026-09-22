@@ -39,3 +39,7 @@
 
 
 [019 房间制回合游戏框架](019-turn-based-matches.md)：implemented，v1与抢占v2已实现并有真实数据库证据；首个游戏见[狼人杀需求](../../mods/werewolf/.agents/note/README.md)。
+
+019 v3：[模型运行时扩展提案](../../docs/specs/turn-based-model-runtime-v3.md)，draft；v2已实现，v3待确认。
+
+[020 Robot用户目录](020-robot-users.md)：in_progress；独立用户配置与素材、默认脚本控制，游戏接入归MOD。

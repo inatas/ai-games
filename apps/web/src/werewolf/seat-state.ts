@@ -1,7 +1,7 @@
 import type { DemoSnapshot } from '../../../shared/werewolf.ts';
 
 export type DeathDisplay = 'night' | 'exile' | 'shot' | 'explode' | 'knife' | 'poison';
-export function publicSeatState(seat: number, alive: boolean, events: DemoSnapshot['events'], election: boolean) {
+export function publicSeatState(seat: number, alive: boolean, events: Pick<DemoSnapshot['events'][number], 'type' | 'data'>[], election: boolean) {
   let death: DeathDisplay | null = null;
   let nominated = false;
   for (const event of events) {

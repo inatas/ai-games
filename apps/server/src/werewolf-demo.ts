@@ -5,8 +5,11 @@ import { pathToFileURL } from 'node:url';
 import { DemoRooms } from '../../../mods/werewolf/src/demo.ts';
 import type { DemoSnapshot } from '../../shared/werewolf.ts';
 
-export async function werewolfDemoRoutes(app: FastifyInstance) {
-  const rooms = new DemoRooms();
+export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms } = {}) {
+  const rooms = options.rooms ?? new DemoRooms();
+  const clock = setInterval(() => rooms.tick(), 100);
+  clock.unref();
+  app.addHook('onClose', async () => { clearInterval(clock); });
   app.addHook('onRequest', async (request, reply) => {
     const origin = request.headers.origin;
     if (origin && new URL(origin).host !== request.headers.host) return reply.code(403).send({ error: 'ORIGIN_REJECTED' });
@@ -20,20 +23,15 @@ export async function werewolfDemoRoutes(app: FastifyInstance) {
       seed: { type: 'integer', minimum: 0, maximum: 4294967295 }, strategy: { enum: ['fixed', 'random'] },
     } } },
   }, async (request): Promise<DemoSnapshot> => rooms.create(request.body.seed, request.body.strategy));
-  app.get<{ Params: { id: string } }>('/api/werewolf/demo/:id', async (request): Promise<DemoSnapshot> => rooms.get(request.params.id));
-  app.post<{ Params: { id: string }; Body: { revision: number } }>('/api/werewolf/demo/:id/step', {
-    schema: { body: { type: 'object', additionalProperties: false, required: ['revision'], properties: { revision: { type: 'integer', minimum: 0 } } } },
-  }, async (request): Promise<DemoSnapshot> => rooms.step(request.params.id, request.body.revision));
-  app.post<{ Params: { id: string }; Body: { revision: number; playing: boolean } }>('/api/werewolf/demo/:id/control', {
-    schema: { body: { type: 'object', additionalProperties: false, required: ['revision', 'playing'], properties: {
-      revision: { type: 'integer', minimum: 0 }, playing: { type: 'boolean' },
-    } } },
-  }, async (request): Promise<DemoSnapshot> => rooms.control(request.params.id, request.body.revision, request.body.playing));
+  app.get<{ Params: { id: string }; Querystring: { seat?: string } }>('/api/werewolf/demo/:id', {
+    schema: { querystring: { type: 'object', additionalProperties: false, properties: { seat: { type: 'string', pattern: '^(?:[1-9]|1[0-2])$' } } } },
+  }, async (request): Promise<DemoSnapshot> => rooms.get(request.params.id, request.query.seat === undefined ? null : Number(request.query.seat)));
+
 }
 
-export async function buildWerewolfDemo() {
+export async function buildWerewolfDemo(options: { rooms?: DemoRooms } = {}) {
   const app = Fastify({ bodyLimit: 1024, ajv: { customOptions: { removeAdditional: false, coerceTypes: false } } });
-  await app.register(werewolfDemoRoutes);
+  await app.register(werewolfDemoRoutes, options);
   app.get('/', (_request, reply) => reply.redirect('/werewolf'));
   await app.register(fastifyStatic, { root: resolve('dist'), prefix: '/' });
   app.get('/werewolf', (_request, reply) => reply.sendFile('index.html'));
@@ -45,4 +43,3 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   await app.listen({ port: Number(process.env.WEREWOLF_PORT ?? 4318), host: '127.0.0.1' });
   console.log(`狼人杀演示：http://127.0.0.1:${process.env.WEREWOLF_PORT ?? 4318}/werewolf`);
 }
-

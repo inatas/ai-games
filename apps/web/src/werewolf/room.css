@@ -40,14 +40,8 @@ body { margin: 0; background: #151b1b; }
 .ww-status { position: absolute; top: 56.4%; left: 19.5%; width: 61%; height: 2.8%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 3.4cqw; background: #071d24c9; color: #ffe285; border-bottom: .3cqw solid #94733a; text-shadow: .2cqw .2cqw #1f261b; }
 .ww-status.has-error { font-size: 2.6cqw; color: #ffc7a9; }
 .ww-status button { margin-left: 1cqw; background: #644d32; border: 1px solid #d4b365; }
-.ww-character { position: absolute; left: 31.5%; top: 62%; width: 34%; height: 25.7%; background-image: url('/werewolf/portrait-atlas.png'); background-repeat: no-repeat; }
-.ww-character.villager-art { background-size: 294.1176% 389.105%; background-position: 47.7273% 83.4455%; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-.ww-character.portrait-art { top: 64%; left: 28%; width: 44%; height: 22%; border-radius: 48% 48% 35% 35%; border: .7cqw solid #c39a56; box-shadow: 0 0 5cqw #162627, inset 0 0 0 1cqw #2c251a; }
 .ww-seat-bubble { position: absolute; top: 62.3%; left: 63%; width: 12%; height: 6%; border-radius: 55% 55% 55% 8%; border: .7cqw solid #819b49; background: #e2cc88; color: #fff; -webkit-text-stroke: .6cqw #161c12; paint-order: stroke fill; font: bold 9cqw/1.25 Georgia; text-align: center; box-shadow: inset 0 0 0 .35cqw #fcf0b7; transform: rotate(-5deg); }
 .ww-observer { position: absolute; top: 85.2%; left: 1.3%; background: linear-gradient(#714d27, #3e2e1c); border: .5cqw solid #c8a05c; border-radius: 4cqw; box-shadow: 0 0 0 .4cqw #2d2114, inset 0 0 0 .3cqw #312617; font-size: 3.2cqw; padding: 1.2cqw 1.6cqw; font-weight: bold; }
-.ww-play, .ww-step { right: 3%; width: 11.8%; height: 5.9%; font-size: 3.2cqw !important; font-weight: bold !important; line-height: 1.15; color: #ffedb4 !important; background: radial-gradient(circle at 40% 30%, #73572e, #322618); }
-.ww-play { top: 76.6%; }.ww-step { top: 82.8%; }
-.ww-play span, .ww-step span { font-size: 4.1cqw; line-height: 1.15; }
 .ww-nameplate { position: absolute; top: 87.9%; left: 25%; width: 50%; height: 3.8%; background: repeating-linear-gradient(4deg, #654226, #654226 .3cqw, #70492a .4cqw, #573820 .8cqw); border: .65cqw solid #a97d41; box-shadow: 0 0 0 .4cqw #291b0c, inset 0 0 0 .3cqw #291b0c; display: flex; align-items: center; justify-content: space-between; padding: 0 7%; font-size: 3cqw; clip-path: polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%); }
 .ww-nameplate b { position: absolute; left: 15%; white-space: nowrap; }
 .ww-nameplate small { position: absolute; right: 9%; font-size: 2cqw; color: #d5ba8c; }
@@ -106,3 +100,10 @@ body { margin: 0; background: #151b1b; }
 .ww-controls { top:92%; left:1%; width:98%; height:3.7%; padding:.3cqw 4cqw; border:.6cqw solid #b27b3f; border-radius:3.5cqw 3.5cqw 1.2cqw 1.2cqw; box-shadow:0 0 0 .4cqw #160f0a,inset 0 0 0 .35cqw #352013; background:#68462e url('/werewolf/wood-panel.svg') center / 100% 100%; }
 .ww-controls button { font-size:3.5cqw; font-weight:normal; }
 .ww-caption { top:97%; font-size:2cqw; }
+
+.ww-view-knowledge { position:absolute; top:79.5%; left:1.3%; z-index:4; display:grid; grid-template-columns:6cqw auto; align-items:center; gap:.6cqw; border:.5cqw solid #aa804c; border-radius:1.5cqw; padding:.8cqw; color:#f5e1b2; background:repeating-linear-gradient(6deg,#543922 0 2px,#614229 2px 4px); font-size:2.5cqw; }
+.ww-view-knowledge span,.ww-view-grid span { display:block; width:6cqw; aspect-ratio:1; background-repeat:no-repeat; border-radius:50%; border:1px solid #c99e59; grid-row:span 2; }.ww-view-knowledge small { font-size:2cqw; }
+.ww-view-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:16px 0; }.ww-view-grid button { display:flex; flex-direction:column; align-items:center; gap:6px; }.ww-view-grid span { width:48px; }.ww-view-grid [aria-pressed=true] { outline:3px solid #d4aa58; background:#77532f; }
+.ww-knowledge { line-height:1.8; }.ww-observer { z-index:4; cursor:pointer; }
+.has-perspective .ww-history-entry { top:74.6%; }
+.ww-view-knowledge { top:80.4%; }

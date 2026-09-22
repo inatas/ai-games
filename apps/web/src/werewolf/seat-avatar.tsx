@@ -4,10 +4,13 @@ import './seat-avatar.css';
 
 export const deathNames: Record<DeathDisplay, string> = { night: '夜亡', exile: '放逐', shot: '枪杀', explode: '自爆', knife: '狼刀', poison: '毒杀' };
 export function portraitStyle(seat: number): CSSProperties {
-  const artSeat = seat === 3 ? 6 : seat === 8 ? 9 : seat;
-  const x = artSeat <= 6 ? 29 : 747;
-  const y = 250 + ((artSeat - 1) % 6) * 174;
-  return { backgroundSize: '964.13% 1928.26%', backgroundPosition: `${x / (887 - 92) * 100}% ${y / (1774 - 92) * 100}%` };
+  const portraits = [
+    { name: 'brown', size: '370% 500%', position: '49% 17%' },
+    { name: 'pink', size: '315% 410%', position: '49% 27%' },
+    { name: 'blue', size: '370% 500%', position: '48% 23%' },
+  ];
+  const portrait = portraits[(seat - 1) % portraits.length];
+  return { backgroundImage: `url('/werewolf/user-avatar-${portrait.name}.png')`, backgroundSize: portrait.size, backgroundPosition: portrait.position };
 }
 function Skull() {
   return <><path d="M50 12C27 10 15 25 17 44c0 14 9 20 16 22v15l10 3 7-7 7 7 10-3V66c9-3 16-12 16-23C85 25 72 11 50 12Z"/><ellipse cx="35" cy="42" rx="10" ry="12" fill="#331824"/><ellipse cx="65" cy="42" rx="10" ry="12" fill="#331824"/><path d="m50 55-6 11h12Z" fill="#331824"/><path d="M42 70v10m16-10v10" fill="none"/></>;
@@ -31,6 +34,7 @@ export interface SeatAvatarProps {
   nominated?: boolean;
   mark?: string;
   selected?: boolean;
+  viewpoint?: boolean;
   active?: boolean;
   gallery?: boolean;
   onClick?: () => void;
@@ -44,6 +48,7 @@ export function SeatAvatar(props: SeatAvatarProps) {
     {death && <span className={`ww-death ${death}`}><DeathIcon kind={death}/><span>{deathNames[death]}</span></span>}
     {sheriff && <span className="ww-corner top-left sheriff" title="警长">♛</span>}
     {nominated ? <span className="ww-corner top-right nomination" title="已公布上警">✋</span> : mark && <span className={`ww-corner top-right personal ${markTone}`} title={`个人标记：${mark}`}>{mark}</span>}
+    {props.viewpoint && <span className="ww-corner bottom-left self" title="当前观察视角">视角</span>}
     {self && <span className="ww-corner bottom-left self">我</span>}
     {identity && <span className={`ww-corner bottom-right identity ${identity === '狼' || identity === '狼人' ? 'wolf' : identity === '好' ? 'good' : ''}`}>{identity}</span>}
     <span className="ww-seat-number">{seat}</span>

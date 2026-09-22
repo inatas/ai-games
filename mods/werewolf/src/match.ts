@@ -126,6 +126,7 @@ function finishNightChoices(state: Match): void {
   if (state.pending.length) return;
   const resolved = resolveWolfKnife(state.game, state.choices);
   state.game = resolved.state; state.knife = resolved.target;
+  state.events.push({ type: 'wolf-knife', audience: state.game.players.filter(p => p.alive && p.role === 'wolf').map(p => p.seat), data: { night: state.game.night, target: resolved.target } });
   state.events.push({ type: 'wolf-choices', audience: state.game.players.filter(p => p.role === 'wolf').map(p => p.seat), data: state.choices as unknown as Json });
   const witch = roleSeat(state, 'witch');
   if (witch !== undefined) { state.stage = 'witch'; state.pending = [witch]; }
@@ -255,7 +256,7 @@ export function decideMatch(source: Match, revision: number, seat: number, value
         if (!state.pending.length) {
           const candidates = state.runoff.length ? state.runoff : alive(state).filter(p => !p.revealed).map(p => p.seat);
           const result = tallyVotes(state.game, state.choices, { kind: 'exile', candidates, voters: state.choices.map(v => v.seat), runoff: state.runoff.length > 0 });
-          state.events.push({ type: 'exile-votes', audience: 'public', data: result as unknown as Json });
+          state.events.push({ type: 'exile-votes', audience: 'public', data: { ...result, sheriff: state.game.sheriff, runoff: state.runoff.length > 0 } as unknown as Json });
           if (result.tied.length) {
             state.runoff = result.tied; state.stage = 'pk'; state.pending = [...result.tied];
           } else if (result.winner !== null) {

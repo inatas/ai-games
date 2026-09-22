@@ -6,3 +6,5 @@
 - [头像状态方案v2](../../docs/avatar-states-v2.md)：待确认，统一死亡图案/单层边框/移除装饰及九类状态，含视角与音频接入选项。
 
 原型v2.1已完成：[主界面](../../docs/prototypes/ui-v2-avatar-main.png)、[状态对照](../../docs/prototypes/ui-v2-avatar-states.png)。预言家标签为好/狼，补充毒杀，音频暂不做；应用实现范围仍待后续确认。
+
+001后续：[模型接入v1开发方案](../../docs/model-integration-v1.md)，draft，待用户确认；当前无模型与旁观版本已由用户验收。
