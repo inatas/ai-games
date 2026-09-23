@@ -84,7 +84,7 @@ test('F-21/22/23/24/25: durable memory, visibility, provenance and non-AI execut
 test('F-27/29/30: old result survives binding upgrade, invalid input and usage records', async()=>{
   const r=await run();const upgraded=counterBinding(store);upgraded.version='2';r.harness.register(upgraded);assert.equal((await r.harness.submit(r.input)).status,'committed');await assert.rejects(r.harness.submit(request(r.scope,1)),/BINDING_MISMATCH/);
   await assert.rejects(r.harness.submit({...r.input,requestId:'bad'}),/INVALID_INPUT/);
-  const rows=await store.pool.query('SELECT * FROM fw_model_calls WHERE scope_id=$1',[r.scope]);assert.equal(rows.rows.length,1);assert.deepEqual(rows.rows[0].usage,{inputTokens:100,outputTokens:20});
+  const rows=await store.pool.query("SELECT details FROM fw_event_log WHERE request_id=$1 AND event_type='model.call.finished.v1'",[r.input.requestId]);assert.equal(rows.rows.length,1);assert.deepEqual(rows.rows[0].details.usage,{inputTokens:100,outputTokens:20});
 });
 test('F-14/17: actual process death recovers claim and rolls back in-flight transaction',async()=>{
   for(const point of ['claimed','host','memory']){

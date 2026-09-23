@@ -1,4 +1,6 @@
-# 狼人杀自然语言规则编译接入 v2（待确认）
+# 狼人杀自然语言规则编译接入 v2（暂缓）
+
+当前先做[简明规则集配置 v2](decision-rule-config-v2.md)，本方案留作后续备选。
 
 通用编译、缓存及执行契约见[框架方案](../../../docs/specs/decision-rule-compilation-v2.md)。首条源文件拟为 `mods/werewolf/rules/v2/seer-first-day-run.rule.md`，内容为框架方案中的“预言家首日上警”自然语言示例。文件名提供稳定 ID，正文不要求代码字段。
 

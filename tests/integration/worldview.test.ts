@@ -57,8 +57,8 @@ test('W/U: scope versions, mandatory budget, repair provenance and action/reset 
     gate.release(); await h.drain();
     assert.equal(model.calls.length, 2);
     for (const call of model.calls) assert.equal(JSON.parse(call.messages[1].content.slice('WORLDVIEW:'.length)).content, world1.content);
-    const records = (await db.store.pool.query('SELECT world_id,world_version,world_digest FROM fw_model_calls WHERE scope_id=$1', [user.currentScopeId])).rows;
-    assert.equal(records.length, 2); assert.ok(records.every(r => r.world_version === '1' && r.world_digest === world1.digest));
+    const records = (await db.store.pool.query("SELECT details FROM fw_event_log WHERE request_id=$1 AND event_type='model.call.started.v1'", [input.requestId])).rows;
+    assert.equal(records.length, 2); assert.ok(records.every(r => r.details.worldVersion === '1' && r.details.worldDigest === world1.digest));
     const next = await newService.reset(user.token, request(user.currentScopeId).requestId, user.currentScopeId);
     assert.deepEqual(await db.store.worldview(next.currentScopeId), world2);
     await assert.rejects(h.submit(request(user.currentScopeId, 1), tx => newService.authorizeCurrent(tx, user.token, user.currentScopeId)), /FORBIDDEN/);
@@ -75,7 +75,10 @@ test('W/U: scope versions, mandatory budget, repair provenance and action/reset 
     const unavailable = new Harness(db.store, new ScriptedModel(() => { throw Error('offline'); })).register(counterBinding(db.store));
     const failed = request(next.currentScopeId, 1);
     await unavailable.submit(failed); await unavailable.drain();
-    const failedCall = (await db.store.pool.query('SELECT world_version,world_digest,error_code FROM fw_model_calls WHERE request_id=$1', [failed.requestId])).rows[0];
-    assert.deepEqual(failedCall, { world_version: '2', world_digest: world2.digest, error_code: 'MODEL_UNAVAILABLE' });
+    const started = (await db.store.pool.query("SELECT details FROM fw_event_log WHERE request_id=$1 AND event_type='model.call.started.v1'", [failed.requestId])).rows[0];
+    const failedCall = (await db.store.pool.query("SELECT details FROM fw_event_log WHERE request_id=$1 AND event_type='model.call.failed.v1'", [failed.requestId])).rows[0];
+    assert.equal(started.details.worldVersion, '2');
+    assert.equal(started.details.worldDigest, world2.digest);
+    assert.equal(failedCall.details.errorCode, 'MODEL_UNAVAILABLE');
   } finally { gate.release(); await h?.close(); await db.stop(); }
 });

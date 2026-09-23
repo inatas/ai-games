@@ -34,11 +34,20 @@ export class PostgresStore {
           sequence integer NOT NULL, PRIMARY KEY(scope_id,id), UNIQUE(scope_id,sequence));
         CREATE UNIQUE INDEX IF NOT EXISTS fw_fact_key ON fw_memory(scope_id,key) WHERE kind='fact';
         CREATE INDEX IF NOT EXISTS fw_memory_rank ON fw_memory(scope_id,visibility,importance DESC,sequence DESC);
-        CREATE TABLE IF NOT EXISTS fw_model_calls (
-          scope_id uuid, request_id uuid, attempt integer, model text NOT NULL, usage jsonb,
-          latency_ms integer NOT NULL, context_ids text[] NOT NULL, error_code text,
-          world_id text, world_version text, world_digest text,
-          PRIMARY KEY(scope_id,request_id,attempt), FOREIGN KEY(scope_id,request_id) REFERENCES fw_requests(scope_id,request_id));
+        CREATE TABLE IF NOT EXISTS fw_event_log (
+          sequence bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          event_id uuid NOT NULL UNIQUE,
+          event_type text NOT NULL,
+          occurred_at timestamptz NOT NULL,
+          user_id uuid,
+          mod_id text,
+          room_id text,
+          request_id text NOT NULL,
+          result text NOT NULL,
+          details jsonb NOT NULL);
+        CREATE INDEX IF NOT EXISTS fw_event_log_room ON fw_event_log(mod_id,room_id,sequence);
+        CREATE INDEX IF NOT EXISTS fw_event_log_user ON fw_event_log(user_id,sequence);
+        CREATE INDEX IF NOT EXISTS fw_event_log_request ON fw_event_log(request_id,sequence);
       `);
       await tx.query(`
         CREATE TABLE IF NOT EXISTS fw_users (

@@ -52,6 +52,6 @@ test('script and model adapters submit the same SELECT contract through one room
   assert.equal(result.status, 'finished');
   assert.equal(model.calls.length, 1);
   assert.match(JSON.stringify(model.calls[0].messages), /current_action|SELECT/);
-  const calls = await db.store.pool.query('SELECT count(*)::int AS n FROM fw_model_calls');
+  const calls = await db.store.pool.query("SELECT count(*)::int AS n FROM fw_event_log WHERE event_type='model.call.finished.v1'");
   assert.equal(calls.rows[0].n, 1);
 });

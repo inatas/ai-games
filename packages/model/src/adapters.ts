@@ -1,6 +1,7 @@
 import { HarnessError, type ModelAdapter, type ModelRequest, type ModelResponse } from '@game-ai/core';
 
 export class ScriptedModel implements ModelAdapter {
+  readonly simulated = true;
   calls: ModelRequest[] = [];
   constructor(private script: (request: ModelRequest, signal: AbortSignal) => Promise<string> | string) {}
   async generate(request: ModelRequest, signal: AbortSignal): Promise<ModelResponse> {

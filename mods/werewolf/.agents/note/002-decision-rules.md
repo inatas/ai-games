@@ -34,8 +34,8 @@ MOD 在服务端注册预言家规则的纯触发/目标函数，输入为本人
 
 首版固定 80%，不允许按房间配置覆盖；SPEAK 女巫声明待单独定义。实际房间运行与恢复用例已通过；多种子概率统计仍待完成。
 
-### 可读规则文件 v2（待确认）
+### 简明规则集配置 v2（已确认实施）
 
-用户要求把当前 `src/decision-rules/seer-first-day.ts` 改为人能直接阅读的自然语言规则，并提出服务启动时模型编译。拟迁移至 `rules/v2/seer-first-day-run.rule.md`；MOD 只声明可引用的身份/场景/动作能力，框架管理编译与执行。当前待审阅的[狼人杀接入 v2](../../docs/decision-rule-compilation-v2.md)及[框架方案 v2](../../../../docs/specs/decision-rule-compilation-v2.md)取代此前固定字段草案。未修改 v1 规则实现或可执行测试，也未发起付费模型编译。
+用户要求先采用 `id/priority/instruction/enforcement` 级别的简明 ruleset 配置，暂缓服务启动时的模型编译。[狼人杀配置 v2](../../docs/decision-rule-config-v2.md)与[框架配置 v2](../../../../docs/specs/decision-rule-config-v2.md)定义 `rules/ruleset.json` 和内部处理器的分工。用户在审阅后回复“实施”，确认本版实施范围；此前[自然语言编译提案](../../docs/decision-rule-compilation-v2.md)暂缓。本次不发起付费模型编译。
 
 当前状态：首条 SELECT 规则已实施并有上述验证证据；女巫 SPEAK 声明与多种子概率统计未完成。

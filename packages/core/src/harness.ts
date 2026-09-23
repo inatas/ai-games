@@ -1,8 +1,8 @@
 import { Ajv, type ValidateFunction } from 'ajv';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { HarnessStore, Transaction } from './types.ts';
 import { buildContext, conservativeCounter, type TokenCounter } from './context.ts';
-import { HarnessError, type AssessmentInput, type Binding, type Clock, type Json, type ModelAdapter, type ModelRequest, type RequestView } from './types.ts';
+import { HarnessError, type AssessmentInput, type Binding, type Clock, type Json, type ModelAdapter, type ModelRequest, type Prepared, type RequestView } from './types.ts';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const canonical = (value: any): string => {
@@ -33,6 +33,25 @@ export class Harness {
   }
   private view(row: any): RequestView {
     return { requestId: row.request_id, status: row.status, result: row.result, error: row.error, memoryVersion: row.memory_version };
+  }
+  private async logModelEvent(
+    tx: Transaction, input: AssessmentInput, prepared: Prepared,
+    eventType: string, result: string, details: Record<string, unknown>,
+  ): Promise<void> {
+    const context = prepared.eventContext;
+    const payload = {
+      schemaVersion: 1, scopeId: input.scopeId, bindingId: input.bindingId,
+      bindingVersion: input.bindingVersion, simulated: this.model.simulated === true,
+      ...(context?.details && typeof context.details === 'object' && !Array.isArray(context.details) ? context.details : {}),
+      ...details,
+    };
+    await tx.query(`INSERT INTO fw_event_log
+      (event_id,event_type,occurred_at,user_id,mod_id,room_id,request_id,result,details)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [
+      randomUUID(), eventType, new Date(this.clock.now()),
+      context?.userId ?? null, context?.modId ?? null, context?.roomId ?? null,
+      input.requestId, result, JSON.stringify(payload),
+    ]);
   }
   validateInput(bindingId: string, input: Json): boolean {
     return !!this.bindings.get(bindingId)?.input(input);
@@ -89,9 +108,12 @@ export class Harness {
     const controller = new AbortController(); this.controllers.add(controller);
     const deadline = Math.min(this.clock.now() + (this.options.totalTimeoutMs ?? 75000), input.notAfter ?? Infinity);
     const totalTimer = setTimeout(() => controller.abort(), Math.max(0, deadline - this.clock.now()));
+    let returnedAttempt: number | null = null;
+    let judged = false;
+    let prepared: Prepared | undefined;
     try {
       await this.options.hook?.('claimed', input);
-      const prepared = await binding.prepare(input.input, input.scopeId);
+      prepared = await binding.prepare(input.input, input.scopeId);
       let proposal: Json = null;
       if (binding.mode === 'assessment') {
         const worldview = await this.store.worldview?.(input.scopeId);
@@ -104,15 +126,27 @@ export class Harness {
           if (attempt === 2) messages.push({ role: 'system', content: 'Your previous response did not match OUTPUT_SCHEMA. Return only a valid JSON object with exactly the required fields and allowed values.' });
           if ((this.options.counter ?? conservativeCounter)(messages) > context.inputBudget) throw new HarnessError('CONTEXT_TOO_LARGE');
           const request: ModelRequest = { requestId: input.requestId, attempt, messages, outputSchema: binding.outputSchema!, maxOutputTokens: context.outputBudget };
-          const started = this.clock.now(); let response; let code: string | null = null;
+          const started = this.clock.now(); let response;
+          await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
+            attempt, deadlineAt: deadline, modelRequest: request,
+            contextIds: context.contextIds, worldId: worldview?.worldId ?? null,
+            worldVersion: worldview?.version ?? null, worldDigest: worldview?.digest ?? null,
+          });
           try { response = await this.callModel(request, controller.signal); }
-          catch (error) { code = error instanceof HarnessError ? error.code : 'MODEL_UNAVAILABLE'; throw error; }
-          finally {
-            await this.store.pool.query(`INSERT INTO fw_model_calls(scope_id,request_id,attempt,model,usage,latency_ms,context_ids,error_code,world_id,world_version,world_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-              [input.scopeId,input.requestId,attempt,response?.model ?? 'unknown',response?.usage ? JSON.stringify(response.usage) : null, Math.max(0,this.clock.now()-started),context.contextIds,code,worldview?.worldId ?? null,worldview?.version ?? null,worldview?.digest ?? null]);
+          catch (error) {
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.call.failed.v1', 'failed', {
+              attempt, latencyMs: Math.max(0, this.clock.now() - started),
+              errorCode: error instanceof HarnessError ? error.code : 'MODEL_UNAVAILABLE',
+            });
+            throw error;
           }
           let valid = false;
           try { if (Buffer.byteLength(response!.rawText, 'utf8') <= 16384) { proposal = JSON.parse(response!.rawText); valid = !!registered.output!(proposal); } } catch { /* Invalid JSON is repairable. */ }
+          await this.logModelEvent(this.store.pool, input, prepared, 'model.call.finished.v1', 'succeeded', {
+            attempt, rawText: response.rawText, model: response.model, usage: response.usage,
+            latencyMs: Math.max(0, this.clock.now() - started), schemaValid: valid,
+          });
+          returnedAttempt = attempt;
           if (valid) break;
           if (attempt === 2) throw new HarnessError('MODEL_INVALID_OUTPUT');
         }
@@ -126,19 +160,25 @@ export class Harness {
         if (request.status !== 'processing' || Number(request.lease_expires_at) <= this.clock.now()) throw new HarnessError('PROCESSING_EXPIRED');
         if (controller.signal.aborted || this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
         if (scope.memory_version !== input.expectedMemoryVersion) throw new HarnessError('STATE_CONFLICT');
-        const result = await binding.apply(tx, proposal, { scopeId: input.scopeId, requestId: input.requestId, input: input.input, gameVersion: prepared.gameVersion });
+        const result = await binding.apply(tx, proposal, { scopeId: input.scopeId, requestId: input.requestId, input: input.input, gameVersion: prepared!.gameVersion });
         await this.options.hook?.('host', input);
         await this.store.applyMemory(tx, input.scopeId, result.memoryChanges);
         await this.options.hook?.('memory', input);
         if (controller.signal.aborted || this.clock.now() >= deadline || Number(request.lease_expires_at) <= this.clock.now()) throw new HarnessError('PROCESSING_EXPIRED');
         await tx.query('UPDATE fw_scopes SET memory_version=memory_version+1 WHERE id=$1', [input.scopeId]);
         await tx.query("UPDATE fw_requests SET status='committed',proposal=$3,result=$4,memory_version=$5 WHERE scope_id=$1 AND request_id=$2", [input.scopeId,input.requestId,JSON.stringify(proposal),JSON.stringify(result.result),scope.memory_version+1]);
+        if (returnedAttempt !== null) await this.logModelEvent(tx, input, prepared!, 'model.call.judged.v1', 'succeeded', {
+          attempt: returnedAttempt, gameCommitted: true,
+        });
       });
+      judged = true;
       await this.options.hook?.('committed', input);
     } catch (error) {
       const e = error instanceof HarnessError ? error : new HarnessError('INTERNAL_ERROR');
       const status = ['MODEL_INVALID_OUTPUT','RULE_REJECTED','INVALID_INPUT'].includes(e.code) ? 'rejected' : 'failed';
       await this.store.pool.query("UPDATE fw_requests SET status=$3,error=$4 WHERE scope_id=$1 AND request_id=$2 AND status='processing'", [input.scopeId,input.requestId,status,JSON.stringify({ code: e.code, ...(e.detail ? { detail: e.detail } : {}) })]);
+      if (returnedAttempt !== null && !judged && prepared) await this.logModelEvent(this.store.pool, input, prepared,
+        'model.call.judged.v1', status, { attempt: returnedAttempt, gameCommitted: false, errorCode: e.code });
     } finally { clearTimeout(totalTimer); this.controllers.delete(controller); }
   }
   private async callModel(request: ModelRequest, parent: AbortSignal) {

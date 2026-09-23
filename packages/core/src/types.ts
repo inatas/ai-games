@@ -23,6 +23,7 @@ export interface Prepared {
   gameVersion: string; facts: Json; instructions: string;
   subjectIds: string[]; tags: string[]; requiredMemoryIds: string[];
   visibility?: Visibility[];
+  eventContext?: { userId?: string | null; modId?: string | null; roomId?: string | null; details?: Json };
 }
 export interface ExecutionContext { scopeId: string; requestId: string; input: Json; gameVersion: string }
 export interface Binding {
@@ -42,7 +43,7 @@ export interface AssessmentInput {
 export interface Message { role: 'system' | 'user'; content: string }
 export interface ModelRequest { requestId: string; attempt: number; messages: Message[]; outputSchema: object; maxOutputTokens: number }
 export interface ModelResponse { rawText: string; model: string; usage: { inputTokens: number; outputTokens: number } | null }
-export interface ModelAdapter { generate(request: ModelRequest, signal: AbortSignal): Promise<ModelResponse> }
+export interface ModelAdapter { simulated?: boolean; generate(request: ModelRequest, signal: AbortSignal): Promise<ModelResponse> }
 export interface Clock { now(): number }
 export interface RequestView {
   requestId: string; status: 'processing' | 'committed' | 'rejected' | 'failed';
