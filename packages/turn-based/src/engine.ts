@@ -57,6 +57,7 @@ export function occupySeat(source: Room, seat: Seat, def: RoomDefinition): Room 
   if (!seat || !positive(seat.seat) || seat.seat > source.capacity ||
       !text(seat.name) || !text(seat.modelProfile) || !text(seat.scopeId) || !text(seat.interruptScopeId) ||
       (seat.userId !== undefined && !text(seat.userId)) ||
+      (seat.controllerKind !== undefined && !['robot', 'human'].includes(seat.controllerKind)) ||
       (seat.persona !== undefined && !text(seat.persona))) fail('INVALID_SEAT');
   const existing = source.seats.find(s => s.seat === seat.seat);
   if (existing) {
@@ -141,6 +142,7 @@ function applyTransition(room: Room, next: Transition): void {
   appendEvents(room, next.events ?? []);
   room.state = structuredClone(next.state);
   room.decisions = [];
+  delete room.phaseEarlyFinishAt;
   if (next.phase !== undefined) {
     assertPhase(room, next.phase);
     if (room.phaseInstance >= room.limits.maxPhases) {

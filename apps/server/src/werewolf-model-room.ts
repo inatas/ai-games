@@ -7,7 +7,7 @@ interface SeatingRuntime {
     id: string; status?: string; seats?: { seat: number; userId?: string }[];
   }>;
   seat(roomId: string, config: {
-    seat: number; name: string; userId: string; persona: string; modelProfile: string;
+    seat: number; name: string; userId: string; persona: string; modelProfile: string; controllerKind: 'robot';
   }): Promise<unknown>;
 }
 
@@ -27,7 +27,7 @@ export async function setupRobotRoom(runtime: SeatingRuntime, runKey: string, ro
     }
     await runtime.seat(room.id, {
       seat: index + 1, userId: user.userId, name: user.nickname,
-      persona: user.persona.description, modelProfile: profileForRobot(user),
+      persona: user.persona.description, modelProfile: profileForRobot(user), controllerKind: 'robot',
     });
   }
   return room.id;

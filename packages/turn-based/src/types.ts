@@ -6,6 +6,7 @@ export interface Seat {
   name: string;
   modelProfile: string;
   userId?: string;
+  controllerKind?: 'robot' | 'human';
   persona?: string;
   scopeId: string;
   interruptScopeId: string;
@@ -49,6 +50,7 @@ export interface RoomDefinition {
   windowMs?(room: Room): number;
   actionWindowMs?(room: Room): number;
   fixedWindow?(room: Room): boolean;
+  completionDelayMs?(room: Room): number | null;
   fallbackDecision?(room: Room, seat: number): Json;
   validateInterrupt?(state: Json, phase: Phase, seat: number, value: Json): boolean;
   resolveInterrupt?(state: Json, phase: Phase, seat: number, value: Json): { pass: true } | Transition;
@@ -93,6 +95,7 @@ export interface Room {
   phaseStartedAt?: number;
   phaseDeadlineAt?: number;
   phaseActionDeadlineAt?: number;
+  phaseEarlyFinishAt?: number;
   pendingJobs: Partial<Record<Lane, PendingDecision>>;
   error: string | null;
 }

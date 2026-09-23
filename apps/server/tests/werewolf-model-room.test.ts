@@ -20,7 +20,7 @@ test('one model and eleven scripts are seated as distinct Robot users with their
   assert.equal(seats.length, 12);
   assert.deepEqual((seats[0] as { userId: string; persona: string; modelProfile: string }), {
     seat: 1, userId: roster[0].userId, name: roster[0].nickname,
-    persona: roster[0].persona.description, modelProfile: 'environment-default',
+    persona: roster[0].persona.description, modelProfile: 'environment-default', controllerKind: 'robot',
   });
   await assert.rejects(() => setupRobotRoom(runtime, 'run-2', roster.slice(0, 11)), /INVALID_ROSTER/);
 });

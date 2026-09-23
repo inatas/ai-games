@@ -33,3 +33,23 @@ test('night deadlines are fixed and elected sheriff alone gets 120+30 seconds of
   assert.equal(definition.windowMs!(room), 90_000);
   assert.equal(definition.actionWindowMs!(room), 60_000);
 });
+
+test('only live Robot day speeches request the three-second completion delay', () => {
+  const definition = werewolfDefinition({ seed: 17, sheriff: 'double' });
+  let room = createRoom('skip-room', 'skip-run', definition);
+  for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
+    seat, name: `${seat}`, modelProfile: 'script', userId: `robot-${seat}`, controllerKind: 'robot',
+    scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
+  }, definition);
+  for (const key of ['speech', 'election-speech', 'pk', 'election-pk']) {
+    room.phase = { ...room.phase!, key, mode: 'sequential', actors: [1] };
+    assert.equal(definition.completionDelayMs?.(room), 3_000);
+  }
+  for (const key of ['last-words', 'shot', 'vote', 'wolves', 'witch']) {
+    room.phase = { ...room.phase!, key, mode: 'sequential', actors: [1] };
+    assert.equal(definition.completionDelayMs?.(room), null);
+  }
+  room.phase = { ...room.phase!, key: 'speech', actors: [1] };
+  room.seats[0].controllerKind = 'human';
+  assert.equal(definition.completionDelayMs?.(room), null);
+});

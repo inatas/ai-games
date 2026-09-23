@@ -42,6 +42,8 @@ export function werewolfDefinition(options: MatchOptions): RoomDefinition {
     decodeDecision: decodeWerewolfDecision,
     fallbackDecision: (room, seat) => fallbackWerewolfAction(room, seat, definition),
     fixedWindow: () => true,
+    completionDelayMs: room => ['speech', 'election-speech', 'pk', 'election-pk'].includes(room.phase?.key ?? '') &&
+      room.seats.find(seat => seat.seat === room.phase?.actors[0])?.controllerKind === 'robot' ? 3_000 : null,
     actionWindowMs: room => room.phase?.key === 'wolves' ? 60_000 : definition.windowMs!(room),
     windowMs: room => {
       const key = room.phase?.key;

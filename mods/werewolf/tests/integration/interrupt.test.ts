@@ -1,12 +1,13 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import type { ModelRequest, Json } from '@game-ai/core';
+import { canonical, type ModelRequest, type Json } from '@game-ai/core';
 import { ScriptedModel } from '@game-ai/model';
-import { RoomRuntime } from '@game-ai/turn-based';
+import { RoomRuntime, eligibleActors } from '@game-ai/turn-based';
 import { startTestDatabase } from '../../../../tests/support/database.ts';
 import { barrier } from '../../../../tests/support/counter.ts';
 import { werewolfDefinition } from '../../src/definition.ts';
+import { prepareWerewolfDecision } from '../../src/decision-input.ts';
 import type { Match } from '../../src/match.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
@@ -41,25 +42,43 @@ function decision(request: ModelRequest, state: Match, seat: number, nominate: b
 }
 async function game(nominate = false, hold?: (request: ModelRequest) => Promise<void>, hunterChain = false) {
   let roomId = '';
+  let now = 1_000;
   let reader: RoomRuntime;
   const profiles = Object.fromEntries(Array.from({ length: 12 }, (_, i) => {
     const seat = i + 1;
     return [`seat-${seat}`, new ScriptedModel(async request => {
       await hold?.(request);
-      return JSON.stringify(decision(request, (await reader.inspect(roomId)).state as unknown as Match, seat, nominate, hunterChain));
+      const room = await reader.inspect(roomId);
+      const state = room.state as unknown as Match;
+      const schema = request.outputSchema as { properties?: Record<string, object> };
+      if (!schema.properties?.selected && !schema.properties?.speech) {
+        return JSON.stringify(decision(request, state, seat, nominate, hunterChain));
+      }
+      const task = prepareWerewolfDecision(room, seat, definition);
+      const wanted = decision({ ...request, outputSchema: room.phase!.schema }, state, seat, nominate, hunterChain);
+      if (task.intent === 'SPEAK') return JSON.stringify({ speech: (wanted as { text: string }).text });
+      const option = task.options.find(item => canonical(item.value) === canonical(wanted));
+      if (!option) throw new Error(`NO_TEST_OPTION:${room.phase?.key}:${seat}`);
+      return JSON.stringify({ selected: option.id });
     })];
   }));
-  function restart() { reader = new RoomRuntime(db.store, definition, profiles, { harness: { inputBudget: 64_000, modelWindow: 128_000 } }); runtimes.push(reader); return reader; }
+  function restart() { reader = new RoomRuntime(db.store, definition, profiles,
+    { harness: { inputBudget: 64_000, modelWindow: 128_000, clock: { now: () => now } } }); runtimes.push(reader); return reader; }
   const r = restart(); await r.migrate(); const room = await r.create(randomUUID()); roomId = room.id;
   for (let seat = 1; seat <= 12; seat++) await r.seat(roomId, { seat, name: `AI ${seat}`, modelProfile: `seat-${seat}` });
-  async function until(predicate: (match: Match) => boolean, runtime = reader) {
+  async function until(predicate: (match: Match, room: Awaited<ReturnType<RoomRuntime['inspect']>>) => boolean, runtime = reader) {
     for (let i = 0; i < 500; i++) {
       const snapshot = await runtime.inspect(roomId);
-      if (predicate(snapshot.state as unknown as Match)) return snapshot;
+      if (predicate(snapshot.state as unknown as Match, snapshot)) return snapshot;
       assert.equal(snapshot.status, 'running', snapshot.error + ':' + snapshot.phase?.key);
       await runtime.tick(roomId);
+      const after = await runtime.inspect(roomId);
+      if (after.phaseInstance === snapshot.phaseInstance && eligibleActors(after).length === 0 && after.phaseDeadlineAt !== undefined) {
+        now = Math.min(after.phaseEarlyFinishAt ?? Infinity, after.phaseDeadlineAt);
+      }
     }
-    throw new Error('SCRIPT_LIMIT');
+    const stalled = await runtime.inspect(roomId);
+    throw new Error(`SCRIPT_LIMIT:${now}:${stalled.phase?.key}:${stalled.phaseInstance}:${stalled.decisions.length}:${eligibleActors(stalled).join(',')}:${Object.values(stalled.pendingJobs).map(job => job?.failedReason ?? job?.lane).join(',')}`);
   }
   return { r, roomId, profiles, restart, until };
 }
@@ -67,11 +86,11 @@ async function game(nominate = false, hold?: (request: ModelRequest) => Promise<
 test('WW-73/77/79/80: real database interrupts waiting speech, restarts and finishes without late facts', async () => {
   const gate = barrier(); let holdSpeech = false;
   const gameRun = await game(false, async request => {
-    const schema = request.outputSchema as { properties?: { kind?: { const?: string } } };
-    if (holdSpeech && schema.properties?.kind?.const === 'speak') await gate.wait();
+    const schema = request.outputSchema as { properties?: { speech?: object } };
+    if (holdSpeech && schema.properties?.speech) await gate.wait();
   });
   const { r, roomId, profiles, until, restart } = gameRun;
-  const dawn = await until(state => state.stage === 'speech');
+  const dawn = await until((state, room) => state.stage === 'speech' && eligibleActors(room).length > 0);
   const state = dawn.state as unknown as Match;
   const speaker = dawn.phase!.actors[0];
   const wolf = state.game.players.find(p => p.role === 'wolf' && p.seat !== speaker)!.seat;
@@ -121,7 +140,8 @@ test('WW-75/79: persisted hunter death chain resumes after gun without repeating
   const shot = await until(state => state.stage === 'settlement' && state.settlement!.queue[0].kind === 'shot');
   assert.equal((await r.spectate(roomId)).replay, undefined);
   await r.tick(roomId);
-  const after = await r.inspect(roomId);
+  assert.equal((await r.inspect(roomId)).decisions.length, 1);
+  const after = await until(state => state.stage === 'settlement' && state.settlement!.queue[0].kind === 'last-words');
   const match = after.state as unknown as Match;
   assert.equal(match.stage, 'settlement');
   assert.equal(match.settlement!.queue[0].kind, 'last-words');

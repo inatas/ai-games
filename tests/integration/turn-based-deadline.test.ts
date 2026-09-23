@@ -48,3 +48,61 @@ test('sealed actions close at 60, settle at 90, and do not reapply after recover
   await runtime.tick(created.id);
   assert.equal((await runtime.spectate(created.id)).events.filter(event => event.type === 'settled').length, 1);
 });
+
+test('committed single-speaker decision advances three seconds later, exactly once', async () => {
+  let now = 10_000;
+  const speaker: DecisionAdapter = { async decide() { return { kind: 'proposal', value: { speech: 'hello' } }; } };
+  const definition: RoomDefinition = {
+    id: 'early-neutral', version: '1', seats: 1, instructions: 'Speak.',
+    initialize: () => ({ state: {}, phase: { key: 'speak', label: 'Speak', round: 1, mode: 'sequential', actors: [1],
+      schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } } } }),
+    project: () => ({}), validate: () => true,
+    resolve: state => ({ state, result: 'done', events: [{ type: 'done', audience: 'public', data: {} }] }),
+    decisionSpec: (room, seat) => ({ intent: 'SPEAK', scene: 'speak', actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance },
+      context: { rules: {}, game_state: {}, self: { seat, name: 'One', role: null }, private_information: {}, public_history: [],
+        current_action: { request_type: 'SPEAK', scene: 'speak', options: [], phaseInstance: room.phaseInstance } },
+      options: [], outputSchema: { type: 'object', required: ['speech'], properties: { speech: { type: 'string' } } } }),
+    decodeDecision: (_input, output) => output.kind === 'proposal' && 'speech' in output.value ? { text: output.value.speech } : null,
+    windowMs: () => 120_000, fixedWindow: () => true, completionDelayMs: () => 3_000,
+    fallbackDecision: () => ({ text: '' }),
+  };
+  runtime = new RoomRuntime(db.store, definition, { speaker }, { harness: { clock: { now: () => now } } });
+  await runtime.migrate();
+  const created = await runtime.create(randomUUID());
+  await runtime.seat(created.id, { seat: 1, name: 'One', modelProfile: 'speaker' });
+  await runtime.tick(created.id);
+  assert.equal((await runtime.inspect(created.id)).phaseEarlyFinishAt, 13_000);
+  const recovered = new RoomRuntime(db.store, definition, { speaker }, { harness: { clock: { now: () => now } } });
+  now = 12_999;
+  await recovered.tick(created.id);
+  assert.equal((await runtime.inspect(created.id)).status, 'running');
+  now = 13_000;
+  await Promise.all([runtime.tick(created.id), recovered.tick(created.id)]);
+  assert.equal((await runtime.inspect(created.id)).status, 'finished');
+  assert.equal((await runtime.inspect(created.id)).phaseEarlyFinishAt, undefined);
+  assert.equal((await runtime.spectate(created.id)).events.filter(event => event.type === 'done').length, 1);
+  await recovered.close();
+
+  const late = await runtime.create(randomUUID());
+  await runtime.seat(late.id, { seat: 1, name: 'One', modelProfile: 'speaker' });
+  now = 132_999;
+  await runtime.tick(late.id);
+  assert.equal((await runtime.inspect(late.id)).phaseEarlyFinishAt, 133_000);
+  now = 133_000;
+  await runtime.tick(late.id);
+  assert.equal((await runtime.inspect(late.id)).status, 'finished');
+
+  const silent: DecisionAdapter = { async decide() { return { kind: 'no-valid-input', reason: 'NO_SPEECH' }; } };
+  const silentRuntime = new RoomRuntime(db.store, definition, { speaker: silent }, { harness: { clock: { now: () => now } } });
+  const silentRoom = await silentRuntime.create(randomUUID());
+  await silentRuntime.seat(silentRoom.id, { seat: 1, name: 'One', modelProfile: 'speaker' });
+  await silentRuntime.tick(silentRoom.id);
+  assert.equal((await silentRuntime.inspect(silentRoom.id)).phaseEarlyFinishAt, undefined);
+  now = 252_999;
+  await silentRuntime.tick(silentRoom.id);
+  assert.equal((await silentRuntime.inspect(silentRoom.id)).status, 'running');
+  now = 253_000;
+  await silentRuntime.tick(silentRoom.id);
+  assert.equal((await silentRuntime.inspect(silentRoom.id)).status, 'finished');
+  await silentRuntime.close();
+});

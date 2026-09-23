@@ -43,7 +43,8 @@ export function modelRoomSnapshot(room: Room, definition: RoomDefinition, users:
     speakerSeat, currentSpeech: speakerSeat !== null && speechText !== null
       ? { seat: speakerSeat, text: speechText, revision: room.revision } : null,
     nightSegment,
-    timing: { remainingMs: running ? Math.max(0, (room.phaseDeadlineAt ?? now) - now) : 0 },
+    timing: { remainingMs: running ? Math.max(0, Math.min(room.phaseEarlyFinishAt ?? Infinity,
+      room.phaseDeadlineAt ?? now) - now) : 0 },
     speeches, day: state.night, period: state.period,
     phaseLabel: running ? room.phase!.label : room.status === 'finished' ? '对局结束' : '对局异常停止',
     actor: running && !night && room.phase?.mode === 'sequential' ? room.phase.actors[0] : null,

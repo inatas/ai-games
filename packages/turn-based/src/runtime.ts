@@ -34,6 +34,15 @@ export class RoomRuntime {
     room.phaseStartedAt = this.now();
     room.phaseDeadlineAt = room.phaseStartedAt + duration;
     room.phaseActionDeadlineAt = room.phaseStartedAt + actionDuration;
+    delete room.phaseEarlyFinishAt;
+  }
+  private scheduleEarlyFinish(room: Room): void {
+    if (room.status !== 'running' || room.phaseDeadlineAt === undefined ||
+        room.phase?.actors.length !== room.decisions.length || !this.definition.fixedWindow?.(room)) return;
+    const delay = this.definition.completionDelayMs?.(room);
+    if (delay === undefined || delay === null) return;
+    if (!Number.isSafeInteger(delay) || delay < 0) throw new HarnessError('INVALID_WINDOW');
+    room.phaseEarlyFinishAt = Math.min(this.now() + delay, room.phaseDeadlineAt);
   }
 
   constructor(
@@ -107,26 +116,31 @@ export class RoomRuntime {
     return room.status === 'running' && room.pendingJobs[job.lane]?.requestId === job.requestId &&
       room.pendingJobs[job.lane]?.scopeId === job.scopeId && room.phaseInstance === job.phaseInstance &&
       room.decisionEpoch === job.decisionEpoch && !room.pendingJobs[job.lane]?.failedReason &&
+      !(job.lane.startsWith('interrupt:') && room.decisions.some(decision => decision.seat === job.seat)) &&
       this.now() < (room.phaseActionDeadlineAt ?? room.phaseDeadlineAt ?? Infinity);
   }
 
-  /** One room lock decides all missing actions at the original persisted deadline. */
-  private async expireWindow(roomId: string): Promise<void> {
-    if (!this.definition.fallbackDecision) return;
-    await this.store.transaction(async tx => {
+  /** One room lock decides a completed early window or missing actions at the original deadline. */
+  private async expireWindow(roomId: string): Promise<boolean> {
+    return this.store.transaction(async tx => {
       let room = await this.read(tx, roomId, true);
-      if (room.status !== 'running' || room.phaseDeadlineAt === undefined ||
-          this.now() < (room.phaseActionDeadlineAt ?? room.phaseDeadlineAt)) return;
+      if (room.status !== 'running' || room.phaseDeadlineAt === undefined) return false;
+      const now = this.now();
+      const actionDue = now >= (room.phaseActionDeadlineAt ?? room.phaseDeadlineAt);
+      const earlyDue = room.phaseEarlyFinishAt !== undefined && now >= room.phaseEarlyFinishAt &&
+        room.phase?.actors.length === room.decisions.length;
+      if (!actionDue && !earlyDue) return false;
       const instance = room.phaseInstance;
       const phaseDeadline = room.phaseDeadlineAt;
-      const outstanding = eligibleActors(room);
-      if (!outstanding.length && this.now() < phaseDeadline) return;
+      const outstanding = actionDue ? eligibleActors(room) : [];
+      if (outstanding.length && !this.definition.fallbackDecision) return false;
+      if (!outstanding.length && now < phaseDeadline && !earlyDue) return false;
       const pending = Object.values(room.pendingJobs);
       for (const seat of outstanding) {
         const action = this.definition.fallbackDecision!(room, seat);
         room = acceptDecision(room, instance, seat, action, this.definition);
       }
-      if (this.now() >= phaseDeadline && room.status === 'running' && room.phaseInstance === instance &&
+      if ((now >= phaseDeadline || earlyDue) && room.status === 'running' && room.phaseInstance === instance &&
           room.phase?.actors.length === room.decisions.length && this.definition.fixedWindow?.(room)) {
         room = settleDecisionWindow(room, this.definition);
       }
@@ -139,6 +153,7 @@ export class RoomRuntime {
       room.pendingJobs = {};
       this.startWindow(room, instance);
       await this.save(tx, room);
+      return room.phaseInstance !== instance || room.status !== 'running';
     });
   }
 
@@ -230,6 +245,7 @@ export class RoomRuntime {
         const action = this.decode(job, proposal);
         if (action === null) throw new HarnessError('INVALID_DECISION');
         const next = accept(room, job.phaseInstance, job.seat, action, this.definition);
+        if (!interrupt && next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
         delete next.pendingJobs[job.lane];
         if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
         this.startWindow(next, room.phaseInstance);
@@ -269,7 +285,7 @@ export class RoomRuntime {
   }
 
   private async tickOnce(roomId: string, seat?: number, kind: 'ordinary' | 'interrupt' = 'interrupt'): Promise<SpectatorView> {
-    await this.expireWindow(roomId);
+    if (await this.expireWindow(roomId)) return this.spectate(roomId);
     const { room, job } = await this.reserve(roomId, kind === 'interrupt' ? seat : undefined, kind === 'ordinary' ? seat : undefined);
     if (this.closed) throw new HarnessError('RUNTIME_CLOSED');
     if (!job) return spectatorView(room, this.definition);
@@ -344,6 +360,7 @@ export class RoomRuntime {
         await this.save(tx, room);
         return;
       }
+      if (next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
       delete next.pendingJobs[job.lane];
       if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
       this.startWindow(next, room.phaseInstance);
@@ -379,8 +396,11 @@ export class RoomRuntime {
       if (failure) throw failure;
       const room = await this.inspect(roomId);
       if (room.status !== 'running') return spectatorView(room, this.definition);
-      if (this.now() >= (room.phaseActionDeadlineAt ?? room.phaseDeadlineAt ?? Infinity)) {
+      if (this.now() >= Math.min(room.phaseEarlyFinishAt ?? Infinity,
+          room.phaseActionDeadlineAt ?? room.phaseDeadlineAt ?? Infinity)) {
         await this.expireWindow(roomId);
+        const current = await this.inspect(roomId);
+        if (current.phaseInstance !== room.phaseInstance || current.status !== 'running') continue;
         const untilEnd = (room.phaseDeadlineAt ?? this.now()) - this.now();
         await new Promise(resolve => setTimeout(resolve, Math.min(1000, Math.max(25, untilEnd))));
         continue;
@@ -398,7 +418,8 @@ export class RoomRuntime {
         if (!pending.has(lane) && (!previous || previous.key !== key || Date.now() - previous.at >= interval)) dispatch(lane, key, seat);
       }
       const idle = eligibleActors(room).length === 0;
-      const remaining = (room.phaseDeadlineAt ?? this.now() + interval) - this.now();
+      const remaining = Math.min(room.phaseEarlyFinishAt ?? Infinity,
+        room.phaseDeadlineAt ?? this.now() + interval) - this.now();
       await new Promise(resolve => setTimeout(resolve, idle ? Math.min(1000, Math.max(25, remaining)) : Math.min(25, interval)));
     }
     return this.spectate(roomId);

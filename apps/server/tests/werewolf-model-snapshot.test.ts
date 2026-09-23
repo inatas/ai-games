@@ -27,4 +27,11 @@ test('persistent model-room snapshot is public and keeps its full first-night co
   assert.equal(seatView.perspective?.kind, 'seat');
   assert.equal(snapshot.perspective?.kind, 'public');
   assert.equal(seatView.events.length, snapshot.events.length);
+  (room.state as { stage: string }).stage = 'speech';
+  room.phase = { ...room.phase!, key: 'speech', mode: 'sequential', actors: [1] };
+  room.decisions = [{ seat: 1, value: { kind: 'speak', text: '我是狼人杀玩家' } }];
+  room.phaseEarlyFinishAt = 5_000;
+  const speaking = modelRoomSnapshot(room, definition, users, 3_000);
+  assert.equal(speaking.timing.remainingMs, 2_000);
+  assert.equal(speaking.currentSpeech?.text, '我是狼人杀玩家');
 });

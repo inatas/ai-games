@@ -43,3 +43,7 @@
 019 v3：[模型运行时扩展提案](../../docs/specs/turn-based-model-runtime-v3.md)，draft；v2已实现，v3待确认。
 
 [020 Robot用户目录](020-robot-users.md)：implemented；独立用户配置与素材、默认脚本控制，游戏接入归MOD。
+
+[021 统一执行事件日志](021-event-log.md)：draft；底层审计、模型输入输出留痕与无真实模型整局核查方案，v1待确认。
+
+[022 AI决策规则引擎](022-decision-rules-engine.md)：draft；通用规则集运行、优先级、概率与恢复方案 v1 待确认；游戏规则实例归各 MOD。
