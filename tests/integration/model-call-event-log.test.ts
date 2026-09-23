@@ -61,3 +61,74 @@ test('EL-M02/M04/M09: correction and provider failure remain separate attempts w
   assert.equal(failedRows[1].details.errorCode, 'MODEL_UNAVAILABLE');
   assert.ok(!JSON.stringify(failedRows).includes(secret));
 });
+
+test('EL-M08: recovery marks a persisted started attempt orphaned without inventing a result', async () => {
+  const scope = await counterScope(db.store);
+  const input = request(scope);
+  const model = new ScriptedModel(() => '{"decision":"ACCEPT"}');
+  const harness = new Harness(db.store, model).register(counterBinding(db.store));
+  await db.store.pool.query(`INSERT INTO fw_requests
+    (scope_id,request_id,hash,binding_id,binding_version,mode,status,lease_expires_at,input)
+    VALUES($1,$2,'test','counter','1','assessment','processing',0,'{}')`, [scope, input.requestId]);
+  await db.store.pool.query(`INSERT INTO fw_event_log
+    (event_id,event_type,occurred_at,request_id,result,details)
+    VALUES($1,'model.call.started.v1',now(),$2,'started',$3)`,
+    [randomUUID(), input.requestId, JSON.stringify({ scopeId: scope, attempt: 1 })]);
+  await harness.recover();
+  await harness.recover();
+  const rows = (await db.store.pool.query('SELECT event_type,result,details FROM fw_event_log WHERE request_id=$1 ORDER BY sequence',
+    [input.requestId])).rows;
+  assert.deepEqual(rows.map(row => row.event_type), ['model.call.started.v1', 'model.call.orphaned.v1']);
+  assert.equal(rows[1].details.attempt, 1);
+  assert.equal(rows[1].result, 'unknown');
+  assert.equal(model.calls.length, 0);
+});
+
+test('EL-M07: an unavailable event log prevents the adapter call', async () => {
+  const scope = await counterScope(db.store);
+  const model = new ScriptedModel(() => '{"decision":"ACCEPT"}');
+  const harness = new Harness(db.store, model).register(counterBinding(db.store));
+  await db.store.pool.query('REVOKE INSERT ON fw_event_log FROM PUBLIC');
+  // The test role owns the table, so a local transaction trigger models a storage rejection.
+  await db.store.pool.query(`CREATE FUNCTION reject_event_log() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'event log unavailable'; END $$`);
+  await db.store.pool.query(`CREATE TRIGGER reject_event_log_insert BEFORE INSERT ON fw_event_log
+    FOR EACH ROW EXECUTE FUNCTION reject_event_log()`);
+  try {
+    await harness.submit(request(scope)); await harness.drain();
+    assert.equal(model.calls.length, 0);
+  } finally {
+    await db.store.pool.query('DROP TRIGGER reject_event_log_insert ON fw_event_log');
+    await db.store.pool.query('DROP FUNCTION reject_event_log()');
+  }
+});
+
+test('EL-M02: context budget rejection records no model attempt', async () => {
+  const scope = await counterScope(db.store);
+  const model = new ScriptedModel(() => '{"decision":"ACCEPT"}');
+  const harness = new Harness(db.store, model, { inputBudget: 1 }).register(counterBinding(db.store));
+  const input = request(scope);
+  await harness.submit(input); await harness.drain();
+  const rows = (await db.store.pool.query('SELECT event_type,result,details FROM fw_event_log WHERE request_id=$1',
+    [input.requestId])).rows;
+  assert.deepEqual(rows.map(row => row.event_type), ['model.context_rejected.v1']);
+  assert.equal(rows[0].details.errorCode, 'CONTEXT_TOO_LARGE');
+  assert.equal(model.calls.length, 0);
+});
+
+test('EL-M04: oversized provider text is explicitly marked incomplete', async () => {
+  const scope = await counterScope(db.store);
+  const model = new ScriptedModel(() => 'x'.repeat(70_000));
+  const harness = new Harness(db.store, model).register(counterBinding(db.store));
+  const input = request(scope);
+  await harness.submit(input); await harness.drain();
+  const rows = (await db.store.pool.query(`SELECT details FROM fw_event_log
+    WHERE request_id=$1 AND event_type='model.call.finished.v1' ORDER BY sequence`, [input.requestId])).rows;
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.details.rawText, null);
+    assert.equal(row.details.rawTextBytes, 70_000);
+    assert.equal(row.details.rawTextComplete, false);
+    assert.match(row.details.rawTextDigest, /^[a-f0-9]{64}$/);
+  }
+});

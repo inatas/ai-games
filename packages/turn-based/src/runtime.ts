@@ -9,7 +9,7 @@ import {
 } from './engine.ts';
 import { migrateTurnBased } from './schema.ts';
 import type { Lane, PendingDecision, Room, RoomDefinition, RoomLimits, Seat, SpectatorView } from './types.ts';
-import type { DecisionAdapter, DecisionOutput } from './decision.ts';
+import type { DecisionAdapter, DecisionInput, DecisionOutput } from './decision.ts';
 import { evaluateDecisionRules } from './decision-rules.ts';
 
 type Options = { harness?: ConstructorParameters<typeof Harness>[2] };
@@ -179,26 +179,33 @@ export class RoomRuntime {
       const seat = room.seats.find(s => s.seat === actor);
       if (!seat) throw new HarnessError('INVALID_PHASE');
       if (!this.models.has(seat.modelProfile)) throw new HarnessError('UNKNOWN_MODEL');
-      if (interruptSeat === undefined && seat.controllerKind === 'robot' && this.definition.decisionRules) {
-        const input = this.definition.decisionSpec!(room, seat.seat);
+      let ordinaryInput: DecisionInput | undefined = interruptSeat === undefined
+        ? this.definition.decisionSpec?.(room, seat.seat) : undefined;
+      if (ordinaryInput && seat.controllerKind === 'robot' && this.definition.decisionRules) {
+        const input = ordinaryInput;
         const evaluation = evaluateDecisionRules(this.definition.decisionRules, input);
-        if (input.intent === 'SELECT') {
-          const recorded = room.ruleDecisions?.some(entry => entry.phaseInstance === room.phaseInstance && entry.seat === actor);
-          if (!recorded) (room.ruleDecisions ??= []).push({
-            phaseInstance: room.phaseInstance, seat: actor, evaluation, forced: !!evaluation.requiredOptionId,
+        const recorded = room.ruleDecisions?.some(entry => entry.phaseInstance === room.phaseInstance && entry.seat === actor);
+        if (!recorded) (room.ruleDecisions ??= []).push({
+          phaseInstance: room.phaseInstance, seat: actor, evaluation, forced: !!evaluation.requiredOptionId,
+        });
+        if (evaluation.requiredOptionId) {
+          const action = this.definition.decodeDecision!(input, {
+            kind: 'proposal', value: { selected: evaluation.requiredOptionId },
           });
-          if (evaluation.requiredOptionId) {
-            const action = this.definition.decodeDecision!(input, {
-              kind: 'proposal', value: { selected: evaluation.requiredOptionId },
-            });
-            if (action === null) throw new HarnessError('RULE_OPTION_INVALID');
-            const next = acceptDecision(room, room.phaseInstance, actor, action, this.definition);
-            if (next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
-            if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
-            this.startWindow(next, room.phaseInstance);
-            await this.save(tx, next);
-            return { room: next };
-          }
+          if (action === null) throw new HarnessError('RULE_OPTION_INVALID');
+          const next = acceptDecision(room, room.phaseInstance, actor, action, this.definition);
+          if (next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
+          if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
+          this.startWindow(next, room.phaseInstance);
+          await this.save(tx, next);
+          return { room: next };
+        }
+        if (evaluation.guidance.length) {
+          const rules = input.context.rules;
+          const existing = rules && typeof rules === 'object' && !Array.isArray(rules) ? rules : {};
+          ordinaryInput = { ...input, context: { ...input.context,
+            rules: { ...existing, strategy_rules: evaluation.guidance },
+          } };
         }
       }
       const scopeId = interruptSeat === undefined ? seat.scopeId : seat.interruptScopeId;
@@ -218,8 +225,7 @@ export class RoomRuntime {
         modelProfile: seat.modelProfile, memoryVersion: scope.memory_version,
         phaseInstance: room.phaseInstance, decisionEpoch: room.decisionEpoch,
         facts: actorView(room, seat.seat, this.definition),
-        ...(interruptSeat === undefined && this.definition.decisionSpec
-          ? { decisionInput: this.definition.decisionSpec(room, seat.seat) } : {}),
+        ...(ordinaryInput ? { decisionInput: ordinaryInput } : {}),
       };
       room.pendingJobs[lane] = job;
       room.requests++;
@@ -248,6 +254,12 @@ export class RoomRuntime {
           gameVersion: `${job.phaseInstance}:${job.decisionEpoch}`, facts: job.decisionInput?.context ?? job.facts,
           instructions: this.definition.instructions,
           subjectIds: [], tags: [], requiredMemoryIds: [], visibility: [],
+          eventContext: {
+            userId: snapshot.seats.find(seat => seat.seat === job.seat)?.userId ?? null,
+            modId: this.definition.id, roomId: snapshot.id,
+            details: { ...(job.decisionInput?.audit ?? {}), modelProfile: job.modelProfile,
+              phaseInstance: job.phaseInstance, decisionEpoch: job.decisionEpoch, lane: job.lane },
+          },
         };
       },
       validate: proposal => {

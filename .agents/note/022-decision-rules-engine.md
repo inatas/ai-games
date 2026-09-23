@@ -42,4 +42,8 @@ Status: in_progress；开发方案 v1 已确认实施（2026-09-23）。
 
 用户指出 v1 的 TS 回调规则文件难以理解，要求配置极简、可由人阅读，并希望自然语言正文随适用规则进入模型上下文。曾讨论[启动模型编译方案](../../docs/specs/decision-rule-compilation-v2.md)，随后用户明确改为“先把 ruleset 做到 `id/priority/instruction/enforcement` 这种级别”。[简明配置 v2](../../docs/specs/decision-rule-config-v2.md)定义 MOD JSON 作者文件、内部处理器和私有上下文。用户在审阅该具体方案后回复“实施”，确认本版及关联狼人杀范围。自然语言模型编译及较早的[固定字段 Markdown 草案](../../docs/specs/decision-rule-files-v2.md)均暂缓。
 
+v2 跨模块修改前检查点：`main/ef6b573`，保存当时工作区源码、测试与文档。基线未跑完整测试，不能称为稳定版本。
+
+v2 实施与证据：新增 `RuleSetConfig`、`RuleHandlerRegistry`、`compileDecisionRuleSet`，严格校验作者字段和处理器，按配置内容生成摘要；房间固定摘要并在恢复读取时校验。规则说明按优先级进入匹配 Robot 的 `context.rules.strategy_rules`；强制选项仍按 v1 在事务中直接提交。先写失败测试，框架导出缺失与 MOD JSON 缺失分别如预期失败；实现后定向测试通过。`npm run check`、`npm run check:repo`、`npm run build`、`git diff --check` 通过，`npm run test:unit` 106/106 通过；一次性 PostgreSQL 18 测试容器中 `npm test` 204/204 通过，含指导文本进入实际模型请求、其他席位/公共视图隔离、同版本摘要变化拒绝恢复。测试容器已停止；未运行付费模型、未部署或重建开发库。
+
 当前状态：首版核心功能已实现并通过上述验证；多种子概率统计、独立运行时冲突测试和真实模型试跑仍待后续安排。无迁移或部署操作。

@@ -71,6 +71,29 @@ test('V4-04: initial/suppressed/duplicate snapshots do not replay old announceme
   assert.equal(nextPresentation(null, announcement, true).items.length, 0);
 });
 
+test('first-day peaceful-night announcement survives batched revisions and an open history panel', async () => {
+  const { nextPresentation } = await import('../../../apps/web/src/werewolf/presentation.ts');
+  const rooms = new DemoRooms({now:()=>0});
+  const base = rooms.create(42, 'fixed');
+  const before = {...base, revision:3, period:'day' as const, events:[]};
+  const announced: typeof base = {...before, revision:12, events:[
+    {sequence:1, day:1, period:'day' as const, type:'sheriff-result', data:{seat:5}},
+    {sequence:2, day:1, period:'day' as const, type:'night-deaths', data:{seats:[]}},
+  ]};
+  const initial = nextPresentation(null, before, false);
+  const batched = nextPresentation(initial.cursor, announced, false);
+  assert.deepEqual(batched.items.map(item => [item.kind, item.seats]), [['deaths', []]]);
+  const hidden = nextPresentation(initial.cursor, announced, true);
+  assert.equal(hidden.items.length, 0);
+  const resumed = nextPresentation(hidden.cursor, announced, false);
+  assert.deepEqual(resumed.items.map(item => [item.kind, item.seats]), [['deaths', []]]);
+  assert.equal(nextPresentation(resumed.cursor, announced, false).items.length, 0);
+  assert.equal(nextPresentation(null, announced, false).items.length, 0);
+  const tomorrow = {...announced, day:2, revision:13, events:announced.events.map(event => ({...event, day:1}))};
+  assert.equal(nextPresentation(hidden.cursor, tomorrow, false).items.some(item => item.kind === 'deaths'), false);
+  assert.equal(nextPresentation(hidden.cursor, {...announced, status:'finished' as const}, false).items.length, 0);
+});
+
 test('V4-05: vote summary groups voters without losing abstentions or sheriff weight', async () => {
   const { summarizeVotes } = await import('../../../apps/web/src/werewolf/presentation.ts');
   const result = summarizeVotes({

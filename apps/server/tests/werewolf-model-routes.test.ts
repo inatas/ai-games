@@ -7,6 +7,10 @@ test('model room has its own start/read route and becomes selectable only when s
   const service = {
     async start() { return { id: 'model-room', status: 'running' }; },
     async get() { return { id: 'model-room', status: 'running' }; },
+    async events(id: string, after: number, limit: number) {
+      assert.equal(id, 'model-room'); assert.equal(after, 12); assert.equal(limit, 10);
+      return [{ sequence: 13, eventType: 'model.call.started.v1' }];
+    },
   } as unknown as WerewolfModelService;
   const app = await buildWerewolfDemo({ modelService: service });
   try {
@@ -20,5 +24,10 @@ test('model room has its own start/read route and becomes selectable only when s
     assert.equal(start.statusCode, 200);
     assert.equal(start.json().id, 'model-room');
     assert.equal((await app.inject('/api/werewolf/model/model-room')).json().status, 'running');
+    const audit = await app.inject('/api/werewolf/model/model-room/model-events?after=12&limit=10');
+    assert.equal(audit.statusCode, 200);
+    assert.equal(audit.json()[0].sequence, 13);
+    const remote = await app.inject({ url: '/api/werewolf/model/model-room/model-events', remoteAddress: '203.0.113.5' });
+    assert.equal(remote.statusCode, 403);
   } finally { await app.close(); }
 });

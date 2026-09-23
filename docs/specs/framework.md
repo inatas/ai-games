@@ -64,7 +64,7 @@ flowchart TD
 
 顺序：框架输出协议→已绑定版本的基础世界观→宿主判定说明/Schema→当前事实→必需事项与来源→可选历史→玩家输入。历史和玩家文字标记为数据。
 
-默认输入8000 token，输出预留1500，并适配模型窗口和协议开销。计数器由适配层注入。必需块不可静默截断，超预算返回CONTEXT_TOO_LARGE且不调用模型。
+默认输入上限100,000 UTF-8字节、内部窗口128,000字节，输出预留1500 token。未注入供应商计数器时，保守计数器按消息正文UTF-8字节加固定协议开销估算；100,000字节不是100,000模型token。宿主可显式覆盖预算，实际输入仍取输入上限与窗口减输出预留中的较小值。必需块不可静默截断，超预算返回CONTEXT_TOO_LARGE且不调用模型。
 
 候选历史按宿主subjectIds/tags查询，无题材词典、无embedding。按importance降序、sequence降序、id升序排序，去重后填入预算。记录选中ID和各块预算；旧摘要不得覆盖当前事实。
 
@@ -147,7 +147,7 @@ MemoryChange仅包含replace_fact、append_event、append_summary、open_item、
 | fw_events | id、scope_id、request_id、sequence、subject_ids/tags、importance、visibility、payload、source_ids |
 | fw_summaries | scope_id、payload、source_ids/version、visibility |
 | fw_open_items | scope_id、status、payload、source_ids、visibility |
-| fw_model_calls | request、attempt、model、usage、latency、context_ids、error |
+| fw_event_log | 通用事件信封；模型调用的请求、原始返回、usage、latency、判定 |
 
 宿主另有自己的游戏表。request对(scope_id,request_id)唯一；processing对scope部分唯一；事件对(scope_id,sequence)唯一。最终事务分配递增sequence。普通列用于索引、关联与状态，JSONB承载不透明payload。跨scope引用在应用层和仓储边界检查。
 
@@ -171,6 +171,6 @@ MemoryChange仅包含replace_fact、append_event、append_summary、open_item、
 
 ## 实现布局说明
 
-四类记忆在当前实现中合并为fw_memory，通过kind区分；fw_scopes、fw_requests、fw_model_calls独立保存。上表为逻辑职责，并非每项必须有独立物理表。当前scope授权由宿主承担，游戏规则在mods/qingxi。架构不变量以[ARCHITECT.md](../../ARCHITECT.md)为准。
+四类记忆在当前实现中合并为fw_memory，通过kind区分；fw_scopes、fw_requests、fw_event_log独立保存。上表为逻辑职责，并非每项必须有独立物理表。当前scope授权由宿主承担，游戏规则在mods/qingxi。架构不变量以[ARCHITECT.md](../../ARCHITECT.md)为准。
 
 

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluateDecisionRules, type DecisionInput } from '@game-ai/turn-based';
 import { werewolfDecisionRules } from '../src/decision-rules/index.ts';
+import authorRules from '../rules/ruleset.json' with { type: 'json' };
 
 const task = (role: string, round = 1): DecisionInput => ({
   actor: { roomId: 'sample-room', seat: 1, phaseInstance: 3 }, intent: 'SELECT', scene: 'nominations',
@@ -19,7 +20,10 @@ const task = (role: string, round = 1): DecisionInput => ({
 
 test('WW-R01: seer first-day strategy refers to the legal run option', () => {
   assert.equal(werewolfDecisionRules.id, 'werewolf.robot-strategy');
-  assert.equal(werewolfDecisionRules.version, 1);
+  assert.equal(werewolfDecisionRules.version, 2);
+  assert.ok(werewolfDecisionRules.digest);
+  assert.equal(authorRules.rules[0]?.enforcement, 'require-option');
+  assert.match(authorRules.rules[0]?.instruction ?? '', /上警/);
   assert.equal(werewolfDecisionRules.rules[0]?.probability, 0.8);
   const evaluated = evaluateDecisionRules(werewolfDecisionRules, task('seer'));
   assert.ok(evaluated.requiredOptionId === undefined || evaluated.requiredOptionId === 'option-1');

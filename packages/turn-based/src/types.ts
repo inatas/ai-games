@@ -99,7 +99,7 @@ export interface Room {
   phaseActionDeadlineAt?: number;
   phaseEarlyFinishAt?: number;
   pendingJobs: Partial<Record<Lane, PendingDecision>>;
-  ruleSet?: { id: string; version: number };
+  ruleSet?: { id: string; version: number; digest?: string };
   ruleDecisions?: Array<{ phaseInstance: number; seat: number; evaluation: RuleEvaluation; forced: boolean }>;
   error: string | null;
 }

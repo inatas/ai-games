@@ -1,7 +1,5 @@
-import type { DecisionRuleSet } from '@game-ai/turn-based';
-import { seerFirstDayRun } from './seer-first-day.ts';
+import { compileDecisionRuleSet } from '@game-ai/turn-based';
+import authorRules from '../../rules/ruleset.json' with { type: 'json' };
+import { werewolfRuleHandlers } from './handlers.ts';
 
-export const werewolfDecisionRules: DecisionRuleSet = {
-  id: 'werewolf.robot-strategy', version: 1,
-  rules: [seerFirstDayRun],
-};
+export const werewolfDecisionRules = compileDecisionRuleSet(authorRules, werewolfRuleHandlers);

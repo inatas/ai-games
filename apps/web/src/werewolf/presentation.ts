@@ -6,14 +6,19 @@ export function nextPresentation(previous: PresentationCursor | null, game: Demo
   const sequence = Math.max(0, ...game.events.map(event => event.sequence));
   const cursor: PresentationCursor = { id: game.id, day: game.day, period: game.period, sequence, revision: game.revision };
   const items: PresentationItem[] = [];
-  if (suppressed || game.status !== 'running' || game.id === 'preview') return { cursor, items };
+  if (game.status !== 'running' || game.id === 'preview') return { cursor, items };
+  if (suppressed) {
+    // A panel hides the announcement, but must not mark its public event as seen.
+    if (previous?.id === game.id) cursor.sequence = previous.sequence;
+    return { cursor, items };
+  }
   if (!previous || previous.id !== game.id) {
     if (game.revision === 0 && game.period === 'night') items.push({ id: game.id + ':start', kind: 'night', day: game.day, seats: [] });
     return { cursor, items };
   }
   // A reconnect catches up to the live scene rather than replaying old announcements.
-  if (game.revision - previous.revision > 3) return { cursor, items };
-  if (game.period !== previous.period || game.day !== previous.day) {
+  const caughtUp = game.revision - previous.revision > 3;
+  if (!caughtUp && (game.period !== previous.period || game.day !== previous.day)) {
     items.push({ id: `${game.id}:${game.day}:${game.period}`, kind: game.period, day: game.day, seats: [] });
   }
   for (const event of game.events) {

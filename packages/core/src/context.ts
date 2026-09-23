@@ -11,7 +11,7 @@ export function buildContext(args: {
 }) {
   const counter = args.counter ?? conservativeCounter;
   const outputBudget = args.outputBudget ?? 1500;
-  const inputBudget = Math.min(args.inputBudget ?? 8000, (args.window ?? 16000) - outputBudget);
+  const inputBudget = Math.min(args.inputBudget ?? 100_000, (args.window ?? 128_000) - outputBudget);
   const required = [...new Map(args.required.map(m => [m.id, m])).values()];
   const requiredIds = new Set(required.map(m => m.id));
   const selected: MemoryRecord[] = [];

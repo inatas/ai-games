@@ -41,16 +41,17 @@ export function LiveTransition({ game, suppressed }: { game: DemoSnapshot; suppr
   useEffect(() => {
     const result = nextPresentation(cursor.current, game, suppressed);
     cursor.current = result.cursor;
-    if (suppressed || game.status !== 'running') setQueue([]);
-    else if (result.items.length) setQueue(current => [...current, ...result.items]);
+    if (game.status !== 'running') setQueue([]);
+    else if (suppressed) setQueue(current => current.filter(item => item.kind === 'deaths' && item.day === game.day && item.id.startsWith(`${game.id}:`)));
+    else setQueue(current => [...current.filter(item => item.day === game.day && item.id.startsWith(`${game.id}:`)), ...result.items]);
   }, [game, suppressed]);
   const item = queue[0];
   useEffect(() => {
-    if (!item) return;
+    if (!item || suppressed) return;
     const timeout = window.setTimeout(() => setQueue(current => current.slice(1)), item.kind === 'deaths' ? 3000 : 2000);
     return () => window.clearTimeout(timeout);
-  }, [item?.id]);
-  if (!item) return null;
+  }, [item?.id, suppressed]);
+  if (!item || suppressed) return null;
   const deaths = item.kind === 'deaths';
   return <div className={`ww-transition transition-${item.kind}`} role="status" aria-label={deaths ? '昨夜出局公告' : '昼夜过场'}>
     {deaths ? <>

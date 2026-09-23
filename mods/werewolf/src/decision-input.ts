@@ -36,6 +36,12 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   };
   const events = room.events.filter(event => event.audience === 'public');
   const ownEvents = room.events.filter(event => Array.isArray(event.audience) && event.audience.includes(seat));
+  const lastDeaths = events.filter(event => event.type === 'night-deaths').at(-1);
+  const lastAnnouncedNight = lastDeaths ? {
+    night: room.phaseHistory?.find(phase => phase.instance === lastDeaths.phaseInstance)?.round ?? room.phase.round,
+    deaths: (lastDeaths.data as { seats: number[] }).seats,
+    peaceful: (lastDeaths.data as { seats: number[] }).seats.length === 0,
+  } : null;
   const { self: roleFacts, ...publicState } = envelope.state;
   const persona = room.seats.find(candidate => candidate.seat === seat)?.persona;
   if (!roleFacts) throw new Error('MISSING_ACTOR_FACTS');
@@ -46,6 +52,9 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   const options: DecisionOption[] = speech ? [] : choices(schema).map((value, index) => ({ id: `option-${index}`, value }));
   const intent: DecisionInput['intent'] = speech ? 'SPEAK' : 'SELECT';
   const scene = room.phase.key;
+  const spokenPhases = (room.phaseHistory ?? []).filter(phase =>
+    phase.key === scene && phase.round === room.phase!.round && phase.instance <= room.phaseInstance);
+  const micNo = speech ? spokenPhases.length || 1 : null;
   const currentAction = {
     request_type: intent as DecisionInput['intent'], scene,
     options: options.map(option => ({ id: option.id, value: option.value })),
@@ -55,12 +64,17 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   };
   return {
     actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance }, intent, scene, options,
+    audit: { seatNo: seat, micNo, role: roleFacts.role, phaseInstance: room.phaseInstance,
+      publicEventWatermark: events.length },
     outputSchema: speech
       ? { type: 'object', additionalProperties: false, required: ['speech'], properties: { speech: { type: 'string', minLength: 1, maxLength: 300 } } }
       : { type: 'object', additionalProperties: false, required: ['selected'], properties: { selected: { enum: options.map(option => option.id) } } },
     context: {
-      rules: { instructions: definition.instructions, version: definition.version },
-      game_state: { ...publicState, seats: envelope.seats, phase: { key: scene, round: room.phase.round } },
+      rules: {
+        instructions: definition.instructions, version: definition.version,
+        fact_boundaries: 'game_state和public_history是平民可见的公开事实；self和private_information是本人身份额外知道的事实。私密狼刀口是攻击目标，不代表实际死亡；以公开夜死公告和存活状态判断结算。玩家仍可策略性谎报自己的说法。',
+      },
+      game_state: { ...publicState, seats: envelope.seats, phase: { key: scene, round: room.phase.round }, last_announced_night: lastAnnouncedNight },
       self: { ...envelope.self, role: roleFacts.role, ...(persona ? { persona } : {}) },
       private_information: { ...roleFacts, events: ownEvents.map(({ type, data }, index) => ({ sequence: index + 1, type, data })) },
       public_history: events.map(({ type, data }, index) => ({ sequence: index + 1, type, data })),

@@ -35,12 +35,12 @@
 
 ## 接口、恢复与范围
 
-拟增加题材中性的 `RuleSetConfig`、`RuleHandlerRegistry` 和 `compileDecisionRuleSet`；在现有 `RoomDefinition.decisionRules` 与 `RoomRuntime.reserve` 路径接入，不另建模型运行时。MOD 静态导入 JSON 并注册处理器；Framework 不读取 MOD 文件路径或理解角色词语。新增 `room.ruleSet.digest` 以固定提示内容；现有房间版本变更按本项目未发布阶段策略处理，本次不迁移开发库或部署。模型调用、密钥与费用行为保持现状，**不在启动时调用编译模型**。
+已增加题材中性的 `RuleSetConfig`、`RuleHandlerRegistry` 和 `compileDecisionRuleSet`；在现有 `RoomDefinition.decisionRules` 与 `RoomRuntime.reserve` 路径接入，没有另建模型运行时。MOD 静态导入 JSON 并注册处理器；Framework 不读取 MOD 文件路径或理解角色词语。`room.ruleSet.digest` 固定提示内容；本次没有迁移开发库或部署。模型调用、密钥与费用行为保持现状，**不在启动时调用编译模型**。
 
 实施顺序：确认本版与 MOD 接入方案 → 编写配置验证、指导规则上下文隔离、强制规则概率及恢复的失败测试 → 实现通用装配与决策输入扩展 → 迁移 WW-R01 配置并移除被替代的 TS 作者入口 → 运行类型、仓库、单元及隔离 PostgreSQL 回归，并回填实际证据。
 
 不包含自然语言自动编译、女巫平安夜声明、规则 UI、热更新、跨 MUD 调度或真实模型付费联调。自然语言编译保留为后续备选方案，不与本版同时实施。
 
-## 待确认
+## 确认与实现
 
-本文件及[狼人杀配置映射](../../mods/werewolf/docs/decision-rule-config-v2.md)已由用户在审阅后回复“实施”确认。实施与验证证据回填根 note 022 和 MOD note 002。
+本文件及[狼人杀配置映射](../../mods/werewolf/docs/decision-rule-config-v2.md)已由用户在审阅后回复“实施”确认。首版已实施；验证证据见[根 note 022](../../.agents/note/022-decision-rules-engine.md)和[MOD note 002](../../mods/werewolf/.agents/note/002-decision-rules.md)。

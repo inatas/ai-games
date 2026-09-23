@@ -48,6 +48,9 @@ export class PostgresStore {
         CREATE INDEX IF NOT EXISTS fw_event_log_room ON fw_event_log(mod_id,room_id,sequence);
         CREATE INDEX IF NOT EXISTS fw_event_log_user ON fw_event_log(user_id,sequence);
         CREATE INDEX IF NOT EXISTS fw_event_log_request ON fw_event_log(request_id,sequence);
+        CREATE UNIQUE INDEX IF NOT EXISTS fw_event_log_attempt_type
+          ON fw_event_log(request_id,(details->>'scopeId'),(details->>'attempt'),event_type)
+          WHERE event_type LIKE 'model.call.%';
       `);
       await tx.query(`
         CREATE TABLE IF NOT EXISTS fw_users (

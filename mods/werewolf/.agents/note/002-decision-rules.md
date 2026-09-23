@@ -38,4 +38,8 @@ MOD 在服务端注册预言家规则的纯触发/目标函数，输入为本人
 
 用户要求先采用 `id/priority/instruction/enforcement` 级别的简明 ruleset 配置，暂缓服务启动时的模型编译。[狼人杀配置 v2](../../docs/decision-rule-config-v2.md)与[框架配置 v2](../../../../docs/specs/decision-rule-config-v2.md)定义 `rules/ruleset.json` 和内部处理器的分工。用户在审阅后回复“实施”，确认本版实施范围；此前[自然语言编译提案](../../docs/decision-rule-compilation-v2.md)暂缓。本次不发起付费模型编译。
 
+v2 跨模块修改前检查点：`main/ef6b573`；基线未跑完整测试。
+
+v2 实施与证据：`rules/ruleset.json` 是唯一作者配置，版本 2、预言家首日上警概率 0.8；`src/decision-rules/handlers.ts` 保存内部触发和合法选项映射，`index.ts` 编译 JSON 后注册。旧 `seer-first-day.ts` 已移除，房间定义版本升为 `rules2`。框架与 MOD 定向测试、106 项单元及隔离 PostgreSQL 全仓 204 项测试通过；模型请求私有指导与摘要恢复有独立数据库用例。无真实付费模型试跑或部署。
+
 当前状态：首条 SELECT 规则已实施并有上述验证证据；女巫 SPEAK 声明与多种子概率统计未完成。

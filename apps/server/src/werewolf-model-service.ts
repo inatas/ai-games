@@ -34,7 +34,7 @@ export class WerewolfModelService {
     let runtime = this.runtimes.get(seed);
     if (!runtime) {
       runtime = new RoomRuntime(this.store, werewolfDefinition({ seed, sheriff: 'double' }), this.adapters,
-        { harness: { inputBudget: 12000, outputBudget: 500, callTimeoutMs: 45000, totalTimeoutMs: 75000 } });
+        { harness: { inputBudget: 100_000, modelWindow: 128_000, outputBudget: 500, callTimeoutMs: 45000, totalTimeoutMs: 75000 } });
       this.runtimes.set(seed, runtime);
     }
     return runtime;
@@ -50,7 +50,7 @@ export class WerewolfModelService {
     const row = (await this.store.pool.query('SELECT document FROM tb_rooms WHERE id=$1', [id])).rows[0];
     if (!row || row.document.definitionId !== 'werewolf' ||
         !String(row.document.runKey).startsWith('werewolf-model:')) throw new HarnessError('ROOM_NOT_FOUND', 404);
-    const match = /^4\.(\d+)\.double$/.exec(row.document.definitionVersion);
+    const match = /^4\.(\d+)\.double\.rules2$/.exec(row.document.definitionVersion);
     if (!match) throw new HarnessError('DEFINITION_MISMATCH', 409);
     return Number(match[1]);
   }
@@ -70,7 +70,7 @@ export class WerewolfModelService {
       const room = row.document as Room;
       if (room.definitionId !== 'werewolf' || room.status !== 'running' ||
           !room.runKey.startsWith('werewolf-model:')) continue;
-      const match = /^4\.(\d+)\.double$/.exec(room.definitionVersion);
+      const match = /^4\.(\d+)\.double\.rules2$/.exec(room.definitionVersion);
       if (match) this.schedule(this.runtime(Number(match[1])), room.id);
     }
   }
@@ -92,6 +92,21 @@ export class WerewolfModelService {
     const runtime = this.runtime(seed);
     const room = await runtime.inspect(id);
     return modelRoomSnapshot(room, werewolfDefinition({ seed, sheriff: 'double' }), this.users, Date.now(), viewer);
+  }
+
+  /** Trusted local diagnostic read; raw model context must never enter spectator projections. */
+  async events(id: string, after = 0, limit = 50) {
+    if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new HarnessError('INVALID_INPUT');
+    }
+    await this.roomSeed(id);
+    const rows = (await this.store.pool.query(`SELECT sequence,event_id,event_type,occurred_at,
+      user_id,mod_id,room_id,request_id,result,details FROM fw_event_log
+      WHERE mod_id='werewolf' AND room_id=$1 AND sequence>$2 ORDER BY sequence LIMIT $3`, [id, after, limit])).rows;
+    return rows.map(row => ({ sequence: Number(row.sequence), eventId: row.event_id,
+      eventType: row.event_type, occurredAt: row.occurred_at, userId: row.user_id,
+      modId: row.mod_id, roomId: row.room_id, requestId: row.request_id,
+      result: row.result, details: row.details }));
   }
 
   async close(): Promise<void> {

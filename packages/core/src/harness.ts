@@ -100,6 +100,26 @@ export class Harness {
     const scopes = await this.store.pool.query("SELECT DISTINCT scope_id FROM fw_requests WHERE status='processing' AND lease_expires_at<=$1", [this.clock.now()]);
     for (const row of scopes.rows) await this.store.transaction(async tx => {
       await tx.query('SELECT id FROM fw_scopes WHERE id=$1 FOR UPDATE', [row.scope_id]);
+      const expired = (await tx.query("SELECT request_id FROM fw_requests WHERE scope_id=$1 AND status='processing' AND lease_expires_at<=$2",
+        [row.scope_id, this.clock.now()])).rows;
+      for (const request of expired) {
+        const started = (await tx.query(`SELECT * FROM fw_event_log AS start
+          WHERE start.request_id=$1 AND start.event_type='model.call.started.v1'
+            AND start.details->>'scopeId'=$2
+            AND NOT EXISTS (SELECT 1 FROM fw_event_log AS terminal
+              WHERE terminal.request_id=start.request_id
+                AND terminal.details->>'scopeId'=start.details->>'scopeId'
+                AND terminal.details->>'attempt'=start.details->>'attempt'
+                AND terminal.event_type IN ('model.call.finished.v1','model.call.failed.v1','model.call.orphaned.v1'))`,
+          [request.request_id, row.scope_id])).rows;
+        for (const event of started) await tx.query(`INSERT INTO fw_event_log
+          (event_id,event_type,occurred_at,user_id,mod_id,room_id,request_id,result,details)
+          VALUES($1,'model.call.orphaned.v1',$2,$3,$4,$5,$6,'unknown',$7)`, [
+            randomUUID(), new Date(this.clock.now()), event.user_id, event.mod_id, event.room_id,
+            event.request_id, JSON.stringify({ schemaVersion: 1, scopeId: row.scope_id,
+              attempt: event.details.attempt, errorCode: 'PROCESSING_EXPIRED' }),
+          ]);
+      }
       await tx.query("UPDATE fw_requests SET status='failed',error=$3 WHERE scope_id=$1 AND status='processing' AND lease_expires_at<=$2", [row.scope_id, this.clock.now(), JSON.stringify({ code: 'PROCESSING_EXPIRED' })]);
     });
   }
@@ -118,13 +138,26 @@ export class Harness {
       if (binding.mode === 'assessment') {
         const worldview = await this.store.worldview?.(input.scopeId);
         const memories = await this.store.contextMemory(input.scopeId, prepared.visibility ?? ['public'], prepared.requiredMemoryIds, prepared.subjectIds, prepared.tags);
-        const context = buildContext({ worldview, facts: prepared.facts, instructions: prepared.instructions, input: input.input, schema: binding.outputSchema!, ...memories,
-          counter: this.options.counter, inputBudget: this.options.inputBudget, outputBudget: this.options.outputBudget, window: this.options.modelWindow });
+        let context: ReturnType<typeof buildContext>;
+        try {
+          context = buildContext({ worldview, facts: prepared.facts, instructions: prepared.instructions, input: input.input, schema: binding.outputSchema!, ...memories,
+            counter: this.options.counter, inputBudget: this.options.inputBudget, outputBudget: this.options.outputBudget, window: this.options.modelWindow });
+        } catch (error) {
+          if (error instanceof HarnessError && error.code === 'CONTEXT_TOO_LARGE') {
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.context_rejected.v1', 'rejected',
+              { attempt: 1, errorCode: error.code });
+          }
+          throw error;
+        }
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
           const messages = [...context.messages];
           if (attempt === 2) messages.push({ role: 'system', content: 'Your previous response did not match OUTPUT_SCHEMA. Return only a valid JSON object with exactly the required fields and allowed values.' });
-          if ((this.options.counter ?? conservativeCounter)(messages) > context.inputBudget) throw new HarnessError('CONTEXT_TOO_LARGE');
+          if ((this.options.counter ?? conservativeCounter)(messages) > context.inputBudget) {
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.context_rejected.v1', 'rejected',
+              { attempt, errorCode: 'CONTEXT_TOO_LARGE' });
+            throw new HarnessError('CONTEXT_TOO_LARGE');
+          }
           const request: ModelRequest = { requestId: input.requestId, attempt, messages, outputSchema: binding.outputSchema!, maxOutputTokens: context.outputBudget };
           const started = this.clock.now(); let response;
           await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
@@ -141,9 +174,13 @@ export class Harness {
             throw error;
           }
           let valid = false;
-          try { if (Buffer.byteLength(response!.rawText, 'utf8') <= 16384) { proposal = JSON.parse(response!.rawText); valid = !!registered.output!(proposal); } } catch { /* Invalid JSON is repairable. */ }
+          const rawTextBytes = Buffer.byteLength(response!.rawText, 'utf8');
+          try { if (rawTextBytes <= 16384) { proposal = JSON.parse(response!.rawText); valid = !!registered.output!(proposal); } } catch { /* Invalid JSON is repairable. */ }
           await this.logModelEvent(this.store.pool, input, prepared, 'model.call.finished.v1', 'succeeded', {
-            attempt, rawText: response.rawText, model: response.model, usage: response.usage,
+            attempt, rawText: rawTextBytes <= 65536 ? response.rawText : null,
+            rawTextBytes, rawTextComplete: rawTextBytes <= 65536,
+            ...(rawTextBytes > 65536 ? { rawTextDigest: createHash('sha256').update(response.rawText).digest('hex') } : {}),
+            model: response.model, usage: response.usage,
             latencyMs: Math.max(0, this.clock.now() - started), schemaValid: valid,
           });
           returnedAttempt = attempt;

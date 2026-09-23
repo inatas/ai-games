@@ -18,11 +18,11 @@ MEM-FULL：memoryVersion1；事实status={value:2},sourceVersion="2"；公开E1=
 
 MEM-OPEN同MEM-FULL；关闭O1后memoryVersion2，原ID重发不变；新ID重复关闭由宿主拒绝，不再次提交。
 
-C-FIT：必需块7000token；E3 importance3/sequence3、E2 importance2/sequence2、E1 importance1/sequence1，均S1/public/tag=x，每条500token；E2多次命中。结果[E3,E2]、总8000，E1淘汰。
+C-FIT：显式8,000预算的排序样例。注入测试计数器，必需块记7000；E3 importance3/sequence3、E2 importance2/sequence2、E1 importance1/sequence1，均S1/public/tag=x，每条500；E2多次命中。结果[E3,E2]、总8000，E1淘汰。
 
-C-OVER：必需块8001。C-PRIVATE：另加S2公开EX及S1内部EI，即使标签相同也过滤；把EX/EI指定为必需ID时INVALID_INPUT。
+C-OVER：显式8,000预算、必需块计8001，调用前拒绝。C-PRIVATE：另加S2公开EX及S1内部EI，即使标签相同也过滤；把EX/EI指定为必需ID时INVALID_INPUT。
 
-计数器注入并计算完整消息和协议开销，窗口16000、输出预留1500；真实计数器另验证，不把字符数当token数。
+上述历史样例使用注入计数器和显式旧预算，不描述100,000字节的当前默认。真实计数器另验证，不把字符数当token数。
 
 ## 3. Mock
 

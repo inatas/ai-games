@@ -9,6 +9,9 @@ export interface DecisionInput {
   intent: 'SPEAK' | 'SELECT';
   scene: string;
   actor: { roomId: string; seat: number; phaseInstance: number };
+  /** Server-side audit metadata; never included in the model's six-part context. */
+  audit?: { seatNo: number; micNo: number | null; role: string | null;
+    phaseInstance: number; publicEventWatermark: number };
   context: {
     rules: Json;
     game_state: Json;

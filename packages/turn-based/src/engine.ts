@@ -21,7 +21,10 @@ export function assertDefinition(def: RoomDefinition): void {
 }
 export function assertVersion(room: Room, def: RoomDefinition): void {
   if (room.definitionId !== def.id || room.definitionVersion !== def.version || room.capacity !== def.seats) fail('DEFINITION_MISMATCH');
-  const expected = def.decisionRules ? { id: def.decisionRules.id, version: def.decisionRules.version } : undefined;
+  const expected = def.decisionRules ? {
+    id: def.decisionRules.id, version: def.decisionRules.version,
+    ...(def.decisionRules.digest ? { digest: def.decisionRules.digest } : {}),
+  } : undefined;
   if (canonical(room.ruleSet ?? null) !== canonical(expected ?? null)) fail('RULE_SET_MISMATCH');
 }
 export function assertPhase(room: Room, phase: Phase): void {
@@ -45,7 +48,10 @@ export function createRoom(id: string, runKey: string, def: RoomDefinition, limi
     id, runKey, definitionId: def.id, definitionVersion: def.version, capacity: def.seats,
     status: 'waiting', revision: 0, seats: [], state: null, phase: null, phaseInstance: 0,
     decisions: [], events: [], result: null, limits: actual, requests: 0, decisionEpoch: 0, pendingJobs: {}, error: null,
-    ...(def.decisionRules ? { ruleSet: { id: def.decisionRules.id, version: def.decisionRules.version }, ruleDecisions: [] } : {}),
+    ...(def.decisionRules ? { ruleSet: {
+      id: def.decisionRules.id, version: def.decisionRules.version,
+      ...(def.decisionRules.digest ? { digest: def.decisionRules.digest } : {}),
+    }, ruleDecisions: [] } : {}),
   };
 }
 

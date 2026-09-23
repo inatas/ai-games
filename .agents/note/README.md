@@ -44,6 +44,6 @@
 
 [020 Robot用户目录](020-robot-users.md)：implemented；独立用户配置与素材、默认脚本控制，游戏接入归MOD。
 
-[021 统一执行事件日志](021-event-log.md)：draft；底层审计、模型输入输出留痕与无真实模型整局核查方案，v1待确认。
+[021 模型调用事件日志](021-event-log.md)：implemented；v1.3底层模型调用与本机诊断已接入，无网络整局核查通过，真实供应商验证另期。
 
 [022 AI决策规则引擎](022-decision-rules-engine.md)：in_progress；通用规则集运行、优先级、概率与恢复方案 v1 已确认实施；游戏规则实例归各 MOD。
