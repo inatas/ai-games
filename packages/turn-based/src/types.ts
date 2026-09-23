@@ -1,5 +1,6 @@
 import type { Json } from '@game-ai/core';
 import type { DecisionInput, DecisionOutput } from './decision.ts';
+import type { DecisionRuleSet, RuleEvaluation } from './decision-rules.ts';
 
 export interface Seat {
   seat: number;
@@ -47,6 +48,7 @@ export interface RoomDefinition {
   resolve(state: Json, phase: Phase, decisions: readonly Decision[]): Transition;
   decisionSpec?(room: Room, seat: number): DecisionInput;
   decodeDecision?(input: DecisionInput, output: DecisionOutput): Json | null;
+  decisionRules?: DecisionRuleSet;
   windowMs?(room: Room): number;
   actionWindowMs?(room: Room): number;
   fixedWindow?(room: Room): boolean;
@@ -97,6 +99,8 @@ export interface Room {
   phaseActionDeadlineAt?: number;
   phaseEarlyFinishAt?: number;
   pendingJobs: Partial<Record<Lane, PendingDecision>>;
+  ruleSet?: { id: string; version: number };
+  ruleDecisions?: Array<{ phaseInstance: number; seat: number; evaluation: RuleEvaluation; forced: boolean }>;
   error: string | null;
 }
 export interface VisibleEvent { sequence: number; phaseInstance: number; type: string; data: Json }

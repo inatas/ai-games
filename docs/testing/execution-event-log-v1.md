@@ -1,22 +1,18 @@
-# 统一执行事件日志 v1.1：验收用例（待确认）
+# 模型调用事件日志 v1.3：验收用例（待确认）
 
-本文件仅描述待执行的行为测试；用户确认方案前不生成可执行测试。底层用题材中性房间和独立 PostgreSQL 测试 schema，狼人杀内容断言放在 MOD 测试。
+本文件仅列行为与边界用例；确认方案前不写可执行测试。中性测试归 core/storage，狼人杀身份与麦序断言归 MOD。
 
-| ID | 用例 | 必须观察到 |
+| ID | 场景 | 通过标准 |
 |---|---|---|
-| EL-01 | 写入完整信封并分页查询 | eventId 与 eventType 分离；`user_id/mod_id/room_id/request_id`、UTC 时间、结果、details 可检索；按实例、用户、请求分页稳定无重复 |
-| EL-02 | 重复写入 | 同一逻辑事件重复提交只出现一条；相同 ID 不同内容返回幂等冲突 |
-| EL-03 | 事务回滚 | 状态提交失败时无 succeeded 日志；日志插入失败时状态不提交 |
-| EL-04 | 并发及恢复 | 双宿主争同一阶段只留一条有效提交/默认；旧任务可留 superseded，但不能算成功动作 |
-| EL-05 | 权限 | 公共/席位快照和普通历史不含模型 messages、rawText、他席秘密；内部审计端点仅本机且仅审计 Demo 房间 |
-| EL-06 | 密钥排除 | 日志、导出与错误信息均不含模型 Key、Authorization 头或完整服务配置；不能靠用户提交 details 绕过受信任类型校验 |
-| EL-07 | 实际上下文 | 抓取适配器接到的 `ModelRequest`，逐字段等于对应日志中的最终 messages、Schema、预算和 attempt；不能用事后重建的六区冒充 |
-| EL-08 | 输出与纠正 | 原始无效 JSON、修正请求追加的系统消息、最终合法输出及拒绝原因按 attempt 留痕；未产生非法游戏动作 |
-| EL-09 | 网络/超时 | 模型尝试有 started；网络失败、截止迟到、进程恢复分别能对账；没有未留痕的真实调用或迟到提交 |
-| EL-10 | 脚本与默认 | 脚本选择记录 Robot `user_id`；截止默认记录 `initiator_type=system` 并在详情关联受影响席位；脚本不产生虚假的模型调用记录 |
-| EL-11 | 模拟整局 | 1 模拟模型 + 11 脚本完成终局；事件可按 roomId 导出；外网调用计数为零、费用预留为零、所有模型事件标 simulated |
-| EL-12 | 题材授权 | 狼人、预言家、女巫的消息仅含当时授权信息；未公布夜死不能提前进入公共历史；场景、选项和上下文水位能与游戏阶段逐条核对 |
-| EL-13 | 跨 MOD 字段 | 狼人杀 `mod_id=werewolf, room_id=<对局 ID>`；武侠 `mod_id=qingxi, room_id=<realm ID>`；座位和地图位置只在详情，不成为公共列 |
-| EL-14 | 非用户触发 | NPC 与系统事件 `user_id` 为空且来源类型正确；NPC ID/系统任务 ID 存详情，不伪造用户 ID；MUD 真人角色动作解析为其账号 userId |
+| EL-M01 | 通用信封 | 每条记录可按 eventId、eventType、时间、userId、modId、roomId、requestId、result 查询；不要求 seat/scope/role 公共列 |
+| EL-M02 | 每次真实尝试 | 适配器 `generate` 被调用一次，恰有同 requestId/attempt 的 started 与 finished/failed；纠正重试分别记 attempt 1/2 |
+| EL-M03 | 最终输入一致 | 抓取适配器收到的 `ModelRequest`，与该 attempt 日志中的 messages、Schema、maxOutputTokens 逐字段相同；纠正消息只出现在 attempt 2 |
+| EL-M04 | 输出与用量 | 原始有效/无效 JSON、实际 model、供应商返回的 input/output token、耗时和受控错误码如实保存；未知 usage 为 null |
+| EL-M05 | 玩家元数据 | 狼人杀用户 ID、座位、真实身份和 phaseInstance 对应调用时冻结状态；发言麦序为顺序号而非座位号，非发言阶段为 null |
+| EL-M06 | 私密与密钥 | Key、Authorization、连接串不入日志/导出；公共旁观和对手 context 不可读取他席调用；仅本机诊断可取原始消息 |
+| EL-M07 | 原子和幂等 | started 入库失败不发调用；同一请求/尝试重放不复制事件；已完成请求重取不重调模型 |
+| EL-M08 | 失败与恢复 | 网络失败/超时/取消有失败事件；进程崩溃只留 started 时恢复补 orphaned，不伪造成功或游戏动作 |
+| EL-M09 | 调用与判定分离 | 模型返回合法 JSON 但旧阶段/业务拒绝时，调用结果仍如实记录，游戏提交状态标为未生效；无实际适配器调用时不造模型事件 |
+| EL-M10 | 无网络整局检查 | 一名本地可控 ModelAdapter 与脚本席同局，按日志核对夜间查验、白天 SPEAK/SELECT 的调用时机、身份、麦序、授权水位；网络请求与费用为零，simulated 标志准确 |
 
-执行顺序：先使 EL-01～10、EL-13～14 的中性测试失败，再实现公共日志与调用点；随后使 MOD EL-11～12 的演示测试失败并实现。验证记录须分别写明单元、真实 PostgreSQL、整局模拟、真实供应商四类证据；本方案不调用真实供应商，最后一类明确记为未运行。
+验证须区分单元测试、真实 PostgreSQL、无网络模拟整局和真实供应商；本期不调用真实供应商，最后一项明确记录未运行。游戏回放、业务打点和 NPC/通用定时任务不作为本版验收。

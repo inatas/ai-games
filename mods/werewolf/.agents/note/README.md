@@ -9,4 +9,4 @@
 
 001后续：[模型接入v1开发方案](../../docs/model-integration-v1.md)，draft，待用户确认；当前无模型与旁观版本已由用户验收。
 
-- [002 Robot策略规则集](002-decision-rules.md)：draft；预言家首日概率上警接入方案 v1 待确认，女巫平安夜公开刀口留待单独裁定；依赖[框架需求 022](../../../../.agents/note/022-decision-rules-engine.md)。
+- [002 Robot策略规则集](002-decision-rules.md)：in_progress；预言家首日 80% 概率上警 v1 已实施，女巫平安夜公开刀口留待单独裁定；依赖[框架需求 022](../../../../.agents/note/022-decision-rules-engine.md)。

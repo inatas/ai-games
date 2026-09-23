@@ -1,57 +1,33 @@
-# 统一执行事件日志 v1.1（待确认）
+# 模型调用事件日志 v1.3（待确认）
 
-## 目的与已有边界
+## 目标与范围
 
-这是底层**执行审计**，用于回答一次动作由哪个用户发起、属于哪个 MOD 的哪个实例、何时进入哪个阶段、实际给模型什么、模型返回什么、裁判最终怎样处理。它与 `platform_events`（可投递的权威游戏事实）、`Room.events`（按受众投影的游戏记录）、`fw_memory`（模型记忆）和 `fw_model_calls`（用量摘要）职责不同。执行日志不驱动游戏规则，也不把内部模型内容投影给玩家。现有几套记录可用 `requestId`、`roomId`、事件序号关联，不做自动双向复制。
+第一期只记录 Game AI Harness **每次实际调用 `ModelAdapter.generate` 的尝试**，使开发者按对局和玩家核查调用时机、授权 context、原始 result、token 与错误。脚本 Robot 本地 `DecisionAdapter.decide` 不属于模型调用，不能伪造一条模型事件；可控的本地 `ModelAdapter` 走同一 Harness 路径时必须标记 `simulated=true`。本期没有用户侧业务打点、游戏回放日志、NPC/通用定时任务审计、支付事件或公共日志页面。
 
-采用 PostgreSQL 追加表：常查字段独立列，变化较快的细节存 `jsonb`；优先建按对局/请求与时间排序的 B-tree 索引，不预先给整个详情加 GIN。此设计参考 [PostgreSQL JSONB 与索引文档](https://www.postgresql.org/docs/current/datatype-json.html) 和 [OpenTelemetry 事件及日志记录标识约定](https://opentelemetry.io/docs/specs/semconv/general/events/)。这里只借用结构化事件与唯一标识原则，不宣称当前实现兼容 OpenTelemetry 导出协议。
+已有 `fw_model_calls` 只保存 `scope_id/request_id/attempt/model/usage/latency/context_ids/error_code`，没有请求 messages、原始返回或狼人杀玩家元数据。本期将其职责合并入一个新的通用事件日志表 `fw_event_log`；旧摘要表不作为第二个权威来源。当前未发布阶段的表结构替换及受影响查询/测试同批更新，既有开发数据处理须按项目数据库规则明确核实与备份，不在应用启动时自动删除。
 
-## 物理模型与信封
+## 通用信封与模型详情
 
-新增 `fw_execution_events`，由公共存储迁移创建，不依赖 MUD 或回合包。拟定列：
+`fw_event_log` 为 PostgreSQL 追加表。公共列限于跨游戏可复用信息：`sequence bigint identity`（分页）、`event_id uuid unique`、`event_type text`、`occurred_at timestamptz`、`user_id uuid null`、`mod_id text null`、`room_id text null`、`request_id text`、`result text`、`details jsonb`。`room_id` 表示游戏实例：狼人杀为房间 ID，武侠为 realm ID。Robot 与真人共用真实 `user_id`；纯底层调用尚无用户绑定时允许空值，不能把 `scope_id` 或座位号冒充用户 ID。Robot 当前目录用户不在 `fw_users` 表，故 `user_id` 不建该表外键。模型调用 `scope_id`、`attempt`、`seat_no`、`mic_no`、角色、模型 profile 等只放 `details`。索引以 `(mod_id,room_id,sequence)`、`(user_id,sequence)`、`(request_id,sequence)` 为主；不预建整份 JSONB 的 GIN 索引。扩展字段今后用于周边业务时另评估，不能因预留通用表而在本期生成业务打点。
 
-| 列 | 类型/约束 | 含义 |
-|---|---|---|
-| `sequence` | `bigint generated always as identity primary key` | 稳定分页游标；不承诺连续无缺口 |
-| `event_id` | `uuid unique not null` | 单条记录的全局唯一身份；与事件类型分开 |
-| `event_type` | `text not null` | 稳定低基数名称，如 `decision.requested.v1` |
-| `occurred_at` | `timestamptz not null` | 服务端发生时间，UTC；同时间靠 sequence 排序 |
-| `user_id` | `uuid null` | 发起用户的通用 ID；真人和 Robot 都填其 userId。非用户触发为空，不借用座位或 scope ID |
-| `initiator_type` | `text not null` | `user/npc/system`；说明 `user_id` 为空时的来源，Robot 与真人都属于 user |
-| `mod_id` | `text null` | 注册的 MOD 标识，如 `werewolf`、`qingxi`；纯底层、未绑定游戏的调用可为空 |
-| `room_id` | `text null` | 该 MOD 的游戏实例标识：狼人杀填对局房间 ID，武侠填 realm ID；采用 text 兼容两类现有 ID |
-| `request_id` | `text null` | 跨调用关联与幂等请求标识；适配不同入口的现有请求 ID |
-| `result` | `text not null` | `started/succeeded/rejected/failed/expired/superseded` |
-| `reason_code` | `text null` | 机器可分析的结果原因；不存异常堆栈 |
-| `visibility` | `text not null` | `internal/seat/public`；模型原文固定 internal |
-| `details` | `jsonb not null` | 版本化扩展状态，不参与权威结算 |
+每个实际适配器调用 attempt 至少两条不可变事件，共用 `request_id` 与 `details.attempt`：
 
-公共列只保留跨游戏和跨入口稳定复用的维度。`seatId`、`scopeId`、`phaseInstance`、局内目标和模型专属字段属于 `details`，不在公共表新增一列。`room_id` 在这里指**实例**，不指武侠地图中的小房间；武侠地图位置仍在详情里。`user_id` 不能直接对现有 `fw_users` 建外键，因为 Robot userId 目前由目录配置、尚未落入该表；写入时由受信任宿主取已绑定席位/会话的 ID，不能由浏览器任意提供。MUD 角色动作须在登记时由角色 scope 解析出对应账号 userId；NPC 没有账号，`user_id=null`、`initiator_type=npc`，其 `npcId` 留在详情。调度与到期裁判记 `initiator_type=system`，`user_id=null`，受影响的用户可另放详情，不冒充动作发起人。
+1. `model.call.started.v1`：在调用前持久写入，`result=started`；`details` 保存 `schemaVersion`、`simulated`、模型 profile、绑定版本、`scopeId`、`attempt`、绝对截止时间、最终 `ModelRequest`（实际 messages、outputSchema、maxOutputTokens）及其内容摘要。上下文预算失败且尚未进入适配器时只记 `model.context_rejected.v1`，**不算一次模型调用**。
+2. `model.call.finished.v1`：收到适配器结果后写入，`result=succeeded` 表示**适配器已返回**；保存 `rawText`、实际返回的 model、input/output token、耗时、解析/Schema 判定。无效 JSON 仍保留原文，后续纠正若真的再次进入适配器另记 attempt 2。
+3. `model.call.failed.v1`：网络失败、取消或超时等，`result=failed/expired`；保存稳定错误码及耗时。进程崩溃可能只留 started，恢复时根据请求租约补记 `model.call.orphaned.v1`；绝不把未知供应商结果填成成功。模型已返回但裁判因旧阶段/非法选择未提交时，模型调用仍如实记录 finished；“模型成功返回”不等于“游戏动作生效”。
 
-索引建议 `(mod_id, room_id, sequence)`、`(user_id, sequence)`、`(request_id, sequence)`、`(event_type, occurred_at)`；同一调用尝试的逻辑去重使用稳定 `event_id` 或 `(request_id, event_type, attempt)` 唯一键。写入接口 `append(tx, event)` 只接受受信任服务器调用，校验类型、userId/initiatorType 组合、时间、结果、visibility 与有界 JSON；重复同 ID 同内容返回原记录，不同内容报幂等冲突。不得在日志接口中静默截断上下文；超限应拒绝本次模型尝试并留下安全的 `context.too_large.v1` 摘要记录。单条上限与总保留期在实施中固定并写配置说明，不能默认无限增长。
+裁判后续结果使用独立的 `model.call.judged.v1`，与同一 `request_id/attempt` 关联，标明接受、拒绝或因阶段失效而未生效；不可修改已追加的 finished 事件。若模型返回后进程崩溃，没有 judged 就表示裁判结果待查，不能推断为动作成功。
 
-读取接口 `list({modId?, roomId?, userId?, requestId?, afterSequence, limit, eventTypes?}, authorization)`：至少提供 `(modId,roomId)`、`userId` 或 `requestId` 之一；游标升序、分页上限 100、稳定排序，返回 `nextCursor`。普通旁观不调用它。本地审计 Demo 可通过独立只读端点按 `modId=werewolf,roomId=<对局 ID>` 取内部记录，服务端必须验证房间属于审计 Demo 且请求来自本机；正式远程管理查询需另做管理员身份与审计自身访问记录，不能靠座位视角授权读取模型原文。
+一次重试的最终 messages 可能追加格式纠正指令，因此按 attempt **逐次**记录实际传给适配器的完整请求，不能只记六区草稿或第一次 context。密钥、HTTP Authorization 头、数据库连接串与完整服务配置对象不得进入日志；异常只记受控错误码，不能将原始异常文本直接写入。模型原始输出可能含角色私密信息，原始日志仅服务端受信任本机诊断接口/导出命令可读，不进入普通旁观、历史发言或对手 context。限制单条消息与 rawText 大小；超限不得静默截断并谎称完整。日志写入失败时不得继续发起未留痕的外部调用。
 
-## 事件与状态流转
+## 游戏元数据：谁、哪一麦、什么身份
 
-| 类别 | 典型 eventType | 记录点与 result |
-|---|---|---|
-| 平台事实 | `platform.fact_appended.v1` | 与权威事实事件在同一事务写入，`mod_id` 由宿主提供，`room_id` 为 realm ID，用户身份由宿主解析；不重新投递 |
-| 房间/阶段 | `room.started.v1`、`phase.opened.v1`、`phase.closed.v1` | 状态同事务提交成功后为 succeeded |
-| 行动 | `decision.requested.v1`、`decision.committed.v1`、`decision.defaulted.v1`、`decision.rejected.v1` | 登记、合法提交、到期默认、拒绝；记录席位/phaseInstance/窗口及选项摘要 |
-| 模型 | `model.context_built.v1`、`model.attempt_started.v1`、`model.attempt_finished.v1`、`model.output_rejected.v1` | 实际最终请求、每次调用/纠正、原始输出与用量、解析或规则拒绝；标记 `simulated` 或 `provider` |
-| 恢复/抢占 | `request.expired.v1`、`decision.superseded.v1`、`room.resumed.v1` | 旧请求失效与恢复；不记录重复有效动作 |
+底层 Harness 只认识通用请求，不推测游戏身份。发起调用的受信任宿主在登记时传入只读诊断元数据：`modId`、`roomId`、`userId`、游戏阶段、座位号、麦序、本人真实身份和本席公开事件水位。狼人杀从席位绑定取得 Robot `userId`，从冻结的阶段/行动取得座位和身份；`seat_no` 表示玩家座位，`mic_no` 表示**本轮发言顺序中的第几麦**，不是座位号。SPEAK 阶段须有可验证麦序；夜间查验/刀人及投票等非发言阶段 `mic_no=null`，不可硬填座位号。元数据与本次冻结 context 对应同一 phaseInstance/epoch，迟到调用仍保留原时点身份与水位。跨 MOD 不适用的字段为空，不扩成公共列。
 
-`details` 必须带 `schemaVersion: 1`。模型类事件的内部详情含 `modelProfile`（非密钥）、`attempt`、`phaseInstance`、`deadlineAt`、`promptVersion`、`messages`、`outputSchema`、`maxOutputTokens`、`rawText`（若已返回）、解析结果、token 用量和时长；`requestId` 使用公共列，无须在详情重复。`model.context_built` 保存**预算与筛选后传给适配器的最终 messages**；纠正重试须分别记录其追加的 system message。`model.attempt_finished` 的 rawText 保留无效 JSON，便于解释拒绝；候选概率只在内部详情。`DecisionInput` 六区可同时保存为装配来源快照或摘要，但不以它代替最终 messages。网络适配器的 API Key、Authorization 请求头和完整含密钥配置对象不进入事件对象、异常文本或数据库。
+若当前阶段没有可确定的发言顺序，先记录 `mic_no=null` 和原因，不能猜测；此场景的麦序来源应在狼人杀接入测试中明确后才算验收。业务规则仍由 MOD 决定；日志字段不授予新信息，也不改变游戏行动。
 
-登记、提交、默认及房间状态改变与日志写入同一数据库事务；事务回滚不得留下“已提交”事件。网络调用不能包在数据库事务里：调用前已登记的 started 与调用后 finished/failed 是独立事件，允许调用后进程崩溃只留下 started；恢复时记录 expired，并由 `requestId/attempt` 对账。模型迟到可以留 `superseded` 审计，但不得把结果提交成有效行动。审计写失败时，对要求原子性的权威提交整体失败，不允许已生效游戏动作缺少对应记录；模型尝试阶段的审计写失败不得继续发起未留痕的外部调用。`fw_model_calls` 用量摘要保持原职责，由同一 requestId/attempt 对照。
+## 接口、事务、读取与恢复
 
-## 无真实模型审计 Demo
+公共写入接口只接受服务器构造的事件，按 `event_id` 或 `(request_id,attempt,event_type)` 幂等；同一键不同内容为冲突，不复制日志。开始与结束分别短事务写入，模型网络等待不持数据库事务。按 `sequence` 分页查询，至少按 `request_id` 或 `mod_id+room_id` 限定，单页最多 100 条；只读诊断入口本期限制本机并验证目标房间，不提供公共原始日志 API。已结束/失败请求重取不再调用模型，也不产生第二组 started/finished；孤儿 started 在恢复时标明未确认状态，不删除原记录。
 
-现有内存 `DemoRooms` 使用脚本采样并直接调用纯引擎，**不经过 Harness 的最终 messages 装配**，不能凭它的游戏事件伪造“模型输入日志”。新增独立审计 Demo：沿用持久 `RoomRuntime`、狼人杀定义、Robot 席位、Harness 和同一 `ModelRequest`，仅将模型席的网络 `ModelAdapter` 换成确定性本地适配器。该适配器接收真实装配的 messages/Schema，根据合法选项返回可控 SPEAK/SELECT 文本；不得调用外网，也不消耗模型预算。脚本席仍走统一裁判路径。每条模型事件标记 `simulated: true`，实际供应商调用才标 `simulated: false`，两者不得合并成“真实模型效果”。
-
-审计入口可启动一个固定种子、1 模拟模型 + 11 脚本席的本地对局，返回 roomId；浏览器沿用只读游戏快照。受信任本机端点或导出命令按分页输出该 roomId 的 JSONL 事件，便于检查 `phase.opened → decision.requested → model.context_built → attempt → 决策/默认 → phase.closed`。虚拟时钟仅用于自动化整局验证；正常浏览器演示仍按已确认的阶段时限推进，不增加暂停/倍速。核查包括夜间公开水位、各身份授权信息、合法选项、发言顺序、到期默认和有无不该触发的模型请求。
-
-## 不包含与待审阅点
-
-本版不补写旧局事件，不将审计事件直接塞进 `Room.events`，不做前端审计面板、跨服务日志收集或事件驱动投递。公共平台现有事实事件继续工作；首轮在共用 Harness、平台事实写入与回合运行时接点覆盖两种框架。未经过这些入口的既有 MUD 控制命令不在本轮逐一插桩，避免声称全量历史动作已被记录。执行日志若需长期存储完整私密 prompt，必须有仅内部访问和保留期；默认建议本地开发库保留 30 天、生产保留期部署前另定，不由应用启动自动删除。
+`result` 表示**该事件的执行结果**，游戏裁判是否接受模型输出需有独立受控状态字段；token 为供应商返回时的值，失败且无供应商 usage 时为 null，不能用估算数冒充真实用量。实际 context 与输出按尝试持久保存，后续才能检查狼人杀的调用时机和授权边界。该技术日志不保证还原整局游戏画面；游戏回放与用户业务分析延后单独设计。

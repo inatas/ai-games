@@ -1,9 +1,9 @@
-# 狼人杀事件日志审计演示 v1（待确认）
+# 狼人杀模型调用日志演示 v1.3（待确认）
 
-目标：玩家仍能看正常对局，开发者可从事件日志逐条判断模型席何时接到 SPEAK/SELECT、实际看到了哪些事实和选项、输出是否被裁判接受。此文只定义游戏接入，公共表与接口见[统一执行事件日志](../../../docs/specs/execution-event-log-v1.md)。
+本期只验证模型调用技术日志，不做游戏业务打点或事件日志回放。公共字段与 Harness 行为见[模型调用事件日志 v1.3](../../../docs/specs/execution-event-log-v1.md)。
 
-建立专用本机审计 Demo 入口：固定种子或显式 seed，恰好一席为“模拟模型”，其余席位用现有脚本 Robot；座位与身份仍按普通开局绑定。模拟模型适配器必须接收真实 Harness 的最终 `ModelRequest`，在当前 Schema/optionSet 内确定性回复发言短句或合法选项，不向 DeepSeek 或其他供应商发送请求。日志注明模拟，不在 UI 标成真实 AI 对战，也不消耗已设人民币 10 元试跑额度。
+使用持久房间运行路径：一名配置为本地可控 `ModelAdapter` 的 Robot、十一名脚本 Robot，共用正常座位、身份、阶段截止和 Harness 上下文组装。可控适配器只返回合法 SPEAK/SELECT 文本，不访问 DeepSeek 或其他正规模型，不预留真实模型费用。日志中的 `simulated=true` 必须明确；本地模拟仅证明调用点和上下文，不证明真实模型质量。
 
-每次授权上下文按阶段重新构造，保留 rules、game_state、self、private_information、public_history、current_action 六区；日志中的最终 messages 要能与六区及当时的公开事件水位核对。每条该局日志的 `mod_id=werewolf`、`room_id=<对局 ID>`；Robot 动作的 `user_id` 取座位绑定的 Robot 用户，`seatId` 只放详情。夜间私密行动、未公布死讯、同阵营队友和查验结果分别按既有身份投影；审计记录仅本机内部可读，普通公共/座位旁观都不能看到其他人的私密 prompt。
+每次调用从冻结的 `DecisionInput`/房间取 `user_id`、`seat_no`、本席真实身份、scene、phaseInstance、公开事件水位；发言阶段还取当前发言顺序 `mic_no`。麦序不能等同座位号：例如 5 号玩家第一位发言时应记 `seat_no=5, mic_no=1`。查验、狼人刀人、女巫用药、投票等非发言场景的 `mic_no=null`。所有原始 messages、outputSchema 与返回 rawText 仅内部可读，不进入公共旁观或对手视角。
 
-验收用多个种子覆盖至少一次夜间 SELECT、白天 SPEAK、白天投票 SELECT 及到期默认；检查事件顺序、发起 Robot userId/seat、窗口时间、selected/speech、结果码和死亡/胜负链。虚拟时钟只用于自动化整局生成审计证据；正常页面不增加暂停、单步、倍速或缩短已确认的游戏阶段。
+多个固定种子至少覆盖一回夜间 SELECT、上警/普通发言 SPEAK、白天投票 SELECT、一次失败或超时与一次格式纠正；逐 attempt 比对适配器实收请求与日志，并核验身份、合法选项、未公布死讯水位及麦序。正常页面继续实时旁观且计时不暂停；本机诊断接口或 JSONL 导出供开发者检视模型日志。本期不要求仅凭日志生成整局游戏画面回放。

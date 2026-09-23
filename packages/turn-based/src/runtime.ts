@@ -10,6 +10,7 @@ import {
 import { migrateTurnBased } from './schema.ts';
 import type { Lane, PendingDecision, Room, RoomDefinition, RoomLimits, Seat, SpectatorView } from './types.ts';
 import type { DecisionAdapter, DecisionOutput } from './decision.ts';
+import { evaluateDecisionRules } from './decision-rules.ts';
 
 type Options = { harness?: ConstructorParameters<typeof Harness>[2] };
 const inputSchema = {
@@ -178,6 +179,28 @@ export class RoomRuntime {
       const seat = room.seats.find(s => s.seat === actor);
       if (!seat) throw new HarnessError('INVALID_PHASE');
       if (!this.models.has(seat.modelProfile)) throw new HarnessError('UNKNOWN_MODEL');
+      if (interruptSeat === undefined && seat.controllerKind === 'robot' && this.definition.decisionRules) {
+        const input = this.definition.decisionSpec!(room, seat.seat);
+        const evaluation = evaluateDecisionRules(this.definition.decisionRules, input);
+        if (input.intent === 'SELECT') {
+          const recorded = room.ruleDecisions?.some(entry => entry.phaseInstance === room.phaseInstance && entry.seat === actor);
+          if (!recorded) (room.ruleDecisions ??= []).push({
+            phaseInstance: room.phaseInstance, seat: actor, evaluation, forced: !!evaluation.requiredOptionId,
+          });
+          if (evaluation.requiredOptionId) {
+            const action = this.definition.decodeDecision!(input, {
+              kind: 'proposal', value: { selected: evaluation.requiredOptionId },
+            });
+            if (action === null) throw new HarnessError('RULE_OPTION_INVALID');
+            const next = acceptDecision(room, room.phaseInstance, actor, action, this.definition);
+            if (next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
+            if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
+            this.startWindow(next, room.phaseInstance);
+            await this.save(tx, next);
+            return { room: next };
+          }
+        }
+      }
       const scopeId = interruptSeat === undefined ? seat.scopeId : seat.interruptScopeId;
       const scope = (await tx.query('SELECT memory_version FROM fw_scopes WHERE id=$1 FOR UPDATE', [scopeId])).rows[0];
       if (!scope) throw new HarnessError('SCOPE_NOT_FOUND');

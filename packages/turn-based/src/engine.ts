@@ -1,6 +1,7 @@
 import { Ajv } from 'ajv';
 import { HarnessError, canonical, type Json } from '@game-ai/core';
 import type { GameEvent, Phase, Room, RoomDefinition, RoomLimits, Seat, SpectatorView, VisibleEvent, Transition } from './types.ts';
+import { assertDecisionRuleSet } from './decision-rules.ts';
 
 const ajv = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false });
 const fail = (code: string): never => { throw new HarnessError(code, 409); };
@@ -13,9 +14,15 @@ export function assertDefinition(def: RoomDefinition): void {
       !['initialize', 'project', 'validate', 'resolve'].every(key => typeof def[key as keyof RoomDefinition] === 'function')) {
     fail('INVALID_DEFINITION');
   }
+  if (def.decisionRules) {
+    if (!def.decisionSpec || !def.decodeDecision) fail('INVALID_DEFINITION');
+    assertDecisionRuleSet(def.decisionRules);
+  }
 }
 export function assertVersion(room: Room, def: RoomDefinition): void {
   if (room.definitionId !== def.id || room.definitionVersion !== def.version || room.capacity !== def.seats) fail('DEFINITION_MISMATCH');
+  const expected = def.decisionRules ? { id: def.decisionRules.id, version: def.decisionRules.version } : undefined;
+  if (canonical(room.ruleSet ?? null) !== canonical(expected ?? null)) fail('RULE_SET_MISMATCH');
 }
 export function assertPhase(room: Room, phase: Phase): void {
   if (!phase || !text(phase.key) || !text(phase.label) || !positive(phase.round) ||
@@ -38,6 +45,7 @@ export function createRoom(id: string, runKey: string, def: RoomDefinition, limi
     id, runKey, definitionId: def.id, definitionVersion: def.version, capacity: def.seats,
     status: 'waiting', revision: 0, seats: [], state: null, phase: null, phaseInstance: 0,
     decisions: [], events: [], result: null, limits: actual, requests: 0, decisionEpoch: 0, pendingJobs: {}, error: null,
+    ...(def.decisionRules ? { ruleSet: { id: def.decisionRules.id, version: def.decisionRules.version }, ruleDecisions: [] } : {}),
   };
 }
 

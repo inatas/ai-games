@@ -46,4 +46,4 @@
 
 [021 统一执行事件日志](021-event-log.md)：draft；底层审计、模型输入输出留痕与无真实模型整局核查方案，v1待确认。
 
-[022 AI决策规则引擎](022-decision-rules-engine.md)：draft；通用规则集运行、优先级、概率与恢复方案 v1 待确认；游戏规则实例归各 MOD。
+[022 AI决策规则引擎](022-decision-rules-engine.md)：in_progress；通用规则集运行、优先级、概率与恢复方案 v1 已确认实施；游戏规则实例归各 MOD。
