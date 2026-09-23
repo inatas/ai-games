@@ -1,0 +1,25 @@
+{
+  "nickname": "旧街灯",
+  "userId": "4403e804-b86b-4502-a306-31091837ed5a",
+  "portrait": {
+    "variant": "brown",
+    "src": "/robot-assets/portraits/brown.png"
+  },
+  "avatar": {
+    "size": "370% 500%",
+    "src": "/robot-assets/avatars/brown.png",
+    "position": "49% 17%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "male",
+  "persona": {
+    "mode": "fixed",
+    "description": "谨慎，表达简洁"
+  },
+  "kind": "robot"
+}

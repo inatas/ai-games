@@ -1,0 +1,25 @@
+{
+  "nickname": "花间眠",
+  "userId": "7f4ddeea-8a05-49ea-aa66-da33d55691d5",
+  "portrait": {
+    "variant": "pink",
+    "src": "/robot-assets/portraits/pink.png"
+  },
+  "avatar": {
+    "size": "315% 410%",
+    "src": "/robot-assets/avatars/pink.png",
+    "position": "49% 27%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "female",
+  "persona": {
+    "mode": "fixed",
+    "description": "活泼，喜欢交流"
+  },
+  "kind": "robot"
+}

@@ -1,12 +1,13 @@
 import { projectPerspective } from './perspective.ts';
 import { randomUUID } from 'node:crypto';
-import type { Json } from '@game-ai/core';
+import type { RobotUser, ScriptRobotUser, Json } from '@game-ai/core';
 import { acceptDecision, createRoom, eligibleActors, occupySeat, spectatorView, type Room, type RoomDefinition } from '@game-ai/turn-based';
 import { werewolfDefinition } from './definition.ts';
 import type { GameView } from './views.ts';
 import { nightActionSchema, type Match } from './match.ts';
 
 interface Session {
+  roster?: ScriptRobotUser[];
   room: Room;
   definition: RoomDefinition;
   random: number;
@@ -45,17 +46,22 @@ export class DemoRooms {
     return ['wolves', 'witch'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
   }
 
-  create(seed: number, strategy: 'fixed' | 'random') {
+  create(seed: number, strategy: 'fixed' | 'random', roster?: RobotUser[]) {
     if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff || !['fixed', 'random'].includes(strategy)) throw new Error('INVALID_DEMO_OPTIONS');
+    if (roster && (roster.length !== 12 || new Set(roster.map(user => user.userId)).size !== 12)) throw new Error('INVALID_ROSTER');
+    const scriptRoster = roster?.map(user => {
+      if (user.control.kind !== 'script') throw new Error('MODEL_ROBOT_NOT_READY');
+      return { ...user, control: user.control };
+    });
     this.expire();
     if (this.sessions.size >= 100) throw new Error('DEMO_CAPACITY');
     const definition = werewolfDefinition({ seed, sheriff: 'double' });
     const id = randomUUID();
     let room = createRoom(id, id, definition);
     for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
-      seat, name: `${seat}号玩家`, modelProfile: 'fixed-text-demo', scopeId: `seat-${seat}`, interruptScopeId: `interrupt-${seat}`,
+      seat, name: roster?.[seat - 1].nickname ?? `${seat}号玩家`, modelProfile: 'fixed-text-demo', scopeId: `seat-${seat}`, interruptScopeId: `interrupt-${seat}`,
     }, definition);
-    const session: Session = { room, definition, random: (seed ^ 20260963) >>> 0, strategy,
+    const session: Session = { roster: scriptRoster ? structuredClone(scriptRoster) : undefined, room, definition, random: (seed ^ 20260963) >>> 0, strategy,
       revision: 0, dueAt: this.now() + 60_000, nightTail: false, touched: this.now(), phases: new Map() };
     session.phases.set(room.phaseInstance, { day: 1, period: 'night' });
     this.sessions.set(id, session);
@@ -105,15 +111,16 @@ export class DemoRooms {
       return;
     }
     let random = session.random;
+    let activeRobot: ScriptRobotUser | undefined;
     const choose = (count: number) => {
       random = (Math.imul(random, 1664525) + 1013904223) >>> 0;
-      return session.strategy === 'fixed' ? 0 : Math.floor(random / 0x100000000 * count);
+      return (activeRobot?.control.strategy ?? session.strategy) === 'fixed' ? 0 : Math.floor(random / 0x100000000 * count);
     };
     const sample = (schema: Schema): Json => {
       if (schema.const !== undefined) return schema.const;
       if (schema.oneOf) return sample(schema.oneOf[choose(schema.oneOf.length)]);
       if (schema.enum) { const options = schema.enum.filter(item => item !== null); return options.length ? options[choose(options.length)] : null; }
-      if (schema.type === 'string') return this.speechText;
+      if (schema.type === 'string') return activeRobot?.control.speech ?? this.speechText;
       if (schema.type === 'boolean') return choose(2) === 0;
       if (schema.type === 'object') return Object.fromEntries(Object.entries(schema.properties ?? {}).map(([key, value]) => [key, sample(value)]));
       throw new Error('UNSUPPORTED_DEMO_ACTION');
@@ -121,6 +128,7 @@ export class DemoRooms {
     let next = room;
     const actors = room.phase.mode === 'sealed' ? eligibleActors(room) : eligibleActors(room).slice(0, 1);
     for (const actor of actors) {
+      activeRobot = session.roster?.[actor - 1];
       const schema = match.stage === 'wolves' ? nightActionSchema(match, actor) : room.phase.schema;
       next = acceptDecision(next, room.phaseInstance, actor, sample(schema as Schema), session.definition);
     }
@@ -156,12 +164,17 @@ export class DemoRooms {
     const speakerSeat = running && view.period === 'day' && ['speech', 'pk', 'election-speech', 'election-pk', 'last-words'].includes(room.phase?.key ?? '') ? eligibleActors(room)[0] ?? null : null;
     const revealed = publicView.replay as unknown as { players: { seat: number; role: string }[] } | undefined;
     return {
-      perspective: projectPerspective(room.state as unknown as Match, viewer), id: room.id, revision: session.revision, status: room.status, speeches, speakerSeat, nightSegment, currentSpeech: speakerSeat === null ? null : { seat: speakerSeat, text: this.speechText, revision: session.revision },
+      perspective: projectPerspective(room.state as unknown as Match, viewer), id: room.id, revision: session.revision, status: room.status, speeches, speakerSeat, nightSegment, currentSpeech: speakerSeat === null ? null : { seat: speakerSeat, text: session.roster?.[speakerSeat - 1].control.speech ?? this.speechText, revision: session.revision },
       timing: { remainingMs: running ? Math.max(0, session.dueAt - this.now()) + this.budget(session) - this.waitTime(session) + nightExtra : 0 },
       day: view.night, period: view.period, phaseLabel: !running ? (finished ? '对局结束' : '对局异常停止') : room.phase!.label,
       actor: running && view.period === 'day' && room.phase?.mode === 'sequential' ? eligibleActors(room)[0] ?? null : null,
       progress: vote ? { submitted: room.decisions.length, eligible: room.phase!.actors.length } : null,
-      sheriff: view.sheriff, players: view.players, events, result: publicView.result,
+      sheriff: view.sheriff, players: view.players.map(player => {
+        const robot = session.roster?.[player.seat - 1];
+        if (!robot) return player;
+        const { userId, nickname, gender, avatar, portrait } = robot;
+        return { ...player, user: structuredClone({ userId, nickname, gender, avatar, portrait }) };
+      }), events, result: publicView.result,
       ...(finished ? {
         roles: revealed!.players.map(({ seat, role }) => ({ seat, role })),
         replay: [...session.phases.entries()].map(([instance, phase]) => ({ ...phase,

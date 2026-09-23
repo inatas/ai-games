@@ -1,3 +1,4 @@
+import { loadRobotUsers, publicRobot, robotRoot } from './robot-users.ts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { resolve } from 'node:path';
@@ -7,6 +8,29 @@ import type { DemoSnapshot } from '../../shared/werewolf.ts';
 
 export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms } = {}) {
   const rooms = options.rooms ?? new DemoRooms();
+  const robots = loadRobotUsers();
+  const starts = new Map<string, { signature: string; id: string; at: number }>();
+  app.get('/api/robot-users', async () => robots.map(user => ({ ...publicRobot(user), available: user.control.kind === 'script', ...(user.control.kind === 'model' ? { unavailableReason: '模型未接入' } : {}) })));
+  await app.register(fastifyStatic, { root: resolve(robotRoot,'assets'), prefix:'/robot-assets/', decorateReply:false });
+  app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/demo/start', {
+    schema:{body:{type:'object',additionalProperties:false,required:['requestId','seed','userIds'],properties:{requestId:{type:'string',minLength:8,maxLength:80},seed:{type:'integer',minimum:0,maximum:4294967295},userIds:{type:'array',minItems:12,maxItems:12,uniqueItems:true,items:{type:'string'}}}}},
+  }, async (request, reply) => {
+    const {requestId, seed, userIds} = request.body;
+    const roster = userIds.map(id => robots.find(user => user.userId === id));
+    if (roster.some(user => !user)) return reply.code(400).send({error:'阵容包含未知Robot用户'});
+    if (roster.some(user => user?.control.kind === 'model')) return reply.code(400).send({ error: '模型Robot暂未接入，当前仅支持脚本用户' });
+    const signature = JSON.stringify({seed,userIds});
+    const old = starts.get(requestId);
+    if (old) {
+      if (old.signature !== signature) return reply.code(409).send({error:'同一开局请求的阵容不可改变'});
+      return rooms.get(old.id);
+    }
+    for (const [key, start] of starts) if (Date.now()-start.at > 3_600_000) starts.delete(key);
+    if (starts.size >= 100) return reply.code(503).send({error:'开局请求过多，请稍后重试'});
+    const game = rooms.create(seed,'random',roster as typeof robots);
+    starts.set(requestId,{signature,id:game.id,at:Date.now()});
+    return game;
+  });
   const clock = setInterval(() => rooms.tick(), 100);
   clock.unref();
   app.addHook('onClose', async () => { clearInterval(clock); });

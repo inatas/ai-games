@@ -1,3 +1,4 @@
+import type { RobotPublicUser } from '@game-ai/core';
 import type { Perspective } from '../../mods/werewolf/src/perspective.ts';
 import type { Json } from '@game-ai/core';
 
@@ -17,7 +18,7 @@ export interface DemoSnapshot {
   actor: number | null;
   progress: { submitted: number; eligible: number } | null;
   sheriff: number | null;
-  players: { seat: number; alive: boolean; revealedRole?: 'idiot' }[];
+  players: { seat: number; user?: RobotPublicUser; alive: boolean; revealedRole?: 'idiot' }[];
   events: { sequence: number; day: number; period: 'day' | 'night'; type: string; data: Json }[];
   result: Json;
   roles?: { seat: number; role: string }[];

@@ -1,0 +1,25 @@
+{
+  "nickname": "松风",
+  "userId": "640412f3-21ff-46dc-8c58-f086d1a049b8",
+  "portrait": {
+    "variant": "brown",
+    "src": "/robot-assets/portraits/brown.png"
+  },
+  "avatar": {
+    "size": "370% 500%",
+    "src": "/robot-assets/avatars/brown.png",
+    "position": "49% 17%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "male",
+  "persona": {
+    "mode": "fixed",
+    "description": "谨慎，表达简洁"
+  },
+  "kind": "robot"
+}

@@ -42,4 +42,4 @@
 
 019 v3：[模型运行时扩展提案](../../docs/specs/turn-based-model-runtime-v3.md)，draft；v2已实现，v3待确认。
 
-[020 Robot用户目录](020-robot-users.md)：in_progress；独立用户配置与素材、默认脚本控制，游戏接入归MOD。
+[020 Robot用户目录](020-robot-users.md)：implemented；独立用户配置与素材、默认脚本控制，游戏接入归MOD。

@@ -1,0 +1,25 @@
+{
+  "nickname": "莓果团子",
+  "userId": "54379a93-6162-427d-ad78-c75151f36aac",
+  "portrait": {
+    "variant": "pink",
+    "src": "/robot-assets/portraits/pink.png"
+  },
+  "avatar": {
+    "size": "315% 410%",
+    "src": "/robot-assets/avatars/pink.png",
+    "position": "49% 27%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "female",
+  "persona": {
+    "mode": "fixed",
+    "description": "活泼，喜欢交流"
+  },
+  "kind": "robot"
+}

@@ -1,0 +1,25 @@
+{
+  "nickname": "听雨剑客",
+  "userId": "681cb374-f394-47df-a409-92dd3ac19d8c",
+  "portrait": {
+    "variant": "blue",
+    "src": "/robot-assets/portraits/blue.png"
+  },
+  "avatar": {
+    "size": "370% 500%",
+    "src": "/robot-assets/avatars/blue.png",
+    "position": "48% 23%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "male",
+  "persona": {
+    "mode": "fixed",
+    "description": "沉稳，重视证据"
+  },
+  "kind": "robot"
+}

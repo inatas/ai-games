@@ -1,0 +1,25 @@
+{
+  "nickname": "樱桃小丸",
+  "userId": "457ea9bf-ef67-4814-9d07-69a2e72f4324",
+  "portrait": {
+    "variant": "pink",
+    "src": "/robot-assets/portraits/pink.png"
+  },
+  "avatar": {
+    "size": "315% 410%",
+    "src": "/robot-assets/avatars/pink.png",
+    "position": "49% 27%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "female",
+  "persona": {
+    "mode": "fixed",
+    "description": "活泼，喜欢交流"
+  },
+  "kind": "robot"
+}

@@ -1,0 +1,25 @@
+{
+  "nickname": "暮色邮差",
+  "userId": "d2e085b6-0b09-4d18-b43e-848392b12eab",
+  "portrait": {
+    "variant": "brown",
+    "src": "/robot-assets/portraits/brown.png"
+  },
+  "avatar": {
+    "size": "370% 500%",
+    "src": "/robot-assets/avatars/brown.png",
+    "position": "49% 17%"
+  },
+  "control": {
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
+  },
+  "gender": "male",
+  "persona": {
+    "mode": "fixed",
+    "description": "谨慎，表达简洁"
+  },
+  "kind": "robot"
+}

@@ -1,9 +1,12 @@
+import type { RobotPublicUser } from '@game-ai/core';
+import { useRobotUser } from './robot-context.tsx';
 import type { CSSProperties } from 'react';
 import type { DeathDisplay } from './seat-state.ts';
 import './seat-avatar.css';
 
 export const deathNames: Record<DeathDisplay, string> = { night: '夜亡', exile: '放逐', shot: '枪杀', explode: '自爆', knife: '狼刀', poison: '毒杀' };
-export function portraitStyle(seat: number): CSSProperties {
+export function portraitStyle(seat: number, user?: RobotPublicUser): CSSProperties {
+  if (user) return { backgroundImage: `url("${user.avatar.src}")`, backgroundSize: user.avatar.size, backgroundPosition: user.avatar.position };
   const portraits = [
     { name: 'brown', size: '370% 500%', position: '49% 17%' },
     { name: 'pink', size: '315% 410%', position: '49% 27%' },
@@ -40,11 +43,12 @@ export interface SeatAvatarProps {
   onClick?: () => void;
 }
 export function SeatAvatar(props: SeatAvatarProps) {
+  const user = useRobotUser(props.seat);
   const { seat, death, sheriff, self, identity, nominated, mark, selected, active, gallery, onClick } = props;
   const markTone = mark && ['好人', '金水'].includes(mark) ? 'mark-good' : mark && ['狼', '狼人', '查杀'].includes(mark) ? 'mark-wolf' : 'mark-neutral';
   const description = `${seat}号玩家，${death ? deathNames[death] : '存活'}${self ? '，我' : ''}${identity ? `，${identity}` : ''}${sheriff ? '，警长' : ''}${mark ? `，个人标记${mark}` : ''}`;
-  return <button type="button" className={`ww-seat ${gallery ? 'in-gallery' : ''} ${death ? 'dead' : ''} ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} style={{ '--row': (seat - 1) % 6, '--side': seat <= 6 ? 0 : 1 } as CSSProperties} aria-label={description} onClick={onClick}>
-    <span className="ww-avatar" style={portraitStyle(seat)} />
+  return <button type="button" className={`ww-seat ${gallery ? 'in-gallery' : ''} ${death ? 'dead' : ''} ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} style={{ '--row': (seat - 1) % 6, '--side': seat <= 6 ? 0 : 1 } as CSSProperties} aria-label={user ? `${user.nickname}，${description}` : description} onClick={onClick}>
+    <span className="ww-avatar" style={portraitStyle(seat, user)} />
     {death && <span className={`ww-death ${death}`}><DeathIcon kind={death}/><span>{deathNames[death]}</span></span>}
     {sheriff && <span className="ww-corner top-left sheriff" title="警长">♛</span>}
     {nominated ? <span className="ww-corner top-right nomination" title="已公布上警">✋</span> : mark && <span className={`ww-corner top-right personal ${markTone}`} title={`个人标记：${mark}`}>{mark}</span>}

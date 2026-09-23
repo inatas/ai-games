@@ -1,0 +1,11 @@
+{
+  "id": "environment-default",
+  "adapter": "chat-completions",
+  "environment": {
+    "baseUrl": "MODEL_BASE_URL",
+    "model": "MODEL_NAME",
+    "apiKey": "MODEL_API_KEY",
+    "protocol": "MODEL_PROTOCOL"
+  },
+  "defaultProtocol": "json-schema"
+}

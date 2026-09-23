@@ -1,3 +1,4 @@
+import { useRobotUsers } from './robot-context.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { DemoSnapshot } from '../../../shared/werewolf.ts';
 import { portraitStyle } from './seat-avatar.tsx';
@@ -28,6 +29,7 @@ export function HistoryIcon() {
 export function SpeechHistory({ preview, currentDay, records, liveStatus, close }: { preview: boolean; currentDay: number; records: DemoSnapshot['speeches']; liveStatus?: string; close: () => void }) {
   const [day, setDay] = useState(currentDay);
   const dialog = useRef<HTMLDialogElement>(null);
+  const users = useRobotUsers();
   const messages = useRef<HTMLDivElement>(null);
   const speeches = preview ? exampleDays[day - 1] ?? [] : records.filter(record => record.day === day);
   useEffect(() => { dialog.current?.showModal(); }, []);
@@ -43,8 +45,8 @@ export function SpeechHistory({ preview, currentDay, records, liveStatus, close 
       {speeches.map((speech, index) => <section key={`${day}-${index}`}>
         {speech.phase !== speeches[index - 1]?.phase && <h3 className="ww-history-phase">{speech.phase}</h3>}
         <article className="ww-speech" aria-label={`${speech.seat}号玩家，${speech.phase}`}>
-          <div className="ww-speech-avatar" style={portraitStyle(speech.seat)} aria-hidden="true"><b>{speech.seat}</b></div>
-          <div className="ww-speech-content"><h4>{speech.seat}号玩家</h4><div className="ww-speech-bubble">{speech.text.split('\n\n').map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{paragraph}</p>)}</div></div>
+          <div className="ww-speech-avatar" style={portraitStyle(speech.seat, users.find(player => player.seat === speech.seat)?.user)} aria-hidden="true"><b>{speech.seat}</b></div>
+          <div className="ww-speech-content"><h4>{speech.seat}号 · {users.find(player => player.seat === speech.seat)?.user?.nickname ?? "玩家"}</h4><div className="ww-speech-bubble">{speech.text.split('\n\n').map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{paragraph}</p>)}</div></div>
         </article>
       </section>)}
     </div>
