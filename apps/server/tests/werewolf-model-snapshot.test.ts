@@ -1,0 +1,30 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRoom, occupySeat } from '@game-ai/turn-based';
+import { werewolfDefinition } from '../../../mods/werewolf/src/definition.ts';
+import { loadRobotUsers } from '../src/robot-users.ts';
+import { modelRoomSnapshot } from '../src/werewolf-model-snapshot.ts';
+
+test('persistent model-room snapshot is public and keeps its full first-night countdown', () => {
+  const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
+  const users = loadRobotUsers();
+  let room = createRoom('snapshot-room', 'snapshot-run', definition);
+  for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
+    seat, name: users[seat - 1].nickname, userId: users[seat - 1].userId,
+    modelProfile: 'script', scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
+  }, definition);
+  room.phaseStartedAt = 1_000;
+  room.phaseActionDeadlineAt = 61_000;
+  room.phaseDeadlineAt = 61_000;
+  const snapshot = modelRoomSnapshot(room, definition, users, 2_000);
+  assert.equal(snapshot.period, 'night');
+  assert.equal(snapshot.timing.remainingMs, 59_000);
+  assert.equal(snapshot.players.length, 12);
+  assert.equal(snapshot.speakerSeat, null);
+  assert.ok(!JSON.stringify(snapshot).includes('modelProfile'));
+  assert.ok(!JSON.stringify(snapshot).includes('scope-1'));
+  const seatView = modelRoomSnapshot(room, definition, users, 2_000, 1);
+  assert.equal(seatView.perspective?.kind, 'seat');
+  assert.equal(snapshot.perspective?.kind, 'public');
+  assert.equal(seatView.events.length, snapshot.events.length);
+});

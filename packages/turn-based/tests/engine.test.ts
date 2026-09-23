@@ -1,9 +1,47 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createRoom, occupySeat, acceptDecision, actorView, spectatorView,
+  createRoom, occupySeat, acceptDecision, settleDecisionWindow, actorView, spectatorView,
   type RoomDefinition, type Room, type Phase,
 } from '../src/index.ts';
+
+test('fixed sealed window collects all choices without resolving before its boundary', () => {
+  const def: RoomDefinition = { ...definition, fixedWindow: () => true };
+  let room = ready(def);
+  room.phaseDeadlineAt = 60000;
+  room = acceptDecision(room, 1, 1, { choice: 'A' }, def);
+  room = acceptDecision(room, 1, 2, { choice: 'A' }, def);
+  assert.equal(room.status, 'running');
+  assert.equal(room.decisions.length, 2);
+  assert.equal(room.decisionEpoch, 0);
+  assert.equal(settleDecisionWindow(room, def).status, 'finished');
+  assert.equal(room.status, 'running');
+});
+
+test('early speech remains in its fixed single-speaker window', () => {
+  const def: RoomDefinition = {
+    ...definition,
+    fixedWindow: () => true,
+    initialize: () => ({ state: {}, phase: { ...phase('sequential'), actors: [1] } }),
+  };
+  let room = ready(def);
+  room.phaseDeadlineAt = 120_000;
+  room = acceptDecision(room, 1, 1, { choice: 'A' }, def);
+  assert.equal(room.status, 'running');
+  assert.equal(room.phaseInstance, 1);
+  assert.equal(room.decisionEpoch, 0);
+  assert.equal(room.decisions.length, 1);
+  assert.match(JSON.stringify(spectatorView(room, def)), /speech/);
+  assert.equal(settleDecisionWindow(room, def).status, 'finished');
+});
+
+test('phase identities remain available after transitions for persisted public replay', () => {
+  let room = ready();
+  assert.deepEqual(room.phaseHistory, [{ instance: 1, key: 'choose', round: 1 }]);
+  room = acceptDecision(room, 1, 1, { choice: 'A' }, definition);
+  room = acceptDecision(room, 1, 2, { choice: 'A' }, definition);
+  assert.deepEqual(room.phaseHistory, [{ instance: 1, key: 'choose', round: 1 }]);
+});
 
 const phase = (mode: 'sequential' | 'sealed'): Phase => ({
   key: 'choose', label: '选择', round: 1, mode, actors: [1, 2],
@@ -64,6 +102,16 @@ test('TB-03/04: sealed decisions never reach another actor or spectator before c
   assert.match(JSON.stringify(spectatorView(ended, definition)), /seat-one-only/);
   assert.doesNotMatch(JSON.stringify(actorView(ended, 2, definition)), /vault-42|seat-one-only/);
   assert.throws(() => acceptDecision(ended, 1, 2, { choice: 'A' }, definition), /ROOM_NOT_RUNNING/);
+});
+
+test('sealed submissions keep the admission epoch until the window settles', () => {
+  const room = ready();
+  const first = acceptDecision(room, room.phaseInstance, 1, { choice: 'A' }, definition);
+  assert.equal(first.phaseInstance, room.phaseInstance);
+  assert.equal(first.decisionEpoch, room.decisionEpoch);
+  const second = acceptDecision(first, room.phaseInstance, 2, { choice: 'A' }, definition);
+  assert.equal(second.status, 'finished');
+  assert.equal(second.decisionEpoch, room.decisionEpoch + 1);
 });
 
 test('TB-02/03: sequential speech exposes committed public text only in actor order', () => {

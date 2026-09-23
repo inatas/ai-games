@@ -9,6 +9,7 @@ import { PostgresStore, loadWorldview } from '@game-ai/storage';
 import { qingxiHost } from '../../../mods/qingxi/src/host.ts';
 import { socialProjection, sendMessage, mutateParty, heartbeat, lockRealm, retireCharacter } from '@game-ai/platform';
 import type { ModHost } from '@game-ai/game-systems';
+import { WerewolfModelService } from './werewolf-model-service.ts';
 
 export async function buildApp(store: PostgresStore, model: ModelAdapter, mode = 'mock', host: ModHost = qingxiHost(store)) {
   const actions=host.actions;
@@ -92,7 +93,10 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   app.post('/api/mud/social/party', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','action'], properties: {
     requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, action: { type: 'string', enum: ['invite','accept','leave'] }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, inviteId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
   } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any, host.socialPolicy); }));
-  await app.register(werewolfDemoRoutes);
+  const modelRooms = process.env.WEREWOLF_MODEL_ENABLED === 'true' ? new WerewolfModelService(store) : undefined;
+  if (modelRooms) { await modelRooms.migrate(); await modelRooms.recover(); }
+  await app.register(werewolfDemoRoutes, { modelService: modelRooms });
+  if (modelRooms) app.addHook('onClose', async () => { await modelRooms.close(); });
   const root = resolve('dist');
   if (existsSync(root)) {
     await app.register(fastifyStatic, { root });

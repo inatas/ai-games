@@ -12,4 +12,4 @@ users每份JSON定义一个持久userId，代表独立Robot用户，不是座位
 
 profile统一引用现有服务端环境变量：MODEL_BASE_URL、MODEL_NAME、MODEL_API_KEY、MODEL_PROTOCOL（未设置时协议默认json-schema）。文件仅保存变量名称；加载目录不读取变量值、不验证凭据可用性、不发起模型请求。实际模型名称取决于未来运行时注入的MODEL_NAME，本次不指定新的供应商。
 
-当前座位工具显示“星河 · 模型未接入”，禁选并从随机补满中排除；服务端拒绝用模型用户启动脚本局。真实参赛需后续接通狼人杀模型运行流程。复制模型Robot时生成新UUID，可共享同一modelProfile。
+默认座位工具显示“星河 · 模型服务未配置”，禁选并从随机补满中排除。按[模型Robot本地对局](../docs/model-robot-run.md)启用持久模型服务后，它可与11名脚本Robot同局；纯脚本演示入口仍拒绝模型用户。复制模型Robot时须生成新UUID，可共享同一modelProfile。

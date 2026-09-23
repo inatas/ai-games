@@ -21,7 +21,7 @@ export function validateRobotUsers(input: unknown[], profileIds = ['environment-
   if (users.some(user => user.control.kind === 'model' && !profileIds.includes(user.control.modelProfile))) throw new Error('UNKNOWN_MODEL_PROFILE');
   return structuredClone(users);
 }
-interface ModelProfile {
+export interface ModelProfile {
   id: string;
   adapter: 'chat-completions';
   environment: { baseUrl: string; model: string; apiKey: string; protocol: string };

@@ -2,7 +2,9 @@
 
 状态：待确认。本文定义Robot用户以模型身份参赛时，模型**路由、调用、上下文组装输入、结果输出**四段的接入契约。通用框架契约不在此重复：调用时序与截止见[运行时v3](turn-based-model-runtime-v3.md)，上下文装配机制见[Context Composition v1](context-composition.md)与[框架规格](framework.md)，狼人杀场景与输出契约见[MOD模型方案](../../mods/werewolf/docs/model-integration-v1.md)。本文只定义接入参数、职责边界、缺口与验收；确认前不写实现与可执行测试。
 
-## v2 增量：统一决策适配与六区充足性（2026-09-23，待确认）
+## v2 增量：统一决策适配与六区充足性（2026-09-23，已确认实施）
+
+用户回复“确认，继续推进”，确认本增量的一名模型Robot与脚本Robot同局、统一决策输入输出、模型经Harness和六区授权上下文接入。真实试跑费用上限人民币10元；游戏默认动作整表及预言家随机合法查验已确认。未决的候选列表编码和人格生成细节不并入本轮。
 
 本次目标是让一个模型Robot与脚本Robot在同一局中经过同一套**游戏决策入口**。这里须区分两种适配：`ModelAdapter`只把已封装的消息送往具体模型并取回文本；`DecisionAdapter`把一个席位的`DecisionInput`变成`DecisionOutput`，可由script或model实现。统一输入输出是游戏决策层的契约，不要求脚本Robot伪装成网络模型，更不能让模型Robot回落为随机脚本。
 

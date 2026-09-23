@@ -1,9 +1,12 @@
 import type { Json } from '@game-ai/core';
+import type { DecisionInput, DecisionOutput } from './decision.ts';
 
 export interface Seat {
   seat: number;
   name: string;
   modelProfile: string;
+  userId?: string;
+  persona?: string;
   scopeId: string;
   interruptScopeId: string;
 }
@@ -41,12 +44,18 @@ export interface RoomDefinition {
   validate(state: Json, phase: Phase, seat: number, decision: Json): boolean;
   onDecision?(state: Json, phase: Phase, seat: number, decision: Json): GameEvent[];
   resolve(state: Json, phase: Phase, decisions: readonly Decision[]): Transition;
+  decisionSpec?(room: Room, seat: number): DecisionInput;
+  decodeDecision?(input: DecisionInput, output: DecisionOutput): Json | null;
+  windowMs?(room: Room): number;
+  actionWindowMs?(room: Room): number;
+  fixedWindow?(room: Room): boolean;
+  fallbackDecision?(room: Room, seat: number): Json;
   validateInterrupt?(state: Json, phase: Phase, seat: number, value: Json): boolean;
   resolveInterrupt?(state: Json, phase: Phase, seat: number, value: Json): { pass: true } | Transition;
   reveal?(state: Json): Json;
 }
 export interface RoomLimits { maxPhases: number; maxRequests: number }
-export type Lane = 'normal' | `interrupt:${number}`;
+export type Lane = 'normal' | `normal:${number}` | `interrupt:${number}`;
 export interface PendingDecision {
   lane: Lane;
   decisionEpoch: number;
@@ -57,11 +66,14 @@ export interface PendingDecision {
   memoryVersion: number;
   phaseInstance: number;
   facts: Json;
+  decisionInput?: DecisionInput;
+  failedReason?: string;
 }
 /** Server-only persistence representation; never serialize this to a client. */
 export interface Room {
   id: string;
   runKey: string;
+  admissionSignature?: string;
   definitionId: string;
   definitionVersion: string;
   capacity: number;
@@ -72,11 +84,15 @@ export interface Room {
   phase: Phase | null;
   phaseInstance: number;
   decisions: Decision[];
+  phaseHistory?: { instance: number; key: string; round: number }[];
   events: RecordedEvent[];
   result: Json;
   limits: RoomLimits;
   requests: number;
   decisionEpoch: number;
+  phaseStartedAt?: number;
+  phaseDeadlineAt?: number;
+  phaseActionDeadlineAt?: number;
   pendingJobs: Partial<Record<Lane, PendingDecision>>;
   error: string | null;
 }

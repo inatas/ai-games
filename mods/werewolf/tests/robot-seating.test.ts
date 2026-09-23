@@ -73,7 +73,7 @@ test('Model Robot config loads but cannot enter a script game or random fill', a
     const catalog = (await app.inject('/api/robot-users')).json();
     const entry = catalog.find((user: any) => user.userId === model.userId);
     assert.equal(entry.available, false);
-    assert.equal(entry.unavailableReason, '模型未接入');
+    assert.equal(entry.unavailableReason, '模型服务未配置');
     assert.doesNotMatch(JSON.stringify(catalog), /modelProfile|MODEL_API_KEY|baseUrl|persona/);
     const filled = fillRobotSeats(Array(12).fill(null), catalog, () => 0);
     assert.equal(filled.includes(model.userId), false);

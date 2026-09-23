@@ -11,7 +11,7 @@ function savedDraft(): { seats: (string | null)[]; seed: number } {
   } catch { /* Missing or invalid draft starts empty. */ }
   return { seats: Array(12).fill(null), seed: 42 };
 }
-export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, seed: number) => void; close?: () => void }) {
+export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, seed: number, mode: 'demo' | 'model') => void; close?: () => void }) {
   const [draft, setDraft] = useState(savedDraft);
   const [users, setUsers] = useState<RobotCatalogEntry[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
@@ -53,21 +53,22 @@ export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, s
       try { attempt = JSON.parse(sessionStorage.getItem('werewolf:robot-start') ?? 'null'); } catch { /* Invalid attempt is replaced. */ }
       if (attempt?.signature !== signature) attempt = {signature,id:crypto.randomUUID()};
       sessionStorage.setItem('werewolf:robot-start',JSON.stringify(attempt));
-      const response = await fetch('/api/werewolf/demo/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:attempt!.id,seed:draft.seed,userIds:draft.seats})});
+      const mode = draft.seats.some(id => users.find(user => user.userId === id)?.controller === 'model') ? 'model' : 'demo';
+      const response = await fetch(`/api/werewolf/${mode}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:attempt!.id,seed:draft.seed,userIds:draft.seats})});
       const result = await response.json();
       if (!response.ok) {
         if (response.status === 404) sessionStorage.removeItem('werewolf:robot-start');
         throw new Error(result.error ?? '无法开始游戏');
       }
-      sessionStorage.setItem('werewolf:active-room',JSON.stringify({id:result.id,seed:draft.seed}));
+      sessionStorage.setItem('werewolf:active-room',JSON.stringify({id:result.id,seed:draft.seed,mode}));
       sessionStorage.removeItem('werewolf:robot-start');
-      started(result,draft.seed);
+      started(result,draft.seed,mode);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '开局失败，请重试'); }
     finally { inFlight.current=false; setBusy(false); }
   }
   const count = draft.seats.filter(Boolean).length;
   return <main className="robot-lobby">
-    <header><small>十二人预女猎白 · 无模型工具</small><h1>座位管理</h1><p>选择Robot用户入座，准备好后手动开始游戏。</p></header>
+    <header><small>十二人预女猎白 · Robot工具</small><h1>座位管理</h1><p>选择Robot用户入座，准备好后手动开始游戏。</p></header>
     <div className="robot-lobby-toolbar"><b>已入座 {count} / 12</b><button disabled={busy || loading || !users.length || count === 12} onClick={() => {setDraft(current => ({...current,seats:fillRobotSeats(current.seats,users)}));setSelected(null);}}>随机补满</button>{close && <button disabled={busy} onClick={close}>返回当前对局</button>}</div>
     {loading && <p role="status">加载Robot用户…</p>}
     <div className="robot-seat-grid">{draft.seats.map((id,index) => {
@@ -80,7 +81,7 @@ export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, s
       const seat = draft.seats.indexOf(user.userId);
       return <button key={user.userId} disabled={busy || !user.available || (seat !== -1 && seat !== selected)} onClick={() => assign(user.userId)}><span className="robot-face" style={portraitStyle(1,user)}/><strong>{user.nickname}</strong><small>{!user.available ? user.unavailableReason : seat !== -1 ? `已在${seat+1}号位` : '可入座'}</small><code title={user.userId}>{user.userId.slice(0,8)}</code></button>;
     })}</div></section>}
-    <footer><label>对局种子 <input aria-label="对局种子" type="number" min={0} max={4294967295} disabled={busy} value={draft.seed} onChange={event => setDraft(current => ({...current,seed:Number(event.target.value)}))}/></label><button className="robot-start" disabled={busy || loading || count !== 12 || new Set(draft.seats).size !== 12 || !Number.isSafeInteger(draft.seed) || draft.seed < 0 || draft.seed > 4294967295} onClick={() => void start()}>{busy ? '正在开局…' : '开始游戏'}</button><p>{count === 12 ? '阵容已满，等待点击开始；不会自动开局。' : '请先配置12名不同的Robot用户。'}</p><small>默认随机合法行动，发言为固定短句。{close ? '当前对局仍在继续，配置工具不会暂停它。' : ''}</small></footer>
+    <footer><label>对局种子 <input aria-label="对局种子" type="number" min={0} max={4294967295} disabled={busy} value={draft.seed} onChange={event => setDraft(current => ({...current,seed:Number(event.target.value)}))}/></label><button className="robot-start" disabled={busy || loading || count !== 12 || new Set(draft.seats).size !== 12 || !Number.isSafeInteger(draft.seed) || draft.seed < 0 || draft.seed > 4294967295} onClick={() => void start()}>{busy ? '正在开局…' : '开始游戏'}</button><p>{count === 12 ? '阵容已满，等待点击开始；不会自动开局。' : '请先配置12名不同的Robot用户。'}</p><small>{draft.seats.some(id => users.find(user => user.userId === id)?.controller === 'model') ? '含模型Robot的对局使用持久房间与固定阶段倒计时。' : '默认随机合法行动，发言为固定短句。'}{close ? '当前对局仍在继续，配置工具不会暂停它。' : ''}</small></footer>
     {error && <p className="robot-error" role="alert">{error}</p>}
   </main>;
 }

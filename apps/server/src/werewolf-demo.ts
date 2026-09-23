@@ -5,12 +5,38 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DemoRooms } from '../../../mods/werewolf/src/demo.ts';
 import type { DemoSnapshot } from '../../shared/werewolf.ts';
+import type { WerewolfModelService } from './werewolf-model-service.ts';
+import { WerewolfModelService as ModelService } from './werewolf-model-service.ts';
+import { PostgresStore } from '@game-ai/storage';
+import pg from 'pg';
 
-export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms } = {}) {
+export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms; modelService?: WerewolfModelService } = {}) {
   const rooms = options.rooms ?? new DemoRooms();
   const robots = loadRobotUsers();
+  const local = (ip: string) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip);
   const starts = new Map<string, { signature: string; id: string; at: number }>();
-  app.get('/api/robot-users', async () => robots.map(user => ({ ...publicRobot(user), available: user.control.kind === 'script', ...(user.control.kind === 'model' ? { unavailableReason: '模型未接入' } : {}) })));
+  app.get('/api/robot-users', async () => robots.map(user => ({ ...publicRobot(user),
+    controller: user.control.kind,
+    available: user.control.kind === 'script' || !!options.modelService,
+    ...(user.control.kind === 'model' && !options.modelService ? { unavailableReason: '模型服务未配置' } : {}),
+  })));
+  if (options.modelService) {
+    app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/model/start', {
+      schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'seed', 'userIds'],
+        properties: { requestId: { type: 'string', minLength: 8, maxLength: 80 }, seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
+          userIds: { type: 'array', minItems: 12, maxItems: 12, uniqueItems: true, items: { type: 'string' } } } } },
+    }, async (request, reply) => local(request.ip)
+      ? options.modelService!.start(request.body.requestId, request.body.seed, request.body.userIds)
+      : reply.code(403).send({ error: 'LOCAL_ONLY' }));
+    app.get<{ Params: { id: string }; Querystring: { seat?: string } }>('/api/werewolf/model/:id', {
+      schema: { querystring: { type: 'object', additionalProperties: false,
+        properties: { seat: { type: 'string', pattern: '^(?:[1-9]|1[0-2])$' } } } },
+    }, async (request, reply) => {
+      const viewer = request.query.seat === undefined ? null : Number(request.query.seat);
+      if (viewer !== null && !local(request.ip)) return reply.code(403).send({ error: 'LOCAL_ONLY' });
+      return options.modelService!.get(request.params.id, viewer);
+    });
+  }
   await app.register(fastifyStatic, { root: resolve(robotRoot,'assets'), prefix:'/robot-assets/', decorateReply:false });
   app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/demo/start', {
     schema:{body:{type:'object',additionalProperties:false,required:['requestId','seed','userIds'],properties:{requestId:{type:'string',minLength:8,maxLength:80},seed:{type:'integer',minimum:0,maximum:4294967295},userIds:{type:'array',minItems:12,maxItems:12,uniqueItems:true,items:{type:'string'}}}}},
@@ -33,7 +59,13 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
   });
   const clock = setInterval(() => rooms.tick(), 100);
   clock.unref();
-  app.addHook('onClose', async () => { clearInterval(clock); });
+  const modelRecovery = options.modelService ? setInterval(() => {
+    void options.modelService!.recover().catch(error => {
+      app.log.error({ code: error instanceof Error ? error.message : 'RECOVERY_FAILED' }, 'Werewolf model recovery failed');
+    });
+  }, 5000) : undefined;
+  modelRecovery?.unref();
+  app.addHook('onClose', async () => { clearInterval(clock); if (modelRecovery) clearInterval(modelRecovery); });
   app.addHook('onRequest', async (request, reply) => {
     const origin = request.headers.origin;
     if (origin && new URL(origin).host !== request.headers.host) return reply.code(403).send({ error: 'ORIGIN_REJECTED' });
@@ -53,9 +85,24 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
 
 }
 
-export async function buildWerewolfDemo(options: { rooms?: DemoRooms } = {}) {
+export async function buildWerewolfDemo(options: { rooms?: DemoRooms; modelService?: WerewolfModelService } = {}) {
   const app = Fastify({ bodyLimit: 1024, ajv: { customOptions: { removeAdditional: false, coerceTypes: false } } });
-  await app.register(werewolfDemoRoutes, options);
+  let modelService = options.modelService;
+  let ownStore: PostgresStore | undefined;
+  if (!modelService && process.env.WEREWOLF_MODEL_ENABLED === 'true') {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for model rooms');
+    ownStore = new PostgresStore(new pg.Pool({ connectionString: process.env.DATABASE_URL }));
+    try {
+      modelService = new ModelService(ownStore);
+      await modelService.migrate();
+      await modelService.recover();
+    } catch (error) {
+      await ownStore.pool.end();
+      throw error;
+    }
+  }
+  await app.register(werewolfDemoRoutes, { ...options, modelService });
+  if (ownStore) app.addHook('onClose', async () => { await modelService!.close(); await ownStore.pool.end(); });
   app.get('/', (_request, reply) => reply.redirect('/werewolf'));
   await app.register(fastifyStatic, { root: resolve('dist'), prefix: '/' });
   app.get('/werewolf', (_request, reply) => reply.sendFile('index.html'));

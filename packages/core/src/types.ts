@@ -37,6 +37,7 @@ export interface Binding {
 export interface AssessmentInput {
   scopeId: string; requestId: string; expectedMemoryVersion: number;
   bindingId: string; bindingVersion: string; input: Json;
+  notAfter?: number;
 }
 export interface Message { role: 'system' | 'user'; content: string }
 export interface ModelRequest { requestId: string; attempt: number; messages: Message[]; outputSchema: object; maxOutputTokens: number }

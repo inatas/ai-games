@@ -55,7 +55,9 @@ function appendEvents(room: Room, events: GameEvent[]): void {
 export function occupySeat(source: Room, seat: Seat, def: RoomDefinition): Room {
   assertVersion(source, def);
   if (!seat || !positive(seat.seat) || seat.seat > source.capacity ||
-      !text(seat.name) || !text(seat.modelProfile) || !text(seat.scopeId) || !text(seat.interruptScopeId)) fail('INVALID_SEAT');
+      !text(seat.name) || !text(seat.modelProfile) || !text(seat.scopeId) || !text(seat.interruptScopeId) ||
+      (seat.userId !== undefined && !text(seat.userId)) ||
+      (seat.persona !== undefined && !text(seat.persona))) fail('INVALID_SEAT');
   const existing = source.seats.find(s => s.seat === seat.seat);
   if (existing) {
     if (canonical(existing) !== canonical(seat)) fail('SEAT_CONFLICT');
@@ -74,6 +76,7 @@ export function occupySeat(source: Room, seat: Seat, def: RoomDefinition): Room 
     room.state = structuredClone(initial.state);
     room.phase = structuredClone(initial.phase);
     room.phaseInstance = 1;
+    room.phaseHistory = [{ instance: 1, key: initial.phase.key, round: initial.phase.round }];
     room.status = 'running';
     appendEvents(room, initial.events ?? []);
   }
@@ -106,13 +109,30 @@ export function acceptDecision(source: Room, instance: number, seat: number, val
     appendEvents(room, def.onDecision?.(structuredClone(room.state), structuredClone(phase), seat, structuredClone(value)) ?? []);
   }
   room.revision++;
-  room.decisionEpoch++;
-  if (room.decisions.length === phase.actors.length) {
+  const complete = room.decisions.length === phase.actors.length;
+  const defer = complete && room.phaseDeadlineAt !== undefined && def.fixedWindow?.(room) === true;
+  if (!defer && (phase.mode === 'sequential' || complete)) room.decisionEpoch++;
+  if (complete && !defer) {
     // Normalize ordering so concurrent arrival cannot change game resolution.
     const decisions = phase.actors.map(actor => room.decisions.find(d => d.seat === actor)!);
     const next = def.resolve(structuredClone(room.state), structuredClone(phase), structuredClone(decisions));
     applyTransition(room, next);
   }
+  return room;
+}
+
+/** Resolve a complete fixed window at its persisted boundary. The runtime owns the clock check. */
+export function settleDecisionWindow(source: Room, def: RoomDefinition): Room {
+  assertVersion(source, def);
+  if (source.status !== 'running' || !source.phase ||
+      source.decisions.length !== source.phase.actors.length ||
+      !def.fixedWindow?.(source)) fail('WINDOW_NOT_READY');
+  const room = structuredClone(source);
+  const decisions = room.phase!.actors.map(actor => room.decisions.find(decision => decision.seat === actor)!);
+  const next = def.resolve(structuredClone(room.state), structuredClone(room.phase!), structuredClone(decisions));
+  room.decisionEpoch++;
+  room.revision++;
+  applyTransition(room, next);
   return room;
 }
 
@@ -129,6 +149,8 @@ function applyTransition(room: Room, next: Transition): void {
     } else {
       room.phase = structuredClone(next.phase);
       room.phaseInstance++;
+      room.phaseHistory ??= [];
+      room.phaseHistory.push({ instance: room.phaseInstance, key: next.phase.key, round: next.phase.round });
     }
   } else {
     room.status = 'finished';

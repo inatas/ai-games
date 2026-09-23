@@ -87,8 +87,8 @@ export class Harness {
   private async execute(input: AssessmentInput, registered: { binding: Binding; output?: ValidateFunction }) {
     const binding = registered.binding;
     const controller = new AbortController(); this.controllers.add(controller);
-    const deadline = this.clock.now() + (this.options.totalTimeoutMs ?? 75000);
-    const totalTimer = setTimeout(() => controller.abort(), this.options.totalTimeoutMs ?? 75000);
+    const deadline = Math.min(this.clock.now() + (this.options.totalTimeoutMs ?? 75000), input.notAfter ?? Infinity);
+    const totalTimer = setTimeout(() => controller.abort(), Math.max(0, deadline - this.clock.now()));
     try {
       await this.options.hook?.('claimed', input);
       const prepared = await binding.prepare(input.input, input.scopeId);
@@ -99,6 +99,7 @@ export class Harness {
         const context = buildContext({ worldview, facts: prepared.facts, instructions: prepared.instructions, input: input.input, schema: binding.outputSchema!, ...memories,
           counter: this.options.counter, inputBudget: this.options.inputBudget, outputBudget: this.options.outputBudget, window: this.options.modelWindow });
         for (let attempt = 1; attempt <= 2; attempt++) {
+          if (this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
           const messages = [...context.messages];
           if (attempt === 2) messages.push({ role: 'system', content: 'Your previous response did not match OUTPUT_SCHEMA. Return only a valid JSON object with exactly the required fields and allowed values.' });
           if ((this.options.counter ?? conservativeCounter)(messages) > context.inputBudget) throw new HarnessError('CONTEXT_TOO_LARGE');

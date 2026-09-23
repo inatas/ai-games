@@ -12,10 +12,10 @@ function ready() {
 }
 test('TB-09/10: interrupt discards collected choices, advances epoch and protects hidden eligibility', () => {
   const room = acceptDecision(ready(), 1, 1, { choice: 'A' }, interruptGame);
-  assert.equal(room.decisionEpoch, 1);
+  assert.equal(room.decisionEpoch, 0);
   const next = acceptInterrupt(room, 1, 2, { kind: 'replace' }, interruptGame);
   assert.equal(next.phaseInstance, 2);
-  assert.equal(next.decisionEpoch, 2);
+  assert.equal(next.decisionEpoch, 1);
   assert.deepEqual(next.decisions, []);
   assert.equal(room.decisions.length, 1);
   assert.doesNotMatch(JSON.stringify(spectatorView(next, interruptGame)), /interruptScopeId|first-seat-secret/);

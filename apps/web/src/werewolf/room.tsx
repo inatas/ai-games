@@ -23,8 +23,8 @@ const preview: DemoSnapshot = {
   ], result: null,
 };
 
-async function request(path: string, body?: object): Promise<DemoSnapshot> {
-  const response = await fetch(`/api/werewolf/demo${path}`, body ? {
+async function request(path: string, mode: 'demo' | 'model' = 'demo', body?: object): Promise<DemoSnapshot> {
+  const response = await fetch(`/api/werewolf/${mode}${path}`, body ? {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   } : undefined);
   if (!response.ok) {
@@ -34,14 +34,14 @@ async function request(path: string, body?: object): Promise<DemoSnapshot> {
   return response.json() as Promise<DemoSnapshot>;
 }
 function describe(event: Event): string {
-  const data = event.data as { seat?: number | null; seats?: number[]; target?: number | null; winner?: string; direction?: string };
+  const data = event.data as { seat?: number | null; seats?: number[]; target?: number | null; winner?: string; direction?: string; text?: string };
   const seats = data.seats?.map(seat => `${seat}号`).join('、');
   switch (event.type) {
     case 'sheriff-result': return data.seat ? `${data.seat}号 当选警长` : '警徽流失 · 本局无警长';
     case 'night-deaths': return data.seats?.length ? `昨夜 ${seats} 出局` : '昨夜平安夜，无人出局';
-    case 'speech': return `${data.seat}号 已发言 · 内容见历史`;
-    case 'sheriff-speech': return `${data.seat}号 已完成竞选发言 · 内容见历史`;
-    case 'last-words': return `${data.seat}号 已留遗言 · 内容见历史`;
+    case 'speech': return data.text ? `${data.seat}号 已发言 · 内容见历史` : `${data.seat}号 未发言`;
+    case 'sheriff-speech': return data.text ? `${data.seat}号 已完成竞选发言 · 内容见历史` : `${data.seat}号 未作竞选发言`;
+    case 'last-words': return data.text ? `${data.seat}号 已留遗言 · 内容见历史` : `${data.seat}号 未留遗言`;
     case 'sheriff-candidates': return `上警名单：${seats || '无人上警'}`;
     case 'sheriff-withdrawal': return `${data.seat}号 退水`;
     case 'sheriff-pk': return `警长平票：${seats} 进入PK`;
@@ -74,6 +74,7 @@ function Dialog({ title, close, children }: { title: string; close: () => void; 
 }
 export default function WerewolfRoom() {
   const [game, setGame] = useState<DemoSnapshot>(preview);
+  const [roomMode, setRoomMode] = useState<'demo' | 'model'>('demo');
   const [selected, setSelected] = useState(5);
   const [viewer, setViewer] = useState<number | null>(null);
   const viewEpoch = useRef(0);
@@ -118,10 +119,10 @@ export default function WerewolfRoom() {
     const saved = sessionStorage.getItem('werewolf:active-room');
     if (!saved) return;
     try {
-      const active = JSON.parse(saved) as { id: string; seed: number };
+      const active = JSON.parse(saved) as { id: string; seed: number; mode?: 'demo' | 'model' };
       setBusy(true);
-      void request(`/${active.id}`).then(next => {
-        if (!cancelled) { setGame(next); setActiveSeed(active.seed); }
+      void request(`/${active.id}`, active.mode ?? 'demo').then(next => {
+        if (!cancelled) { setGame(next); setActiveSeed(active.seed); setRoomMode(active.mode ?? 'demo'); }
       }).catch(() => { sessionStorage.removeItem('werewolf:active-room'); })
         .finally(() => { if (!cancelled) setBusy(false); });
     } catch { sessionStorage.removeItem('werewolf:active-room'); }
@@ -135,7 +136,7 @@ export default function WerewolfRoom() {
     let timer: number;
     async function poll() {
       try {
-        const next = await request(`/${game.id}${viewer === null ? '' : `?seat=${viewer}`}`);
+        const next = await request(`/${game.id}${viewer === null ? '' : `?seat=${viewer}`}`, roomMode);
         if (!stopped && epoch === viewEpoch.current) { setGame(next); setError(''); }
       } catch (cause) {
         if (!stopped && epoch === viewEpoch.current) {
@@ -151,15 +152,15 @@ export default function WerewolfRoom() {
     }
     timer = window.setTimeout(() => void poll(), 250);
     return () => { stopped = true; window.clearTimeout(timer); };
-  }, [game.id, game.status, viewer]);
+  }, [game.id, game.status, viewer, roomMode]);
   useEffect(() => {
     if (!isPreview && atLatest && log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [game.events.length, expanded]);
   const status = error || (ended ? '对局结束 · 身份已揭晓' : isPreview ? '观战预览 · 点击开始对局' : game.status !== 'running' ? '对局异常停止，请重开' : night ? '天黑请闭眼 · 夜间行动' : game.actor ? `${game.actor}号 · ${game.phaseLabel}` : game.phaseLabel);
 
   if (showLobby || isPreview) return busy ? <p>正在恢复对局…</p> : <RobotLobby
-    started={(next, seed) => {
-      viewEpoch.current++; setViewer(null); setGame(next); setActiveSeed(seed);
+    started={(next, seed, mode) => {
+      viewEpoch.current++; setViewer(null); setGame(next); setActiveSeed(seed); setRoomMode(mode);
       setModal(null); setShowLobby(false); setError('');
     }}
     close={isPreview ? undefined : () => setShowLobby(false)} />;
