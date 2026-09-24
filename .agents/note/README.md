@@ -47,3 +47,11 @@
 [021 模型调用事件日志](021-event-log.md)：implemented；v1.3底层模型调用与本机诊断已接入，无网络整局核查通过，真实供应商验证另期。
 
 [022 AI决策规则引擎](022-decision-rules-engine.md)：in_progress；通用规则集运行、优先级、概率与恢复方案 v1 已确认实施；游戏规则实例归各 MOD。
+
+[023 模型上下文前缀缓存与用量观测](023-model-context-cache.md)：in_progress；消息前缀与 DeepSeek 缓存用量方案 v1 已确认实施。
+
+[024 模型对局 Token 用量记账](024-model-token-accounting.md)：implemented；实际 input/output Token 按房间汇总，旧费用预留停用方案 v1 已实现并验证。
+
+[025 模型房间单一调度宿主](025-model-room-single-owner.md)：draft；防止新旧服务连接同一数据库并行推进模型房间，方案 v1 待确认。
+
+[021 模型调用事件日志](021-event-log.md)与[023 模型上下文前缀缓存](023-model-context-cache.md)的网页排障、持久测试和缓存优化 v2 新范围待确认；狼人杀页面方案见[MOD 005](../../mods/werewolf/.agents/note/005-web-model-test.md)。

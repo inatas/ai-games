@@ -49,6 +49,24 @@ test('WW-32,57,72,76: night deaths still nominate; election finishes before deat
   assert.ok(publicEvents.findIndex(e => e.type === 'sheriff-result') < publicEvents.findIndex(e => e.type === 'night-deaths'));
 });
 
+test('sheriff vote summary becomes public once per completed round, never during ballots', () => {
+  const voting = keepAll(speakAll(beginElection(game(), [9, 10])));
+  const first = advanceElection(voting, voting.revision, voting.pending[0], { kind: 'vote', target: 9 });
+  assert.equal(first.events.some(event => event.type === 'sheriff-votes'), false);
+  const pk = voteAll(first, [9, 9, 9, 9, 10, 10, 10, 10, 10]);
+  const firstSummary = pk.events.filter(event => event.type === 'sheriff-votes');
+  assert.equal(firstSummary.length, 1);
+  assert.equal(firstSummary[0].audience, 'public');
+  assert.deepEqual((firstSummary[0].data as { tied: number[] }).tied, [9, 10]);
+  assert.ok(pk.events.findIndex(event => event.type === 'sheriff-votes') < pk.events.findIndex(event => event.type === 'sheriff-pk'));
+  const done = voteAll(speakAll(pk), [9, 9, 9, 9, 9, 10, 10, 10, 10, null]);
+  const summaries = done.events.filter(event => event.type === 'sheriff-votes');
+  assert.equal(summaries.length, 2);
+  assert.deepEqual(summaries.map(event => (event.data as { runoff: boolean }).runoff), [false, true]);
+  assert.ok(done.events.findLastIndex(event => event.type === 'sheriff-votes') < done.events.findIndex(event => event.type === 'sheriff-result'));
+  assert.equal(beginElection(game(), [9]).events.some(event => event.type === 'sheriff-votes'), false);
+});
+
 test('WW-33,65: withdrawal precedes vote, original candidates never acquire voting rights', () => {
   let state = speakAll(beginElection(game(), [1, 9, 10]));
   state = advanceElection(state, state.revision, 1, { kind: 'withdraw', withdraw: true });

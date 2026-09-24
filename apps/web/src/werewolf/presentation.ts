@@ -37,6 +37,29 @@ export interface VoteData {
   sheriff: number | null;
   runoff?: boolean;
 }
+
+export function boardEvents(events: DemoSnapshot['events']): DemoSnapshot['events'] {
+  return events.filter(event => !['speech', 'sheriff-speech', 'last-words'].includes(event.type));
+}
+
+export function boardVoteCopy(kind: 'sheriff' | 'exile', data: VoteData, day: number) {
+  if (kind === 'sheriff') {
+    const pk = !!data.runoff;
+    return {
+      title: `第${day}天 · ${pk ? '警长PK投票' : '警长竞选'}`,
+      outcome: data.winner ? `${data.winner}号当选警长`
+        : data.tied.length && !pk ? `${data.tied.join('、')}号平票，进入PK` : '警徽流失',
+      ariaLabel: `第${day}天${pk ? '警长PK' : '警长竞选'}票型`,
+    };
+  }
+  return {
+    title: `第${day}天 · ${data.runoff ? 'PK投票' : '放逐投票'}`,
+    outcome: data.winner ? `${data.winner}号得票最高`
+      : data.tied.length ? `${data.tied.join('、')}号平票，进入PK` : '本轮无人出局',
+    ariaLabel: `第${day}天${data.runoff ? 'PK' : ''}放逐票型`,
+  };
+}
+
 export function summarizeVotes(data: VoteData) {
   const rows: { target: number | 'abstain' | 'missing'; voters: number[]; total: number }[] = data.totals
     .filter(total => data.ballots.some(ballot => ballot.target === total.seat))

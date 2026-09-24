@@ -13,6 +13,7 @@ test('robot registry routes per user while model secrets stay in the server envi
   assert.ok(adapters[profileForRobot(model)] instanceof ChatCompletionsAdapter);
   assert.ok('decide' in adapters[profileForRobot(script)]);
   assert.notEqual(profileForRobot(script), profileForRobot(model));
+  assert.ok('decide' in adapters[`script:${model.userId}`], 'a persisted pre-v5 script seat can resume');
   assert.throws(() => buildRobotAdapters(users, loadModelProfiles(), {}), /MODEL_ENV_MISSING/);
   assert.ok(!JSON.stringify(users).includes('secret'));
 });

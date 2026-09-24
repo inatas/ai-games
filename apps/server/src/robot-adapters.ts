@@ -34,5 +34,13 @@ export function buildRobotAdapters(
     if (protocol !== 'json-schema' && protocol !== 'deepseek') throw new Error('MODEL_PROTOCOL_INVALID');
     adapters[id] = wrapModel(new ChatCompletionsAdapter({ baseUrl, model, apiKey, protocol }));
   }
+  // Pre-v5 rooms persisted script:<userId> for the twelve users now controlled by a model.
+  // Keep their previous deterministic controller available only for those stored seats.
+  for (const user of users) {
+    if (user.control.kind !== 'model') continue;
+    adapters[`script:${user.userId}`] = new ScriptDecisionAdapter({
+      speech: '我是狼人杀玩家', strategy: 'random', seed: 0,
+    });
+  }
   return adapters;
 }

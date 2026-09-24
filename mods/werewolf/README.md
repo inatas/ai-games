@@ -24,6 +24,8 @@ npm run demo:werewolf
 - [UI原型v1及已确认实施验收](docs/ui-prototype-v1.md)
 - [UI演示接口与美术分层](docs/ui-demo.md)
 - [验收用例WW-01～WW-80](docs/mvp-testing.md)
+- [事实上下文 v1.3 已实施与遗言保护待确认方案](docs/witch-claim-consistency-v1.md)
+- [网页模型测试台 v1 待确认方案](docs/web-model-test-v1.md)
 - [需求状态与验证证据](.agents/note/001-ai-spectator-mvp.md)
 
 本地验证：`npm run check`、`npm run check:repo`、`npm run test:unit`、`npm run build`。MOD单元测试包含规则、整局、抢占及演示接口；配置专用TEST_DATABASE_URL后`npm test`还包含真实数据库集成测试，各测试仅清理自己的随机schema。

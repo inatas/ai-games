@@ -42,7 +42,10 @@ export interface AssessmentInput {
 }
 export interface Message { role: 'system' | 'user'; content: string }
 export interface ModelRequest { requestId: string; attempt: number; messages: Message[]; outputSchema: object; maxOutputTokens: number }
-export interface ModelResponse { rawText: string; model: string; usage: { inputTokens: number; outputTokens: number } | null }
+export interface ModelResponse { rawText: string; model: string; usage: {
+  inputTokens: number; outputTokens: number;
+  promptCacheHitTokens?: number; promptCacheMissTokens?: number;
+} | null }
 export interface ModelAdapter { simulated?: boolean; generate(request: ModelRequest, signal: AbortSignal): Promise<ModelResponse> }
 export interface Clock { now(): number }
 export interface RequestView {

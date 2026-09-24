@@ -2,7 +2,7 @@ import { useRobotUser, useRobotUsers } from './robot-context.tsx';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { DemoSnapshot } from '../../../shared/werewolf.ts';
 import { portraitStyle } from './seat-avatar.tsx';
-import { nextPresentation, summarizeVotes, type PresentationCursor, type PresentationItem, type VoteData } from './presentation.ts';
+import { boardVoteCopy, nextPresentation, summarizeVotes, type PresentationCursor, type PresentationItem, type VoteData } from './presentation.ts';
 import './live-scene.css';
 
 const avatars = ['brown', 'pink', 'blue'] as const;
@@ -22,14 +22,15 @@ export function SpeakerAvatar({ seat }: { seat: number | null }) {
 
 export function VoteSummary({ event }: { event: DemoSnapshot['events'][number] }) {
   const data = event.data as unknown as VoteData;
-  return <section className="ww-vote-summary" aria-label={`第${event.day}天${data.runoff ? 'PK' : ''}放逐票型`}>
-    <h3>第{event.day}天 · {data.runoff ? 'PK投票' : '放逐投票'}</h3>
+  const copy = boardVoteCopy(event.type === 'sheriff-votes' ? 'sheriff' : 'exile', data, event.day);
+  return <section className="ww-vote-summary" aria-label={copy.ariaLabel}>
+    <h3>{copy.title}</h3>
     {summarizeVotes(data).map(row => <div className="ww-vote-row" key={row.target}>
       <div className="ww-vote-target"><b>{typeof row.target === 'number' ? row.target : row.target === 'abstain' ? '弃票' : '未投'}</b>{typeof row.target === 'number' && <small>{row.total}票</small>}</div>
       <span className="ww-vote-arrow" aria-label="投给">←</span>
       <div className="ww-vote-voters">{row.voters.map(seat => <span key={seat} title={seat === data.sheriff ? '警长 · 1.5票' : '1票'}>{seat}{seat === data.sheriff && <sup>♛</sup>}</span>)}</div>
     </div>)}
-    <p>{data.winner ? `${data.winner}号得票最高` : data.tied.length ? `${data.tied.join('、')}号平票，进入PK` : '本轮无人出局'}</p>
+    <p>{copy.outcome}</p>
     {data.sheriff !== null && <small>♛ 警长{data.sheriff}号 · 1.5票</small>}
   </section>;
 }

@@ -4,12 +4,13 @@ import { SeatAvatar, AvatarExamples, portraitStyle, deathNames } from './seat-av
 import { publicSeatState } from './seat-state.ts';
 import { HistoryIcon, SpeechHistory } from './speech-history.tsx';
 import { SpeakerAvatar, LiveTransition, VoteSummary, SpeechBubble } from './live-scene.tsx';
+import { boardEvents } from './presentation.ts';
 import './room.css';
 import { RobotLobby } from './robot-lobby.tsx';
 import { RobotUsersContext } from './robot-context.tsx';
 
 type Event = DemoSnapshot['events'][number];
-type Modal = 'perspective' | 'knowledge' | 'history' | 'samples' | 'settings' | 'restart' | 'player' | 'roles' | 'replay' | null;
+type Modal = 'perspective' | 'knowledge' | 'history' | 'samples' | 'settings' | 'restart' | 'player' | 'roles' | null;
 const roleNames: Record<string, string> = { wolf: '狼人', villager: '村民', seer: '预言家', witch: '女巫', hunter: '猎人', idiot: '白痴' };
 const preview: DemoSnapshot = {
   id: 'preview', revision: 0, status: 'running', day: 2, period: 'day', phaseLabel: '放逐投票', actor: 5,
@@ -39,9 +40,6 @@ function describe(event: Event): string {
   switch (event.type) {
     case 'sheriff-result': return data.seat ? `${data.seat}号 当选警长` : '警徽流失 · 本局无警长';
     case 'night-deaths': return data.seats?.length ? `昨夜 ${seats} 出局` : '昨夜平安夜，无人出局';
-    case 'speech': return data.text ? `${data.seat}号 已发言 · 内容见历史` : `${data.seat}号 未发言`;
-    case 'sheriff-speech': return data.text ? `${data.seat}号 已完成竞选发言 · 内容见历史` : `${data.seat}号 未作竞选发言`;
-    case 'last-words': return data.text ? `${data.seat}号 已留遗言 · 内容见历史` : `${data.seat}号 未留遗言`;
     case 'sheriff-candidates': return `上警名单：${seats || '无人上警'}`;
     case 'sheriff-withdrawal': return `${data.seat}号 退水`;
     case 'sheriff-pk': return `警长平票：${seats} 进入PK`;
@@ -61,10 +59,6 @@ function describe(event: Event): string {
     default: return '公开结算记录';
   }
 }
-function compact(events: Event[]): Event[] {
-  return events.filter((event, index) => !['speech', 'sheriff-speech'].includes(event.type) || events[index - 1]?.type !== event.type);
-}
-
 function Dialog({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
@@ -94,7 +88,6 @@ export default function WerewolfRoom() {
   const [busy, setBusy] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
   const [activeSeed, setActiveSeed] = useState(42);
-  const [replayIndex, setReplayIndex] = useState(0);
   const [atLatest, setAtLatest] = useState(true);
   const [marks, setMarks] = useState<Record<string, Record<number, string>>>(() => {
     try { return JSON.parse(sessionStorage.getItem('werewolf:marks:v2') ?? '{}'); } catch { return {}; }
@@ -112,7 +105,7 @@ export default function WerewolfRoom() {
   const selectedPlayer = game.players.find(player => player.seat === selected)!;
   const selectedRole = knowledge?.seat === selected ? knowledge.role : game.roles?.find(player => player.seat === selected)?.role;
   const result = game.events.findLast(event => event.type === 'game-result');
-  const events = compact(game.events);
+  const events = boardEvents(game.events);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,7 +169,7 @@ export default function WerewolfRoom() {
       <h1>{ended ? result && describe(result) : `第${game.day}${night ? '夜' : '天'} · ${game.phaseLabel}`}</h1>
       <div className="ww-log" ref={log} onScroll={() => { const element = log.current!; setAtLatest(element.scrollHeight - element.scrollTop - element.clientHeight < 20); }}>
         {events.length === 0 && <div className="ww-card">{night ? '天黑请闭眼。夜间行动结束后，将公布公开结果。' : '等待公开结果'}</div>}
-        {events.map(event => <div className="ww-card" key={event.sequence}>{event.type === 'exile-votes' ? <VoteSummary event={event}/> : describe(event)}</div>)}
+        {events.map(event => <div className="ww-card" key={event.sequence}>{event.type === 'exile-votes' || event.type === 'sheriff-votes' ? <VoteSummary event={event}/> : describe(event)}</div>)}
         {!ended && <div className="ww-card ww-progress">{game.phaseLabel}{night ? '中' : '进行中'}{game.progress && <strong>已提交 {game.progress.submitted} / {game.progress.eligible}</strong>}</div>}
         {isPreview && <><div className="ww-divider">公开记录</div><div className="ww-card ww-preview-vote">第1天投票结果</div></>}
       </div>
@@ -202,17 +195,17 @@ export default function WerewolfRoom() {
     {night && !ended && <div className="ww-night-notice"><strong>{game.nightSegment === 'medicine' ? '女巫行动中' : '狼人、预言家行动中'}</strong><span>夜间行动结束后公布公开结果</span></div>}
         <button className="ww-observer" disabled={isPreview} title={isPreview ? '开始对局后可切换视角' : undefined} onClick={() => setModal('perspective')}>◉ {viewer === null ? '公共旁观' : `${viewer}号视角`} ▾</button>
     {viewer !== null && <button className="ww-view-knowledge" onClick={() => setModal('knowledge')}><span style={portraitStyle(viewer, game.players.find(player => player.seat === viewer)?.user)}/><b>{viewer}号 · {knowledge ? roleNames[knowledge.role] : '加载中'}</b><small>已知信息 ▸</small></button>}
-    <button className="ww-history-entry" aria-label="查看历史发言" onClick={() => setModal('history')}><HistoryIcon/>历史</button>
+    <button className="ww-history-entry" aria-label="查看对局历史" onClick={() => setModal('history')}><HistoryIcon/>历史</button>
     <nav className="ww-controls" aria-label="演示控制">
-      {ended ? <><button onClick={() => setModal('roles')}>查看身份</button><button onClick={() => { setReplayIndex(0); setModal('replay'); }}>复盘记录</button></> : isPreview ? <button className="ww-autoplay" onClick={() => setShowLobby(true)} disabled={busy}>开始对局</button> : <span className="ww-playback-label">对局进行中 · 实时旁观</span>}
+      {ended ? <button onClick={() => setModal('roles')}>查看身份</button> : isPreview ? <button className="ww-autoplay" onClick={() => setShowLobby(true)} disabled={busy}>开始对局</button> : <span className="ww-playback-label">对局进行中 · 实时旁观</span>}
       <button className="ww-restart" onClick={() => setModal('restart')}>⟳ {ended ? '再来一局' : '重开'}</button>
     </nav>
     <p className="ww-caption">{isPreview ? '原型示意 · 点击开始对局' : ended
       ? `${roomMode === 'model' ? '模型Robot对局' : '脚本Robot对局'} · 终局公开`
       : `${roomMode === 'model' ? '模型与脚本Robot' : '脚本Robot · 固定短句发言'} · 查看历史不停表`}</p>
     <LiveTransition game={game} suppressed={modal !== null}/>
-    {modal === 'history' && <SpeechHistory key={game.id} preview={isPreview} currentDay={game.day} records={game.speeches} liveStatus={isPreview ? undefined : `第${game.day}${night ? '夜' : '天'} · ${status}${game.status === 'running' ? ` · ${Math.ceil(game.timing.remainingMs / 1000)}秒` : ''}`} close={() => setModal(null)} />}
-    {modal && modal !== 'history' && <Dialog title={{ perspective: '选择观察视角', knowledge: '当前视角 · 已知信息', samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', player: `${selected}号玩家`, roles: '终局身份', replay: '复盘记录' }[modal]} close={() => setModal(null)}>
+    {modal === 'history' && <SpeechHistory key={game.id} game={game} close={() => setModal(null)} />}
+    {modal && modal !== 'history' && <Dialog title={{ perspective: '选择观察视角', knowledge: '当前视角 · 已知信息', samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', player: `${selected}号玩家`, roles: '终局身份' }[modal]} close={() => setModal(null)}>
       {modal === 'perspective' && <><p>仅切换观察视角，玩家继续自动行动。此入口用于本地调试。</p><button aria-pressed={viewer === null} onClick={() => switchViewer(null)}>公共旁观</button><div className="ww-view-grid">{game.players.map(player => <button key={player.seat} aria-label={`观察${player.seat}号`} aria-pressed={viewer === player.seat} onClick={() => switchViewer(player.seat)}><span style={portraitStyle(player.seat, player.user)}/>{player.seat}号</button>)}</div></>}
       {modal === 'knowledge' && (!knowledge ? <p>正在加载当前视角信息…</p> : <div className="ww-knowledge"><h3>{knowledge.seat}号 · {roleNames[knowledge.role]}</h3>{knowledge.wolves && <p>狼队友：{knowledge.wolves.filter(seat => seat !== viewer).join('、')}号</p>}{knowledge.knives?.map(item => <p key={item.night}>第{item.night}夜狼刀：{item.target === null ? '空刀' : `${item.target}号`}</p>)}{knowledge.inspections && <><h3>已查验</h3>{knowledge.inspections.length ? knowledge.inspections.map(item => <p key={item.night}>第{item.night}夜 · {item.target}号：{item.alignment === 'wolf' ? '狼' : '好'}</p>) : <p>尚无查验结果</p>}</>}{knowledge.medicine && <><p>解药：{knowledge.medicine.antidote ? '剩余1瓶' : '已用'} · 毒药：{knowledge.medicine.poison ? '剩余1瓶' : '已用'}</p><p>授权刀口：{'knife' in knowledge ? knowledge.knife === null ? '空刀' : `${knowledge.knife}号` : '当前不可见'}</p></>}{knowledge.deaths.map(item => <p key={item.seat}>{item.seat}号：{item.cause === 'poison' ? '毒杀' : '狼刀'}出局</p>)}<p>只显示该席位有权知道的信息。</p></div>)}
       {modal === 'samples' && <AvatarExamples />}
@@ -220,18 +213,6 @@ export default function WerewolfRoom() {
       {modal === 'restart' && <div className="ww-form"><p>返回座位管理，配置下一局阵容后手动开始。当前对局继续运行。</p><button onClick={() => { setModal(null); setShowLobby(true); }}>进入座位管理</button><button onClick={() => setModal(null)}>取消</button></div>}
       {modal === 'player' && <div className="ww-player-info"><div className="ww-profile" style={portraitStyle(selected, selectedPlayer.user)} /><h3>{selectedPlayer.user?.nickname ?? `${selected}号玩家`}</h3>{selectedPlayer.user && <p>用户ID：{selectedPlayer.user.userId}</p>}<h3>{selectedPlayer.alive ? '存活' : deathNames[publicSeatState(selected, false, game.events, false).death ?? 'night']}{game.sheriff === selected ? ' · 警长' : ''}</h3><p>身份：{selectedRole ? roleNames[selectedRole] : selectedPlayer.revealedRole ? '白痴（已翻牌）' : '尚未公开'}</p><p>{selectedPlayer.revealedRole ? '保留发言权，没有放逐投票权。' : '仅展示当前视角可见的游戏信息。'}</p>{<><h3>个人标记</h3><p>仅自己可见，不代表真实身份。</p><div className="ww-mark-options">{['狼人', '好人', '金水', '查杀', '可疑', ''].map(value => <button key={value} aria-pressed={(marks[game.id]?.[selected] ?? '') === value} onClick={() => setMark(value)}>{value || '清除'}</button>)}</div></>}</div>}
       {modal === 'roles' && <div className="ww-roles">{game.roles?.map(player => <p key={player.seat}><b>{player.seat}号</b><span>{roleNames[player.role]}</span></p>)}</div>}
-      {modal === 'replay' && <div className="ww-replay"><label>日夜记录<select value={replayIndex} onChange={event => setReplayIndex(Number(event.target.value))}>{game.replay?.map((frame, index) => <option key={index} value={index}>第{frame.day}{frame.period === 'night' ? '夜' : '天'} · 记录{index + 1}</option>)}</select></label>{game.replay?.[replayIndex]?.events.map((event, index) => <div key={index}><h3>{describe(event)}</h3>{['wolf-choices', 'wolf-knife', 'medicine', 'inspection'].includes(event.type) && <ReplayDetails event={event} />}{event.type === 'exile-votes' && <VoteDetails event={event} />}</div>)}</div>}
     </Dialog>}
   </main></div></RobotUsersContext.Provider>;
-}
-function VoteDetails({ event }: { event: Event }) {
-  const data = event.data as { ballots: { seat: number; target: number | null; kind: string }[]; totals: { seat: number; votes: number }[]; winner: number | null; tied: number[] };
-  return <><VoteSummary event={event}/><p>{data.winner ? `${data.winner}号 得票最高` : data.tied.length ? `${data.tied.join('、')}号 平票，进入PK` : '无人被放逐'}</p><table><thead><tr><th>席位</th><th>投给</th></tr></thead><tbody>{data.ballots.map(ballot => <tr key={ballot.seat}><td>{ballot.seat}号</td><td>{ballot.kind === 'missing' ? '未举牌' : ballot.target === null ? '弃票' : `${ballot.target}号`}</td></tr>)}</tbody></table><p>加权票数（警长1.5票）</p><div className="ww-totals">{data.totals.map(total => <span key={total.seat}>{total.seat}号：{total.votes}票</span>)}</div></>;
-}
-function ReplayDetails({ event }: { event: Event }) {
-  if (event.type === 'wolf-knife') { const data = event.data as { target: number | null }; return <p>狼刀：{data.target === null ? '空刀' : data.target + '号'}</p>; }
-  if (event.type === 'wolf-choices') return <p>{(event.data as { seat: number; target: number | null }[]).map(item => `${item.seat}号 → ${item.target === null ? '空刀' : `${item.target}号`}`).join('；')}</p>;
-  if (event.type === 'inspection') { const data = event.data as { target: number; alignment: string }; return <p>{data.target}号：{data.alignment === 'wolf' ? '狼人' : '好人'}</p>; }
-  const data = event.data as { seat: number; action: { kind: string; target?: number } };
-  return <p>{data.seat}号：{data.action.kind === 'save' ? '使用解药' : data.action.kind === 'poison' ? `毒 ${data.action.target}号` : '不使用药物'}</p>;
 }

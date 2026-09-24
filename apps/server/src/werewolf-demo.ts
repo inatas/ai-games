@@ -45,6 +45,9 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
       }, async (request, reply) => local(request.ip)
         ? options.modelService!.events(request.params.id, Number(request.query.after ?? 0), Number(request.query.limit ?? 50))
         : reply.code(403).send({ error: 'LOCAL_ONLY' }));
+    app.get<{ Params: { id: string } }>('/api/werewolf/model/:id/usage', async (request, reply) => local(request.ip)
+      ? options.modelService!.usage(request.params.id)
+      : reply.code(403).send({ error: 'LOCAL_ONLY' }));
   }
   await app.register(fastifyStatic, { root: resolve(robotRoot,'assets'), prefix:'/robot-assets/', decorateReply:false });
   app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/demo/start', {

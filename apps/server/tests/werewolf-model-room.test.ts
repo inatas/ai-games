@@ -4,9 +4,12 @@ import { createHash } from 'node:crypto';
 import { loadRobotUsers } from '../src/robot-users.ts';
 import { setupRobotRoom } from '../src/werewolf-model-room.ts';
 
-test('one model and eleven scripts are seated as distinct Robot users with their fixed persona', async () => {
+test('RR-01/02: twelve model users keep distinct identities and persona when seated', async () => {
   const users = loadRobotUsers();
-  const roster = [users.find(user => user.control.kind === 'model')!, ...users.filter(user => user.control.kind === 'script').slice(0, 11)];
+  assert.equal(users.length, 13);
+  assert.ok(users.slice(0, 12).every(user => user.control.kind === 'model' && user.control.modelProfile === 'environment-default'));
+  assert.equal(users[12].control.kind, 'script');
+  const roster = users.slice(0, 12);
   const seats: unknown[] = [];
   const runtime = {
     async create(key: string, _limits: object, signature: string) {
@@ -23,11 +26,12 @@ test('one model and eleven scripts are seated as distinct Robot users with their
     persona: roster[0].persona.description, modelProfile: 'environment-default', controllerKind: 'robot',
   });
   await assert.rejects(() => setupRobotRoom(runtime, 'run-2', roster.slice(0, 11)), /INVALID_ROSTER/);
+  await assert.rejects(() => setupRobotRoom(runtime, 'run-3', [...roster.slice(0, 11), roster[0]]), /INVALID_ROSTER/);
 });
 
 test('replayed start keeps the already running room profile snapshot', async () => {
   const users = loadRobotUsers();
-  const roster = [users.find(user => user.control.kind === 'model')!, ...users.filter(user => user.control.kind === 'script').slice(0, 11)];
+  const roster = users.slice(0, 12);
   let seating = 0;
   const runtime = {
     async create() { return { id: 'existing', status: 'running', seats: roster.map((user, index) => ({ seat: index + 1, userId: user.userId })) }; },
@@ -35,4 +39,19 @@ test('replayed start keeps the already running room profile snapshot', async () 
   };
   assert.equal(await setupRobotRoom(runtime, 'same-key', roster), 'existing');
   assert.equal(seating, 0);
+});
+
+test('RR-03: a model room accepts a mixed roster and rejects an all-script roster', async () => {
+  const users = loadRobotUsers();
+  const model = users[0];
+  const script = users[12];
+  const mixed = [...users.slice(0, 11), script];
+  const runtime = {
+    async create() { return { id: 'mixed' }; },
+    async seat() { return {}; },
+  };
+  assert.equal(await setupRobotRoom(runtime, 'mixed', mixed), 'mixed');
+  const allScript = users.slice(0, 12).map(user => ({ ...user, control: script.control }));
+  await assert.rejects(() => setupRobotRoom(runtime, 'script-only', allScript), /INVALID_ROSTER/);
+  assert.equal(model.control.kind, 'model');
 });

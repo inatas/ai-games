@@ -39,6 +39,22 @@ test('EL-M01/M02/M03: each adapter attempt records its exact request and result'
   assert.equal((await db.store.pool.query('SELECT count(*)::int AS n FROM fw_event_log WHERE request_id=$1', [input.requestId])).rows[0].n, 3);
 });
 
+test('MC-04: finished event preserves provider cache token usage', async () => {
+  const scope = await counterScope(db.store);
+  const model = { async generate() { return {
+    rawText: '{"decision":"ACCEPT"}', model: 'cache-test',
+    usage: { inputTokens: 10, outputTokens: 2, promptCacheHitTokens: 7, promptCacheMissTokens: 3 },
+  }; } };
+  const harness = new Harness(db.store, model).register(counterBinding(db.store));
+  const input = request(scope);
+  await harness.submit(input); await harness.drain();
+  const rows = (await db.store.pool.query(`SELECT details FROM fw_event_log
+    WHERE request_id=$1 AND event_type='model.call.finished.v1'`, [input.requestId])).rows;
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].details.usage,
+    { inputTokens: 10, outputTokens: 2, promptCacheHitTokens: 7, promptCacheMissTokens: 3 });
+});
+
 test('EL-M02/M04/M09: correction and provider failure remain separate attempts without leaking errors', async () => {
   const scope = await counterScope(db.store);
   let calls = 0;

@@ -56,7 +56,7 @@ test('W/U: scope versions, mandatory budget, repair provenance and action/reset 
     await assert.rejects(newService.reset(user.token, request(user.currentScopeId).requestId, user.currentScopeId), /SCOPE_BUSY/);
     gate.release(); await h.drain();
     assert.equal(model.calls.length, 2);
-    for (const call of model.calls) assert.equal(JSON.parse(call.messages[1].content.slice('WORLDVIEW:'.length)).content, world1.content);
+    for (const call of model.calls) assert.equal(JSON.parse(call.messages[2].content.slice('WORLDVIEW:'.length)).content, world1.content);
     const records = (await db.store.pool.query("SELECT details FROM fw_event_log WHERE request_id=$1 AND event_type='model.call.started.v1'", [input.requestId])).rows;
     assert.equal(records.length, 2); assert.ok(records.every(r => r.details.worldVersion === '1' && r.details.worldDigest === world1.digest));
     const next = await newService.reset(user.token, request(user.currentScopeId).requestId, user.currentScopeId);

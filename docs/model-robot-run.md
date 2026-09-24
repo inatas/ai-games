@@ -1,10 +1,12 @@
 # 模型Robot本地对局 v1
 
-座位工具仍在`/werewolf`。模型服务启用后，目录中的“星河”可入座；选择恰好一名模型Robot与十一名脚本Robot，房主点击“开始游戏”。纯脚本阵容继续进入原演示；含模型的阵容进入独立的PostgreSQL持久房间。刷新后从已保存的房间号继续公共旁观，本地调试可切换席位视角。
+座位工具仍在`/werewolf`。当前目录包含`robot-001`～`012`共12名模型Robot，以及`robot-013`“星河”脚本Robot。模型服务启用后，可选择12名模型Robot满席，或选择包含“星河”的混合阵容，点击“开始游戏”进入独立的PostgreSQL持久房间。刷新后从已保存的房间号继续公共旁观，本地调试可切换席位视角。无模型服务时，手动座位工具只有1名脚本用户可选；独立的自动脚本演示仍可使用。
 
-启用前为本地服务提供开发用`DATABASE_URL`、`MODEL_BASE_URL`、`MODEL_NAME`、`MODEL_API_KEY`，以及准确的供应商单价`MODEL_INPUT_CNY_PER_MILLION`和`MODEL_OUTPUT_CNY_PER_MILLION`。`MODEL_PROTOCOL`可为`json-schema`（默认）或`deepseek`。显式设置`WEREWOLF_MODEL_ENABLED=true`后重启`npm run demo:werewolf`；缺任一模型凭据或单价时，模型服务启动失败，不会改用脚本代替。不要把密钥写进Robot JSON、浏览器或文档。
+启用前为本地服务提供开发用`DATABASE_URL`、DeepSeek的`MODEL_BASE_URL`、`MODEL_NAME`、`MODEL_API_KEY`、`MODEL_PROTOCOL=deepseek`。显式设置`WEREWOLF_MODEL_ENABLED=true`后重启`npm run demo:werewolf`；缺模型凭据时，模型服务启动失败，不会改用脚本代替。不要把密钥写进Robot JSON、浏览器或文档。宿主机启动进程必须能访问DeepSeek；只在浏览器能访问不代表后端进程有外网权限，可先从同一启动环境检查不计费的`GET /models`。
 
-首次试跑共用数据库中的`ww_model_budget`账本，所有模型请求在发往供应商前按输入字节上界与输出token上限保守预留费用，合计预留不超过人民币10元；失败调用仍占预留额。单价必须由服务端按实际供应商价格正确配置，账本不能纠正错误报价或供应商额外收费。目录只公开模型席位是否可选，不返回profile环境变量名或密钥。付费开局仅接受本机请求；席位私密调试视角也只接受本机请求。
+本地Compose应用也会转发上述模型房间开关；运行时继续使用现有持久PostgreSQL和4318端口。全局MUD的`MODEL_MODE=mock`不影响独立的狼人杀模型房间。2026-09-24本机已启用DeepSeek Flash模型房间服务，目录13人均可选。若改在宿主机启动同一数据库的模型房间服务，先执行`docker compose stop app`；旧容器即使没有发布端口，也会继续恢复房间并与宿主机服务并行调度。
+
+`GET /api/werewolf/model/:id/usage`按局返回供应商成功响应报告的`inputTokens`、`outputTokens`、`reportedCalls`与`unreportedCalls`；仅本机可访问。失败请求不记Token；成功响应缺少usage时只增加`unreportedCalls`，不估算，也不换算人民币。API端负责费用控制。旧`ww_model_budget`表保留历史预留数据，但模型服务不再读写它。目录只公开模型席位是否可选，不返回profile环境变量名或密钥。付费开局及席位私密调试视角仍仅接受本机请求。
 
 狼人、预言家并行共享前60秒；女巫随后30秒。即使女巫死亡，前60秒行动截止后仍保持30秒黑夜。上警竞选发言与普通日间发言上限120秒，当选警长的日间发言上限150秒，PK与遗言90秒，报名/投票/猎人30秒，退水/方向/警徽20秒。模型或脚本Robot在普通日间发言、上警竞选发言和PK发言提交合法非空内容后，保留3秒再结束当前席位；距原截止不足3秒时仍以原截止结束。其他阶段的早到结果不会推进下一阶段；无合法输入时按[游戏默认动作](../mods/werewolf/docs/action-deadlines-v1.md)在行动截止结算。模型不主动自爆。
 
@@ -14,4 +16,4 @@
 
 代码验证：类型检查、仓库检查、单元测试和前端构建。真实PostgreSQL集成测试需运行独立`postgres-test`环境，真实模型全局试跑需上述环境与凭据；两者未运行前不能视为端到端验收完成。
 
-2026-09-23 在隔离PostgreSQL与本机4319端口，用一名DeepSeek Flash模型Robot及十一名脚本Robot完成一局标准速度对局；第5天狼人获胜。18次供应商响应、17次最终校验成功的决策（其中一次格式修复）、无调用失败；实际usage合计输入60,423、输出1,185 token。费用以当时最高列价估算约0.13元，持久账本保守预留0.677元，均低于10元上限。完整内部请求与结果保存在本机忽略目录`.local/deepseek-trial-20260923-events.json`，不可直接公开给旁观者。
+2026-09-23 在隔离PostgreSQL与本机4319端口，用一名DeepSeek Flash模型Robot及十一名脚本Robot完成一局标准速度对局；第5天狼人获胜。18次供应商响应、17次最终校验成功的决策（其中一次格式修复）、无调用失败；供应商报告输入60,423、输出1,185 token。当时旧预留账本记录0.677元估算上界；该数不是供应商账单，且此机制现已停用。完整内部请求与结果保存在本机忽略目录`.local/deepseek-trial-20260923-events.json`，不可直接公开给旁观者。

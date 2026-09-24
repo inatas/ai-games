@@ -221,9 +221,12 @@ export function decideMatch(source: Match, revision: number, seat: number, value
       break;
     }
     case 'save': case 'poison': case 'pass': {
+      const savedTarget = action.kind === 'save' ? state.knife : null;
       const used = useMedicine(state.game, seat, state.knife, action);
       state.game = used.state; state.knife = used.knife; state.poison = used.poison;
-      state.events.push({ type: 'medicine', audience: [seat], data: { seat, action } });
+      state.events.push({ type: 'medicine', audience: [seat], data: {
+        seat, action, ...(action.kind === 'save' ? { target: savedTarget } : {}),
+      } });
       dawn(state); break;
     }
     case 'inspect': {

@@ -11,8 +11,10 @@
     "position": "48% 23%"
   },
   "control": {
-    "kind": "model",
-    "modelProfile": "environment-default"
+    "kind": "script",
+    "strategy": "random",
+    "modelProfile": null,
+    "speech": "我是狼人杀玩家"
   },
   "gender": "male",
   "persona": {

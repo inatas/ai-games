@@ -5,29 +5,20 @@ import { werewolfDefinition } from '../../../mods/werewolf/src/definition.ts';
 import { buildRobotAdapters } from './robot-adapters.ts';
 import { loadModelProfiles, loadRobotUsers } from './robot-users.ts';
 import { setupRobotRoom } from './werewolf-model-room.ts';
-import { BudgetedModelAdapter } from './model-budget.ts';
-import { ModelBudgetLedger } from './model-budget-ledger.ts';
+import { summarizeRoomTokenUsage } from './model-token-usage.ts';
 import { modelRoomSnapshot } from './werewolf-model-snapshot.ts';
 import type { DemoSnapshot } from '../../shared/werewolf.ts';
 
-/** Persistent trusted host for exactly one model Robot and eleven script Robots per room. */
+/** Persistent trusted host for model-led Robot rooms, including twelve model seats. */
 export class WerewolfModelService {
   private users = loadRobotUsers();
   private adapters: ReturnType<typeof buildRobotAdapters>;
-  private ledger: ModelBudgetLedger;
   private runtimes = new Map<number, RoomRuntime>();
   private running = new Set<string>();
   private closed = false;
 
   constructor(private store: PostgresStore) {
-    const inputCnyPerMillion = Number(process.env.MODEL_INPUT_CNY_PER_MILLION);
-    const outputCnyPerMillion = Number(process.env.MODEL_OUTPUT_CNY_PER_MILLION);
-    if (!process.env.MODEL_INPUT_CNY_PER_MILLION || !process.env.MODEL_OUTPUT_CNY_PER_MILLION) {
-      throw new HarnessError('MODEL_PRICE_MISSING');
-    }
-    this.ledger = new ModelBudgetLedger(store);
-    this.adapters = buildRobotAdapters(this.users, loadModelProfiles(), process.env, adapter =>
-      new BudgetedModelAdapter(adapter, { inputCnyPerMillion, outputCnyPerMillion }, amount => this.ledger.reserve(amount)));
+    this.adapters = buildRobotAdapters(this.users, loadModelProfiles());
   }
 
   private runtime(seed: number): RoomRuntime {
@@ -43,7 +34,6 @@ export class WerewolfModelService {
   async migrate(): Promise<void> {
     await this.store.migrate();
     await this.runtime(0).migrate();
-    await this.ledger.migrate();
   }
 
   private async roomSeed(id: string): Promise<number> {
@@ -107,6 +97,11 @@ export class WerewolfModelService {
       eventType: row.event_type, occurredAt: row.occurred_at, userId: row.user_id,
       modId: row.mod_id, roomId: row.room_id, requestId: row.request_id,
       result: row.result, details: row.details }));
+  }
+
+  async usage(id: string) {
+    await this.roomSeed(id);
+    return summarizeRoomTokenUsage(this.store, id);
   }
 
   async close(): Promise<void> {

@@ -4,6 +4,16 @@ import { buildContext, conservativeCounter } from '@game-ai/core';
 
 const emptyContext = { facts: {}, instructions: '', input: {}, schema: {}, required: [], optional: [] };
 
+test('MC-01: framework and game rules form a stable prefix before the dynamic schema', () => {
+  const first = buildContext({ ...emptyContext, instructions: 'Stable game rules', schema: { enum: ['a'] }, facts: { turn: 1 } });
+  const second = buildContext({ ...emptyContext, instructions: 'Stable game rules', schema: { enum: ['b'] }, facts: { turn: 2 } });
+  assert.deepEqual(first.messages.slice(0, 2), second.messages.slice(0, 2));
+  assert.equal(first.messages[0].role, 'system');
+  assert.equal(first.messages[1].content, 'Stable game rules');
+  assert.match(first.messages[2].content, /^OUTPUT_SCHEMA:/);
+  assert.notDeepEqual(first.messages[2], second.messages[2]);
+});
+
 test('F-19: optional memory is ranked, deduplicated and budgeted', () => {
   const records = [1, 2, 3].map(n => ({ id: `E${n}`, kind: 'event' as const, payload: { n }, importance: n, sequence: n, sourceIds: [], visibility: 'public' as const }));
   const counter = (messages: any[]) => 7000 + JSON.parse(messages.find(m => m.content.startsWith('HISTORY:')).content.slice(8)).length * 500;

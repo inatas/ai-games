@@ -22,6 +22,21 @@ test('WD-01: wolves and seer share a sealed phase; medicine follows locked knife
   assert.notEqual(state.stage, 'seer');
 });
 
+test('a successful antidote action records its actual target for the witch alone', () => {
+  let state = createMatch({ seed: 42, sheriff: 'none' });
+  const seer = state.game.players.find(player => player.role === 'seer')!.seat;
+  const witch = state.game.players.find(player => player.role === 'witch')!.seat;
+  const target = state.game.players.find(player => player.role === 'villager')!.seat;
+  const wolves = state.game.players.filter(player => player.role === 'wolf').map(player => player.seat);
+  state = decideMatch(state, state.revision, seer, { kind: 'inspect', target });
+  for (const wolf of wolves) state = decideMatch(state, state.revision, wolf, { kind: 'knife', target });
+  state = decideMatch(state, state.revision, witch, { kind: 'save' });
+  const medicine = state.events.find(event => event.type === 'medicine');
+  assert.deepEqual(medicine?.audience, [witch]);
+  assert.deepEqual(medicine?.data, { seat: witch, action: { kind: 'save' }, target });
+  assert.equal(state.game.players.find(player => player.seat === target)?.alive, true);
+});
+
 test('WD-04/05: speech history and game result are identical under fine and delayed host ticks', async () => {
   const { demoClock } = await import('./demo-clock.ts');
   const clock = demoClock();

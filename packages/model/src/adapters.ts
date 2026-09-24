@@ -43,8 +43,19 @@ export class ChatCompletionsAdapter implements ModelAdapter {
     catch { throw new HarnessError('MODEL_UNAVAILABLE'); }
     const text = body.choices?.[0]?.message?.content;
     if (typeof text !== 'string' || !text.trim()) throw new HarnessError('MODEL_UNAVAILABLE');
-    return { rawText: text, model: this.config.model, usage: Number.isFinite(body.usage?.prompt_tokens) && Number.isFinite(body.usage?.completion_tokens)
-      ? { inputTokens: body.usage.prompt_tokens, outputTokens: body.usage.completion_tokens } : null };
+    const providerUsage = body.usage;
+    let usage: ModelResponse['usage'] = null;
+    if (Number.isFinite(providerUsage?.prompt_tokens) && Number.isFinite(providerUsage?.completion_tokens)) {
+      usage = { inputTokens: providerUsage.prompt_tokens, outputTokens: providerUsage.completion_tokens };
+      const hit = providerUsage.prompt_cache_hit_tokens;
+      const miss = providerUsage.prompt_cache_miss_tokens;
+      if (deepseek && Number.isSafeInteger(hit) && hit >= 0 && Number.isSafeInteger(miss) && miss >= 0
+        && hit + miss === usage.inputTokens) {
+        usage.promptCacheHitTokens = hit;
+        usage.promptCacheMissTokens = miss;
+      }
+    }
+    return { rawText: text, model: this.config.model, usage };
   }
 }
 

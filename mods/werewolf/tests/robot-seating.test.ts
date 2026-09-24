@@ -2,27 +2,24 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildWerewolfDemo } from '../../../apps/server/src/werewolf-demo.ts';
 
-test('Robot tool: catalog, validated manual start and idempotent roster', async () => {
+test('RR-05: catalog disables model users without service while standalone script demo remains available', async () => {
   const app = await buildWerewolfDemo();
   try {
     const catalog = await app.inject('/api/robot-users');
     assert.equal(catalog.statusCode, 200);
     const users = catalog.json();
-    assert.ok(users.length >= 12);
+    assert.equal(users.length, 13);
     assert.equal(new Set(users.map((u: any) => u.userId)).size, users.length);
     assert.ok(users.every((u: any) => !u.control && !u.persona));
+    assert.equal(users.filter((u: any) => u.available).length, 1);
     const payload = { requestId: 'seating-test-0001', seed: 22, userIds: users.slice(0, 12).map((u: any) => u.userId) };
     for (const ids of [payload.userIds.slice(1), [...payload.userIds.slice(1), payload.userIds[1]], [...payload.userIds.slice(1), 'unknown']]) {
       assert.equal((await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload:{...payload,userIds:ids}})).statusCode,400);
     }
-    const start = (await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload})).json();
-    assert.equal(start.status, 'running');
-    assert.equal(start.players[0].user.userId, users[0].userId);
-    const repeat = (await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload})).json();
-    assert.equal(repeat.id, start.id);
-    assert.equal((await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload:{...payload,seed:23}})).statusCode,409);
-    const swapped = (await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload:{...payload,requestId:'seating-test-0002',userIds:[...payload.userIds].reverse()}})).json();
-    assert.equal(swapped.players[11].user.userId, users[0].userId);
+    assert.equal((await app.inject({method:'POST',url:'/api/werewolf/demo/start',payload})).statusCode,400);
+    const standalone = await app.inject({method:'POST',url:'/api/werewolf/demo',payload:{seed:22,strategy:'random'}});
+    assert.equal(standalone.statusCode,200);
+    assert.equal(standalone.json().status,'running');
   } finally { await app.close(); }
 });
 
@@ -36,15 +33,19 @@ test('Robot catalog rejects duplicate identity and unsupported controllers; fill
   assert.throws(() => validateRobotUsers([{ ...users[0], control: { kind: 'model' } }]), /INVALID/);
   const seats: (string | null)[] = Array(12).fill(null);
   seats[4] = users[0].userId;
-  const filled = fillRobotSeats(seats, users.map(user => ({ ...user, available: user.control.kind === 'script' })), () => 0.5);
+  const available = users.map(user => ({ ...user, available: true }));
+  const filled = fillRobotSeats(seats, available, () => 0.5);
   assert.equal(filled[4], users[0].userId);
   assert.equal(new Set(filled).size, 12);
   assert.equal(seats.filter(Boolean).length, 1);
-  assert.deepEqual(fillRobotSeats(filled, users.map(user => ({ ...user, available: user.control.kind === 'script' }))), filled);
+  assert.deepEqual(fillRobotSeats(filled, available), filled);
+  const disabled = fillRobotSeats(Array(12).fill(null), users.map(user => ({ ...user, available: user.control.kind === 'script' })));
+  assert.equal(disabled.filter(Boolean).length, 1);
 });
 
 test('Robot roster remains attached to users through a full game and owns each fixed speech', () => {
-  const users = loadRobotUsers().filter(user => user.control.kind === 'script').map(user => ({ ...user, control: user.control as Extract<typeof user.control, {kind: 'script'}> })).reverse();
+  const scriptControl = loadRobotUsers().find(user => user.control.kind === 'script')!.control as Extract<ReturnType<typeof loadRobotUsers>[number]['control'], {kind: 'script'}>;
+  const users = loadRobotUsers().slice(0, 12).map(user => ({ ...user, control: structuredClone(scriptControl) })).reverse();
   users.forEach(user => { user.control.speech = `我是${user.nickname}`; });
   const clock = demoClock();
   let game = clock.rooms.create(22, 'random', users);
@@ -67,7 +68,9 @@ test('Model Robot config loads but cannot enter a script game or random fill', a
   assert.throws(() => validateRobotUsers([{ ...model, control: { kind: 'model', modelProfile: 'unknown' } }]), /PROFILE/);
   assert.throws(() => validateRobotUsers([{ ...model, control: { kind: 'model', modelProfile: 'environment-default', apiKey: 'not-allowed' } }]), /INVALID/);
   const script = users.filter(user => user.control.kind === 'script');
-  assert.throws(() => demoClock().rooms.create(42, 'random', [...script.slice(0, 11), model]), /MODEL_ROBOT_NOT_READY/);
+  assert.equal(script.length, 1);
+  const syntheticScripts = users.slice(1, 12).map(user => ({ ...user, control: script[0].control }));
+  assert.throws(() => demoClock().rooms.create(42, 'random', [...syntheticScripts, model]), /MODEL_ROBOT_NOT_READY/);
   const app = await buildWerewolfDemo();
   try {
     const catalog = (await app.inject('/api/robot-users')).json();
@@ -77,9 +80,9 @@ test('Model Robot config loads but cannot enter a script game or random fill', a
     assert.doesNotMatch(JSON.stringify(catalog), /modelProfile|MODEL_API_KEY|baseUrl|persona/);
     const filled = fillRobotSeats(Array(12).fill(null), catalog, () => 0);
     assert.equal(filled.includes(model.userId), false);
-    assert.equal(new Set(filled).size, 12);
+    assert.equal(filled.filter(Boolean).length, 1);
     const response = await app.inject({ method: 'POST', url: '/api/werewolf/demo/start', payload: {
-      requestId: 'model-config-only', seed: 42, userIds: [...script.slice(0, 11).map(user => user.userId), model.userId],
+      requestId: 'model-config-only', seed: 42, userIds: users.slice(0, 12).map(user => user.userId),
     } });
     assert.equal(response.statusCode, 400);
     assert.match(response.json().error, /模型/);

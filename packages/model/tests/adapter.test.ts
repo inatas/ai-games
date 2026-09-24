@@ -45,3 +45,24 @@ test('DS-01/02/03/04: DeepSeek profile uses JSON Output without changing generic
  }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
 });
 
+test('MC-04/05: DeepSeek preserves valid cache usage and ignores invalid or absent cache fields', async () => {
+ let usage:any={prompt_tokens:10,completion_tokens:2,prompt_cache_hit_tokens:7,prompt_cache_miss_tokens:3};
+ const server=createServer(async (_req,res)=>{
+   res.setHeader('content-type','application/json');
+   res.end(JSON.stringify({choices:[{message:{content:'{"decision":"ACCEPT"}'}}],usage}));
+ });
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const adapter=new ChatCompletionsAdapter({baseUrl:`http://127.0.0.1:${(server.address() as any).port}/v1`,apiKey:'test-only',model:'deepseek-flash',protocol:'deepseek'});
+ const request={requestId:'cache-test',attempt:1,messages:[{role:'user' as const,content:'sample'}],outputSchema:{type:'object'},maxOutputTokens:100};
+ try {
+   assert.deepEqual((await adapter.generate(request,new AbortController().signal)).usage,
+     {inputTokens:10,outputTokens:2,promptCacheHitTokens:7,promptCacheMissTokens:3});
+   usage={prompt_tokens:10,completion_tokens:2};
+   assert.deepEqual((await adapter.generate(request,new AbortController().signal)).usage,{inputTokens:10,outputTokens:2});
+   for (const [hit,miss] of [[-1,11],[7,2],[7.5,2.5],['7',3]]) {
+     usage={prompt_tokens:10,completion_tokens:2,prompt_cache_hit_tokens:hit,prompt_cache_miss_tokens:miss};
+     assert.deepEqual((await adapter.generate(request,new AbortController().signal)).usage,{inputTokens:10,outputTokens:2});
+   }
+ } finally {server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+

@@ -117,6 +117,9 @@ export function advanceElection(source: Election, revision: number, seat: number
       const result = tallyVotes(election.game, election.ballots, {
         kind: 'sheriff', voters: election.ballots.map(v => v.seat), candidates: election.candidates, runoff: election.runoff,
       });
+      election.events.push({ type: 'sheriff-votes', audience: 'public', data: {
+        ...result, sheriff: null, runoff: election.runoff,
+      } });
       if (result.tied.length) {
         election.candidates = result.tied;
         election.pending = [...result.tied];
