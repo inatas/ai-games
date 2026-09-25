@@ -75,11 +75,36 @@ test('WW-33,65: withdrawal precedes vote, original candidates never acquire voti
   assert.equal(state.pending.includes(1), false);
   assert.throws(() => advanceElection(state, state.revision, 1, { kind: 'vote', target: 9 }), /INELIGIBLE_ELECTION_ACTOR/);
   assert.throws(() => advanceElection(state, state.revision, 9, { kind: 'withdraw', withdraw: true }), /WRONG_ELECTION_ACTION/);
-  const single = advanceElection(speakAll(beginElection(game(), [9, 10])), 2, 9, { kind: 'withdraw', withdraw: true });
+  const withdrawing = advanceElection(speakAll(beginElection(game(), [9, 10])), 2, 9, { kind: 'withdraw', withdraw: true });
+  assert.equal(withdrawing.stage, 'withdrawal');
+  const single = advanceElection(withdrawing, withdrawing.revision, 10, { kind: 'withdraw', withdraw: false });
   assert.equal(single.stage, 'finished');
   assert.equal(single.game.sheriff, 10);
   assert.equal(beginElection(game(), [9]).game.sheriff, 9);
   assert.equal(beginElection(game(), []).game.sheriff, null);
+});
+
+test('WW-77,79: shared withdrawal accepts any candidate order and resolves only after everyone decides', () => {
+  const initial = speakAll(beginElection(game(), [1, 2, 3]));
+  const first = advanceElection(initial, initial.revision, 3, { kind: 'withdraw', withdraw: true });
+  assert.equal(first.stage, 'withdrawal');
+  assert.deepEqual(first.pending, [1, 2]);
+  const second = advanceElection(first, first.revision, 1, { kind: 'withdraw', withdraw: true });
+  assert.equal(second.stage, 'withdrawal');
+  assert.deepEqual(second.pending, [2]);
+  const elected = advanceElection(second, second.revision, 2, { kind: 'withdraw', withdraw: false });
+  assert.equal(elected.stage, 'finished');
+  assert.equal(elected.game.sheriff, 2);
+
+  let none = initial;
+  for (const seat of [2, 1, 3]) none = advanceElection(none, none.revision, seat, { kind: 'withdraw', withdraw: true });
+  assert.equal(none.stage, 'finished');
+  assert.equal(none.game.sheriff, null);
+
+  const reverse = [1, 3, 2].reduce((state, seat) => advanceElection(state, state.revision, seat,
+    { kind: 'withdraw', withdraw: seat !== 2 }), initial);
+  assert.equal(reverse.game.sheriff, elected.game.sheriff);
+  assert.deepEqual(reverse.candidates, elected.candidates);
 });
 
 test('WW-35: tie gets one PK round; second tie or all abstentions loses badge', () => {

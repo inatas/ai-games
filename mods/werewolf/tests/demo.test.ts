@@ -46,6 +46,10 @@ test('UI-02/04: fixed/random runs finish; night segments and deaths cannot revea
         assert.equal(game.progress, null);
         assert.equal(game.timing.remainingMs, game.nightSegment === 'shared' ? 90_000 : 30_000);
       }
+      if (game.phaseLabel === '警长退水') {
+        assert.equal(game.actor, null);
+        assert.equal(game.timing.remainingMs, 10_000);
+      }
       assert.equal(game.roles, undefined);
       assert.equal(game.replay, undefined);
       game = clock.advance(game.id);

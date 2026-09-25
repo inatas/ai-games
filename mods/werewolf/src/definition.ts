@@ -18,7 +18,7 @@ function transition(match: Match, eventOffset: number): Transition {
 export function werewolfDefinition(options: MatchOptions): RoomDefinition {
   const config = { ...options };
   const definition: RoomDefinition = {
-    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}.rules2`, seats: 12,
+    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}.rules3`, seats: 12,
     instructions: '你是十二人预女猎白的一名玩家。只根据授权事实和自己的身份决策，不得假设未知身份。game_state与public_history是所有平民能看到的公开事实；self与private_information是你因自身身份额外知道的事实。私密狼刀口只代表攻击目标，不代表目标已经死亡；实际夜死以公开公告和存活状态为准。你可以策略性谎报，但须先分清事实与自己的说法。按当前JSON Schema选择行动；发言最多300字。狼人屠边，好人消灭狼人，双方同时达标平局；所有出局链结束再结算。狼刀忽略空刀票，女巫不可自救且每夜单药，预言家不可连续查验同一人。警长放逐票权1.5，白痴翻牌后无投票权且不可被投。',
     initialize: () => {
       const match = createMatch(config);
@@ -57,7 +57,8 @@ export function werewolfDefinition(options: MatchOptions): RoomDefinition {
       }
       if (key === 'election-speech') return 120_000;
       if (['pk', 'election-pk', 'last-words'].includes(key ?? '')) return 90_000;
-      if (['direction', 'election-withdrawal', 'badge-transfer'].includes(key ?? '')) return 20_000;
+      if (key === 'election-withdrawal') return 10_000;
+      if (['direction', 'badge-transfer'].includes(key ?? '')) return 20_000;
       return 30_000;
     },
     validateInterrupt: (source, _phase, seat, value) => {

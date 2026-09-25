@@ -38,12 +38,13 @@ export class DemoRooms {
     if (key === 'witch') return 30_000;
     if (key === 'speech' || key === 'election-speech') return 150_000;
     if (key === 'pk' || key === 'election-pk' || key === 'last-words') return 90_000;
-    if (key === 'direction' || key === 'badge-transfer' || key === 'election-withdrawal') return 20_000;
+    if (key === 'election-withdrawal') return 10_000;
+    if (key === 'direction' || key === 'badge-transfer') return 20_000;
     return 30_000;
   }
 
   private waitTime(session: Session): number {
-    return ['wolves', 'witch'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
+    return ['wolves', 'witch', 'election-withdrawal'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
   }
 
   create(seed: number, strategy: 'fixed' | 'random', roster?: RobotUser[]) {

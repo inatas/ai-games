@@ -85,7 +85,7 @@ export function advanceElection(source: Election, revision: number, seat: number
   const expected = source.stage === 'speech' || source.stage === 'pk' ? 'speak'
     : source.stage === 'withdrawal' ? 'withdraw' : source.stage === 'voting' ? 'vote' : null;
   if (!action || !expected || action.kind !== expected) throw new Error('WRONG_ELECTION_ACTION');
-  if (!source.pending.includes(seat) || (source.stage !== 'voting' && source.pending[0] !== seat)) {
+  if (!source.pending.includes(seat) || (source.stage !== 'voting' && source.stage !== 'withdrawal' && source.pending[0] !== seat)) {
     throw new Error('INELIGIBLE_ELECTION_ACTOR');
   }
   const keys = action.kind === 'speak' ? 'kind,text' : action.kind === 'withdraw' ? 'kind,withdraw' : 'kind,target';
@@ -108,7 +108,7 @@ export function advanceElection(source: Election, revision: number, seat: number
       election.candidates = election.candidates.filter(candidate => candidate !== seat);
       election.events.push({ type: 'sheriff-withdrawal', audience: 'public', data: { seat } });
     }
-    if (!finishIfUncontested(election) && !election.pending.length) beginVoting(election);
+    if (!election.pending.length) beginVoting(election);
   } else {
     if (action.target !== null && !election.candidates.includes(action.target)) throw new Error('INVALID_VOTE_TARGET');
     election.ballots.push({ seat, target: action.target });

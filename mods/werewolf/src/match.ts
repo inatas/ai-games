@@ -180,11 +180,13 @@ export function matchPhase(state: Match): Phase | null {
     case 'election': {
       const election = state.election!;
       key = `election-${election.stage}`;
-      label = '警长竞选';
+      label = election.stage === 'withdrawal' ? '警长退水' : '警长竞选';
       actors = election.pending;
       if (election.stage === 'voting') {
         mode = 'sealed'; schema = actionSchema('vote', { target: targetSchema(election.candidates) });
-      } else if (election.stage === 'withdrawal') schema = actionSchema('withdraw', { withdraw: { type: 'boolean' } });
+      } else if (election.stage === 'withdrawal') {
+        mode = 'sealed'; schema = actionSchema('withdraw', { withdraw: { type: 'boolean' } });
+      }
       else schema = actionSchema('speak', { text: speechSchema });
       break;
     }

@@ -15,6 +15,6 @@
 - [003 狼人杀模型规则前缀](003-model-context-cache.md)：proposed；稳定牌局规则前置与动态事实去重 v1 已确认实施，依赖[框架需求 023](../../../../.agents/note/023-model-context-cache.md)。
 - [004 狼人杀事实上下文与遗言一致性](004-witch-claim-consistency.md)：proposed；事实上下文投影 v1.3 已实施并验证，遗言拦截待单独确认；双服务调度另见[根需求 025](../../../../.agents/note/025-model-room-single-owner.md)。
 - [005 网页模型对局测试台](005-web-model-test.md)：implemented；本机免手工口令、用户目录凭据与一条指令启动均已部署，待网页新局实测；旧账本/日志清理见根需求 021、024。
-- [006 警长共用退水窗口](006-shared-sheriff-withdrawal.md)：proposed；开发方案 v1 已确认实施，全体候选人共用 10 秒退水窗口，再锁名单投票。
+- [006 警长共用退水窗口](006-shared-sheriff-withdrawal.md)：implemented；全体候选人共用 10 秒退水窗口，再锁名单投票，网页真人新局待复核。
 
 当前没有 `rejected` 或 `archived` 的狼人杀 note；状态变化时同步本索引。

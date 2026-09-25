@@ -179,7 +179,8 @@ export default function WerewolfRoom() {
     <button className="ww-record-toggle" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}><span>{expanded ? '⋀' : '⋁'}</span>公开记录<span>{expanded ? '⋀' : '⋁'}</span></button>
     <div className={`ww-status ${error ? 'has-error' : ''}`} role="status">{status}{!isPreview && game.status === 'running' && !error && <span className="ww-countdown"> · {Math.ceil(game.timing.remainingMs / 1000)}秒</span>}</div>
     {game.players.map(player => {
-      const state = publicSeatState(player.seat, player.alive, game.events, game.phaseLabel === '警长竞选');
+      const state = publicSeatState(player.seat, player.alive, game.events,
+        game.phaseLabel === '警长竞选' || game.phaseLabel === '警长退水');
       const seen = knowledge?.inspections?.findLast(item => item.target === player.seat);
       const privateIdentity = knowledge?.seat === player.seat ? roleNames[knowledge.role] : knowledge?.wolves?.includes(player.seat) ? '狼' : seen ? (seen.alignment === 'wolf' ? '狼' : '好') : undefined;
       const identity = ended ? roleNames[game.roles?.find(item => item.seat === player.seat)?.role ?? '']

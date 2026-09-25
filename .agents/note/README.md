@@ -33,6 +33,7 @@
 | [025 模型房间单一调度宿主](025-model-room-single-owner.md) | proposed | 防止双服务并行推进；方案待确认 |
 | [026 Agent Note 生命周期](026-agent-note-lifecycle.md) | implemented | 四态、目录规范与唯一索引检查已落地 |
 | [027 开发任务层级归属](027-layer-ownership-routing.md) | implemented | 三个 note 目录及对应 docs 的路由规则已写入项目入口 |
+| [028 全仓三层归属重组](028-repository-layer-reorganization.md) | proposed | v1 待确认；迁移根目录错位文档与应用中的 MOD 专属代码 |
 
 目前没有标为 `rejected` 或 `archived` 的编号 note。状态变化时同步此表；不要因暂时无人开发就把 `proposed` 猜作 `rejected`，也不要因代码已存在就把待验收范围标为 `implemented`。
 
