@@ -10,7 +10,7 @@
 
 ## 接口、数据和实现位置
 
-裁判已有在每轮警长投票完全结算后发出的公开`sheriff-votes`事件，数据包含`ballots/totals/winner/tied/runoff/sheriff`；不增加或修改裁判事件、HTTP接口、快照结构和存档。前端`apps/web/src/werewolf/room.tsx`的中央事件投影改为过滤三类发言占位事件、保留`sheriff-votes`；`apps/web/src/werewolf/live-scene.tsx`的票型展示按事件类型区分“警长竞选／警长PK／放逐投票”标题和结算用语，复用现有票向摘要与样式。仅用公开`game.events`，不读取终局`replay`或席位私密视角。无事务、幂等、恢复或部署变化。
+裁判已有在每轮警长投票完全结算后发出的公开`sheriff-votes`事件，数据包含`ballots/totals/winner/tied/runoff/sheriff`；不增加或修改裁判事件、HTTP接口、快照结构和存档。前端`mods/werewolf/web/room.tsx`的中央事件投影改为过滤三类发言占位事件、保留`sheriff-votes`；`mods/werewolf/web/live-scene.tsx`的票型展示按事件类型区分“警长竞选／警长PK／放逐投票”标题和结算用语，复用现有票向摘要与样式。仅用公开`game.events`，不读取终局`replay`或席位私密视角。无事务、幂等、恢复或部署变化。
 
 ## 验收与实施顺序
 

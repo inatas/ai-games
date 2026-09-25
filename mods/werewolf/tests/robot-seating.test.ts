@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWerewolfDemo } from '../../../apps/server/src/werewolf-demo.ts';
+import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 
 test('RR-05: catalog disables model users without service while standalone script demo remains available', async () => {
   const app = await buildWerewolfDemo();
@@ -23,8 +23,8 @@ test('RR-05: catalog disables model users without service while standalone scrip
   } finally { await app.close(); }
 });
 
-import { loadRobotUsers, validateRobotUsers } from '../../../apps/server/src/robot-users.ts';
-import { fillRobotSeats } from '../../../apps/shared/robot-seating.ts';
+import { loadRobotUsers, validateRobotUsers } from '../server/robot-users.ts';
+import { fillRobotSeats } from '../shared/robot-seating.ts';
 import { demoClock } from './demo-clock.ts';
 
 test('Robot catalog rejects duplicate identity and unsupported controllers; fill preserves occupied seats', () => {

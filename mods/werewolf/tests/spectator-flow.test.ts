@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DemoRooms } from '../src/demo.ts';
-import { buildWerewolfDemo } from '../../../apps/server/src/werewolf-demo.ts';
+import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 
 test('V4-01/02/03: host clock runs without reads; GET is read-only; only speakers have avatars', () => {
   let now = 0;
@@ -54,7 +54,7 @@ test('V4-02: removed controls cannot pause/step a live HTTP game', async t => {
 });
 
 test('V4-04: initial/suppressed/duplicate snapshots do not replay old announcements', async () => {
-  const { nextPresentation } = await import('../../../apps/web/src/werewolf/presentation.ts');
+  const { nextPresentation } = await import('../web/presentation.ts');
   const rooms = new DemoRooms({now:()=>0});
   const base = rooms.create(42, 'fixed');
   let update = nextPresentation(null, base, false);
@@ -72,7 +72,7 @@ test('V4-04: initial/suppressed/duplicate snapshots do not replay old announceme
 });
 
 test('first-day peaceful-night announcement survives batched revisions and an open history panel', async () => {
-  const { nextPresentation } = await import('../../../apps/web/src/werewolf/presentation.ts');
+  const { nextPresentation } = await import('../web/presentation.ts');
   const rooms = new DemoRooms({now:()=>0});
   const base = rooms.create(42, 'fixed');
   const before = {...base, revision:3, period:'day' as const, events:[]};
@@ -95,7 +95,7 @@ test('first-day peaceful-night announcement survives batched revisions and an op
 });
 
 test('V4-05: vote summary groups voters without losing abstentions or sheriff weight', async () => {
-  const { summarizeVotes } = await import('../../../apps/web/src/werewolf/presentation.ts');
+  const { summarizeVotes } = await import('../web/presentation.ts');
   const result = summarizeVotes({
     ballots:[{seat:1,target:6,kind:'vote'},{seat:2,target:6,kind:'vote'},{seat:6,target:5,kind:'vote'},{seat:10,target:null,kind:'abstain'},{seat:11,target:null,kind:'missing'}],
     totals:[{seat:6,votes:2.5},{seat:5,votes:1}],winner:6,tied:[],sheriff:1,

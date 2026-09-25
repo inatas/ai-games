@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { werewolfDemoRoutes } from './werewolf-demo.ts';
+import { werewolfDemoRoutes } from '../../../mods/werewolf/server/werewolf-demo.ts';
 import fastifyStatic from '@fastify/static';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { PostgresStore, loadWorldview } from '@game-ai/storage';
 import { qingxiHost } from '../../../mods/qingxi/src/host.ts';
 import { socialProjection, sendMessage, mutateParty, heartbeat, lockRealm, retireCharacter } from '@game-ai/platform';
 import type { ModHost } from '@game-ai/game-systems';
-import { WerewolfModelService } from './werewolf-model-service.ts';
+import { WerewolfModelService } from '../../../mods/werewolf/server/werewolf-model-service.ts';
 
 export async function buildApp(store: PostgresStore, model: ModelAdapter, mode = 'mock', host: ModHost = qingxiHost(store)) {
   const actions=host.actions;

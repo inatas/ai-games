@@ -8,7 +8,7 @@ Status: proposed；方案 v1 待确认（2026-09-24）。
 
 ## 范围
 
-建议在狼人杀模型房间服务启动前取得同一 PostgreSQL 数据库的独占调度所有权；只有持有者能恢复房间、开新局或发模型请求。设计见[单一宿主 v1](../../docs/specs/model-room-single-owner-v1.md)，验收见[测试设计](../../docs/testing/model-room-single-owner-v1.md)。旧版程序若未实现同一锁仍可并行；部署时必须先停用旧版并核对进程。不修改其他游戏的房间调度、不清理或改写已有 000013 存档，也不改变供应商费用控制。
+建议在狼人杀模型房间服务启动前取得同一 PostgreSQL 数据库的独占调度所有权；只有持有者能恢复房间、开新局或发模型请求。设计见[单一宿主 v1](../../mods/werewolf/docs/model-room-single-owner-v1.md)，验收见[测试设计](../../mods/werewolf/docs/model-room-single-owner-testing-v1.md)。旧版程序若未实现同一锁仍可并行；部署时必须先停用旧版并核对进程。不修改其他游戏的房间调度、不清理或改写已有 000013 存档，也不改变供应商费用控制。
 
 ## 验收
 

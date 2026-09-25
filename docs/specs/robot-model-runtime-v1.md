@@ -53,7 +53,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 
 | 环节 | 已有实现 | 缺口 |
 |---|---|---|
-| Profile定义 | `robot-users/model-profiles/*.json`只存env变量名；`loadModelProfiles`校验格式与唯一性 | 只校验引用，不解析变量、不构造适配器 |
+| Profile定义 | 狼人杀当前以 `mods/werewolf/robot-users/model-profiles/*.json` 保存env变量名；`loadModelProfiles`校验格式与唯一性 | 只校验引用，不解析变量、不构造适配器 |
 | 路由 | `RoomRuntime`构造接收`Record<profileId, ModelAdapter>`，按`Seat.modelProfile`逐席取用；注册表缺失即`UNKNOWN_MODEL` | 服务端没有profile→适配器的装配层；脚本席位与模型席位不共用注册表 |
 | Robot接线 | `RobotUser.control`已有`script`/`model`分支；模型用户当前标记不可用并由服务端拒绝 | 无“Robot用户→席位profile”的开局绑定；模型席位不能实际入场 |
 | 调用 | Harness的claim/租约/一次纠正/原子提交已实现；宿主调度器已存在 | 按席密封并行、绝对截止、到期默认结算属[v3](turn-based-model-runtime-v3.md)提案 |
@@ -66,7 +66,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 
 分三级，职责不重叠：
 
-1. **Profile定义（配置层）**。`robot-users/model-profiles/<id>.json`声明`id`、`adapter`、`defaultProtocol`与`environment`（`baseUrl/model/apiKey/protocol`四个**环境变量名**）。配置只保存变量名，不保存密钥、不保存供应商URL值。校验规则沿用现有：id唯一且匹配`^[a-z0-9-]+$`、`adapter`当前仅`chat-completions`、四个键名匹配`^[A-Z][A-Z0-9_]*$`。重复或非法profile在启动时失败。
+1. **Profile定义（配置层）**。MOD的 profile 文件声明`id`、`adapter`、`defaultProtocol`与`environment`（`baseUrl/model/apiKey/protocol`四个**环境变量名**）；狼人杀当前放在 `mods/werewolf/robot-users/model-profiles/<id>.json`。配置只保存变量名，不保存密钥、不保存供应商URL值。校验规则沿用现有：id唯一且匹配`^[a-z0-9-]+$`、`adapter`当前仅`chat-completions`、四个键名匹配`^[A-Z][A-Z0-9_]*$`。重复或非法profile在启动时失败。
 2. **Registry装配（服务端）**。apps/server启动时把每个profile解析为适配器实例，形成`profileId → ModelAdapter`注册表，注入`RoomRuntime`。缺失的环境变量、非HTTPS且非本机的baseUrl、不支持的protocol都在**启动期**失败；不在局中降级、不跨供应商自动重试。
 3. **按席绑定（开局）**。Robot用户的`control.modelProfile`在开局装配时写入该席`Seat.modelProfile`；同一局允许每席不同profile，也允许多席共享同一profile（共享适配器实例）。浏览器只提交userId名单与白名单profile名，不提交baseUrl、Key、scopeId或Prompt。
 

@@ -72,18 +72,18 @@ v2范围确认（2026-09-22）：用户回复“先增加配置，暂不调用�
 
 补充裁定：用户将预言家无合法输入的到期默认定为“随机查验合法目标”，见MOD行动截止规则；实现时须用本局种子和窗口标识保证恢复后选择一致。
 
-v4实施进展（2026-09-23）：13名Robot按席装配为一名环境profile模型与11名脚本的独立用户，固定persona随席位进入私密决策上下文。新增持久模型房间服务、独立HTTP入口和座位工具分流，公开快照复用现有UI；默认未配置时仍禁选模型Robot。模型调用经Harness，服务端持久账本在每次尝试前按配置价格保守预留，试跑总额上限人民币10元；缺数据库、模型凭据或价格配置不启用付费房间。单元97项、类型、构建已通过（最终数以收尾回归为准）；本机Docker守护进程不可用，真实PostgreSQL集成和真实模型费用证据未运行，不能宣称全局验收完成。启用说明见[模型Robot本地对局](../../docs/model-robot-run.md)。
+v4实施进展（2026-09-23）：13名Robot按席装配为一名环境profile模型与11名脚本的独立用户，固定persona随席位进入私密决策上下文。新增持久模型房间服务、独立HTTP入口和座位工具分流，公开快照复用现有UI；默认未配置时仍禁选模型Robot。模型调用经Harness，服务端持久账本在每次尝试前按配置价格保守预留，试跑总额上限人民币10元；缺数据库、模型凭据或价格配置不启用付费房间。单元97项、类型、构建已通过（最终数以收尾回归为准）；本机Docker守护进程不可用，真实PostgreSQL集成和真实模型费用证据未运行，不能宣称全局验收完成。启用说明见[模型Robot本地对局](../../mods/werewolf/docs/model-robot-run.md)。
 
 本机模型凭据记录（2026-09-23）：用户提供第一套 DeepSeek 配置，服务地址 `https://api.deepseek.com`、模型名 `deepseek-flash`。本步仅将凭据保存至 Git 忽略的 `.local/model-secrets.env`；本 note 不记录密钥。尚未接入启动加载、模型 profile 路由或价格配置，也不发起模型调用，因此该配置暂不启用对局。
 本地座位管理修复（2026-09-24）：用户报告开发页 `Unexpected token '<'`。查明后端 `/api/robot-users` 返回 JSON，而 4319 Vite 仅代理 `/api/werewolf`，导致机器人目录请求收到 HTML 回退页。此为现有 Robot 目录能力的开发环境缺陷，范围仅补齐 Vite `/api/robot-users` 代理；不改变接口、数据或游戏行为。验证：通过 4319 请求目录返回 200 JSON；刷新座位管理页后报错消失，点击1号空位可见12名可入座 Robot 及1名未配置模型 Robot。
 
 ### v5：12 名 DeepSeek Robot＋1 名 Script Robot（2026-09-24，已确认实施）
 
-用户先提出把上一局的 Script Robot 升级，再澄清最终保留 **13 个配置，其中 12 名 DeepSeek、1 名 Script**。具体实施方案见[13 用户阵容设计 v5](../../docs/specs/robot-roster-deepseek-v5.md)及[验收说明](../../docs/testing/robot-roster-deepseek-v5.md)。最终明确指定：`robot-001`～`012` 为模型控制，`robot-013` 为唯一脚本控制；保留全部 13 个独立 userId。12 名模型用户共享现有服务端 DeepSeek profile，不把密钥写入用户配置。模型房间允许 12 模型入座，并保留合法的混合阵容；无模型演示入口仍按独立脚本演示使用。预算账本上限不变，真实收费开局不在本次方案的自动验证中。
+用户先提出把上一局的 Script Robot 升级，再澄清最终保留 **13 个配置，其中 12 名 DeepSeek、1 名 Script**。具体实施方案见[13 用户阵容设计 v5](../../mods/werewolf/docs/robot-roster-deepseek-v5.md)及[验收说明](../../mods/werewolf/docs/robot-roster-deepseek-testing-v5.md)。最终明确指定：`robot-001`～`012` 为模型控制，`robot-013` 为唯一脚本控制；保留全部 13 个独立 userId。12 名模型用户共享现有服务端 DeepSeek profile，不把密钥写入用户配置。模型房间允许 12 模型入座，并保留合法的混合阵容；无模型演示入口仍按独立脚本演示使用。预算账本上限不变，真实收费开局不在本次方案的自动验证中。
 
 确认记录：用户在审阅 v5 后明确回复“001~012为模型，013为脚本，实施”，据此以该映射替换此前草案并批准本次实施。实施与验证证据见下文回填。
 
-v5 实施与验证：13份现有Robot JSON仅调整`control`，`001`～`012`共12名模型、`013`唯一脚本；模型房间允许12模型满席及混合阵容，旧席位保存的脚本 profile 仍可寻址。新行为测试在旧配置上失败，改动后定向8/8、全仓单元119/119、`npm run check`、`npm run check:repo`、前端构建及`git diff --check`通过。隔离PostgreSQL集成、真实DeepSeek 12席整局和账本实际消耗本轮未运行；参见[验收记录](../../docs/testing/robot-roster-deepseek-v5.md)。
+v5 实施与验证：13份现有Robot JSON仅调整`control`，`001`～`012`共12名模型、`013`唯一脚本；模型房间允许12模型满席及混合阵容，旧席位保存的脚本 profile 仍可寻址。新行为测试在旧配置上失败，改动后定向8/8、全仓单元119/119、`npm run check`、`npm run check:repo`、前端构建及`git diff --check`通过。隔离PostgreSQL集成、真实DeepSeek 12席整局和账本实际消耗本轮未运行；参见[验收记录](../../mods/werewolf/docs/robot-roster-deepseek-testing-v5.md)。
 
 本地页面同步核查（2026-09-24）：用户刷新 4319 页面仍见旧脚本目录。4319 Vite 把`/api/robot-users`代理到4318，当时4318旧Compose镜像实际返回1模型、12脚本。重建app镜像并恢复原4318端口后，4318与4319接口均返回HTTP 200、13用户、12模型、1脚本（星河），健康检查200。当前Compose未启用`WEREWOLF_MODEL_ENABLED`及DeepSeek计费环境，故12模型用户在目录中标为不可用；本轮未发起付费调用。既有脚本房间的页面标签不会因目录更新改变，须在启用模型服务后新开模型局。
 

@@ -12,7 +12,7 @@
 
 1. mods/werewolf的DemoRooms.get新增可选viewer（null或1—12），默认null。先生成原公共快照，再附加所选视角的独立perspective字段；公共events、speeches、speakerSeat及计时保持原语义，不混入私密事件。
 2. 复用views.ts/projectGame的self投影及框架既有按受众过滤事件能力。perspective白名单为seat、role、wolves、inspections、medicine、knife与已公布的授权死亡标记；不返回完整Match、随机状态、密封中的选择、别人的私密事件或未公布死亡标记。狼刀需要补充服务端明确结算结果，不能在客户端按狼票重新抽签。
-3. GET /api/werewolf/demo/:id增加可选seat查询参数，严格校验1—12整数，省略为公共。创建仍返回公共。apps/shared/werewolf.ts定义联合类型：public或seat；每次响应标明当前视角。没有修改操作接口、数据库或框架通用协议。
+3. GET /api/werewolf/demo/:id增加可选seat查询参数，严格校验1—12整数，省略为公共。创建仍返回公共。`mods/werewolf/shared/werewolf.ts`定义联合类型：public或seat；每次响应标明当前视角。没有修改操作接口、数据库或框架通用协议。
 4. 女巫授权刀口完全沿用现有条件：女巫阶段、本人存活且解药仍在时显示；字段缺失显示“当前不可见”，null才表示空刀。药量显示剩余/已用，不凭阶段猜测刀口。查验仅显示已获得的好/狼及对应席位。狼人只看到结算后的狼刀与队友。
 5. 死因标记必须先确认该玩家已公开出局，再增加该视角有权知道的狼刀/毒杀原因。同夜刀毒重合按既有规则优先级处理。自己的用药记录不是提前标记目标死亡的依据；救活、自爆或死亡连锁不能误标夜亡。
 6. room.tsx区分选择视角和点击资料的selected状态。切换时立即清空旧私密展示，等待匹配新视角的响应；请求使用AbortController或代次校验，迟到响应不得覆盖新视角。读请求不推进、不暂停游戏。重开和刷新默认公共旁观，避免残留座位身份。

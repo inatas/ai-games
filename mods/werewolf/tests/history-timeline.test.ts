@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { DemoSnapshot } from '../../../apps/shared/werewolf.ts';
-import { buildHistoryTimeline, filterHistoryTimeline } from '../../../apps/web/src/werewolf/history-timeline.ts';
+import type { DemoSnapshot } from '../shared/werewolf.ts';
+import { buildHistoryTimeline, filterHistoryTimeline } from '../web/history-timeline.ts';
 
 function snapshot(status: DemoSnapshot['status']): DemoSnapshot {
   const publicEvents: DemoSnapshot['events'] = [

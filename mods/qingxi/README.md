@@ -48,7 +48,7 @@ docker compose up --build -d
 | [game.ts](src/game.ts) | 当前结构建表、初始化、严格行动Binding与事务内规则执行 |
 | [mod.ts](src/mod.ts) | MOD manifest、内容版本和公共注册校验 |
 | [host.ts](src/host.ts) | 注册到通用Web宿主的迁移、角色、行动和投影入口 |
-| [Web视图](../../apps/web/src/world-view.tsx) | SVG地图、三类场景素材、对象选择和出口操作 |
+| [Web视图](web/world-view.tsx) | SVG地图、三类场景素材、对象选择和出口操作 |
 
 MOD通过platform使用realm与基础协作，通过game-systems使用地图、NPC、任务与库存。host显式装配同房社交和任务退出策略。prepare在短事务中读取授权事实，模型等待不占数据库事务；apply重新检查角色和realm版本、位置及资格。NPC不是常驻Agent。
 

@@ -33,16 +33,22 @@ docker compose --profile test run --build --rm tests
 ## 源码布局
 
 ```text
-.agents/note/             一份文件一个需求
-apps/server/src/         服务装配和授权
-apps/web/src/            React Demo
+.agents/note/             底层及游戏框架需求
+apps/server/src/         服务装配和进程入口
+apps/web/src/            MOD 页面惰性入口
 packages/core/src/      判定协调、上下文、公共接口
 packages/platform/src/ realm、频道/私聊、组队、钱包与通用MOD注册
 packages/game-systems/src/ 地图、NPC、任务、库存与空间策略
 packages/identity/src/  公共账号、会话、当前档案及登录组件
 packages/model/src/     模型与Mock适配
 packages/storage/src/   PostgreSQL实现
-mods/qingxi/     游戏规则与专属测试
+mods/qingxi/src/         清溪镇规则与宿主
+mods/qingxi/web/         清溪镇页面
+mods/qingxi/docs/        清溪镇设计与验收
+mods/werewolf/src/       狼人杀规则与房间定义
+mods/werewolf/server/    狼人杀房间服务
+mods/werewolf/web/       狼人杀页面与素材
+mods/werewolf/docs/      狼人杀设计与验收
 tests/integration/      中性框架集成测试
 tests/support/          测试夹具、隔离数据库、崩溃进程
 docs/                   规格、测试契约、使用文档

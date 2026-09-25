@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { DemoSnapshot } from '../../../apps/shared/werewolf.ts';
-import { boardEvents, boardVoteCopy, summarizeVotes, type VoteData } from '../../../apps/web/src/werewolf/presentation.ts';
+import type { DemoSnapshot } from '../shared/werewolf.ts';
+import { boardEvents, boardVoteCopy, summarizeVotes, type VoteData } from '../web/presentation.ts';
 
 const sheriffVote: VoteData = {
   ballots: [

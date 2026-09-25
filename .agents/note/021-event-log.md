@@ -4,7 +4,7 @@
 
 确认记录：用户审阅网页 v1、日志 v2、缓存 v2 后于 2026-09-25 明确回复“编码，并启动网页让我测试”。本 v2 已获实施确认。
 
-状态：**已实施，待网页实局复核**。网页现在可查看持久房间的逐次模型调用及成功、失败诊断；已有日志继续保存在 `fw_event_log`。详细接口、数据与状态见[模型测试与日志 v2](../../docs/specs/model-test-observability-v2.md)，验收见[测试说明](../../docs/testing/model-test-observability-v2.md)，狼人杀网页接入见[MOD 005](../../mods/werewolf/.agents/note/005-web-model-test.md)。
+状态：**已实施，待网页实局复核**。网页现在可查看持久房间的逐次模型调用及成功、失败诊断；已有日志继续保存在 `fw_event_log`。详细接口、数据与状态见[模型测试与日志 v2](../../mods/werewolf/docs/model-test-observability-v2.md)，验收见[测试说明](../../mods/werewolf/docs/model-test-observability-testing-v2.md)，狼人杀网页接入见[MOD 005](../../mods/werewolf/.agents/note/005-web-model-test.md)。
 
 本次拟做：保留持久房间逐次尝试日志；把 HTTP 非成功、传输异常、超时、取消、解析或输出不合法、裁判拒绝区分显示；日志摘要和供应商 token/cache usage 在网页可筛选，测试口令授权才可展开原始请求与响应；独立测试房间也必须使用持久数据库，测试清理不能先于用户复盘。既有日志能覆盖的结果复用，不将未发出的请求伪装为 API 失败，不凭空补造失败调用的供应商用量。具体供应商 HTTP 诊断字段是本次新增范围，必须脱敏且有上限。现有 Docker 发布端口访问本机诊断接口得到 403，v2 用独立测试口令授权，避免依赖容器内看到的 `request.ip`。
 
@@ -16,7 +16,7 @@ Status: implemented（v1.3、v2）；v2 待网页实局复核
 
 ## v2.2 待确认：旧模型日志清理（2026-09-25）
 
-用户要求重新测试前删除旧日志，并补充“可以包含整个狼人杀Mod的旧账本和日志”“4局回放也可以清理”。当前开发库 `fw_event_log` 中 `mod_id='werewolf'` 的 2,162 条历史事件来自 4 个旧房间；该表同时是已实施的真实 token/cache 汇总来源。本版拟停止 app 冻结写入、完整备份后删除全部现有狼人杀 MOD 日志及 4 局房间与专属关联记录；不碰其他 MOD 的记录，不留下孤立的 `started`。重启后新局继续写入同表。设计与验收见[本机测试运维 v1.1](../../docs/specs/local-werewolf-test-ops-v1.md)和[测试说明](../../docs/testing/local-werewolf-test-ops-v1.md)。
+用户要求重新测试前删除旧日志，并补充“可以包含整个狼人杀Mod的旧账本和日志”“4局回放也可以清理”。当前开发库 `fw_event_log` 中 `mod_id='werewolf'` 的 2,162 条历史事件来自 4 个旧房间；该表同时是已实施的真实 token/cache 汇总来源。本版拟停止 app 冻结写入、完整备份后删除全部现有狼人杀 MOD 日志及 4 局房间与专属关联记录；不碰其他 MOD 的记录，不留下孤立的 `started`。重启后新局继续写入同表。设计与验收见[本机测试运维 v1.1](../../mods/werewolf/docs/local-werewolf-test-ops-v1.md)和[测试说明](../../mods/werewolf/docs/local-werewolf-test-ops-testing-v1.md)。
 
 确认记录：用户在审阅 v1.1 全量清理范围后回复“确认按 v1.1 实施（推荐）”。状态：**已确认，待实施**；尚未删除日志。当前网页服务仍运行，尚未由本任务开启新局。
 

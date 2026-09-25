@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptSnapshot } from '../../../apps/web/src/snapshot.ts';
+import { acceptSnapshot } from '../web/snapshot.ts';
 
 test('WM-21: older and retired-scope responses cannot overwrite the screen', () => {
   const current = { id: 'new', memoryVersion: 9 };

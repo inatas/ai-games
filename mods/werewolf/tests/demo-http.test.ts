@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
-import { buildWerewolfDemo } from '../../../apps/server/src/werewolf-demo.ts';
+import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 import { DemoRooms } from '../src/demo.ts';
 
 test('UI-03/04: HTTP validates creation and rejects unknown rooms and cross-origin writes', async t => {
@@ -39,7 +39,7 @@ test('V4-02: host timer advances without GET and is disposed when Fastify closes
 
 test('UI-06: demo plugin stays isolated from original routes', async t => {
   const {default:Fastify} = await import('fastify');
-  const {werewolfDemoRoutes} = await import('../../../apps/server/src/werewolf-demo.ts');
+  const {werewolfDemoRoutes} = await import('../server/werewolf-demo.ts');
   const app = Fastify();
   t.after(()=>app.close());
   app.get('/api/existing',()=>({retained:true}));

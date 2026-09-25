@@ -4,7 +4,7 @@
 
 ## 现状与目标
 
-现有 `buildContext` 顺序为固定协议、游戏规则、世界观、**动态 Schema**、**CURRENT_FACTS**、记忆、输入。狼人杀 `CURRENT_FACTS` 的属性顺序为 rules、**game_state**、self、private_information、**public_history**、current_action。即使历史逐步增长，前面的 Schema、局面和身份一变化，后面的公共历史也不再是多席位的相同前缀。用户报告实战命中不足 20%；上次临时库测试未保存 cache 汇总，因此先用持久测试建立可核对基线。
+现有 `buildContext` 顺序为固定协议、游戏规则、世界观、**动态 Schema**、**CURRENT_FACTS**、记忆、输入。即使历史逐步增长，前面的 Schema、局面和席位信息一变化，后面的公共历史也不再是多席位的相同前缀。狼人杀实局曾报告命中不足 20%；该 MOD 的事实分段见[狼人杀模型接入](../../mods/werewolf/docs/model-integration-v1.md)。
 
 DeepSeek [官方缓存说明](https://api-docs.deepseek.com/guides/kv_cache/)只保证已保存且完全匹配的输入前缀可命中，并说明缓存是尽力而为；本方案提高**可共享前缀**，不承诺任何固定命中比例。
 
@@ -14,7 +14,7 @@ DeepSeek [官方缓存说明](https://api-docs.deepseek.com/guides/kv_cache/)只
 
 采用顺序：固定框架协议 system → 版本固定的游戏规则 system → 可选固定世界观 system → `SHARED_PUBLIC_FACTS` user → 当前 `OUTPUT_SCHEMA` system → 席位和阶段专属 `CURRENT_FACTS` user → 必需/可选记忆 user → 玩家输入 user；第二次纠正只在末尾追加指令。此顺序需通过 DeepSeek 及既有 json-schema 适配器的真实请求兼容性检查；若供应商拒绝交错的 system/user 消息，改用等价的尾部宿主 Schema 段并重新提交差异审阅，不能悄悄降低 Schema 约束。`sharedPublicFacts` 对同一房间、相同公开事件水位的所有席位须字节相同；事件用稳定 sequence、固定字段顺序和规范序列化，按时间追加。可把每条事件编码为独立有边界的记录，避免重排和当前时间戳破坏已形成的前缀。
 
-狼人杀公共段只含已公开、已结算的发言事实、投票目标及公告；发言正文始终标记为“玩家说过的话”，不当作裁判证明。当前公开状态虽然所有人可见，但每次阶段推进可能变动，放在动态段。身份、私有动作及结果、规则集私有指导、当前情报、选项、截止时间与动态 Schema 均在公共段之后。所有事实仍遵循“当前结算状态优先”，公共事件的顺序不赋予旧叙述更高权威。`sharedPublicFacts` 不进入其他席位未获授权的信息，也不绕过现有 context budget 与宿主规则校验。
+`sharedPublicFacts` 仅包含宿主已授权的公开结算事实；各 MOD 决定哪些事实可进入该段。动态公开状态、身份、私有动作及结果、选项与截止时间位于其后。所有事实仍遵循“当前结算状态优先”，公共事件的顺序不赋予旧叙述更高权威；分段不得绕过 context budget 与宿主规则校验。
 
 ## 观测和验收判定
 

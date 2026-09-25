@@ -6,7 +6,7 @@
 
 新GET /api/robot-users返回公开用户目录；POST /api/werewolf/demo/start携带requestId、seed、userIds数组。既有create用于内部测试基线，页面开局只使用新start。阵容userId及公开资料进入DemoSnapshot.players.user；脚本按该用户control配置执行。统一用户展示Context供席位、发言立绘、历史、死亡公告使用，不能按座位号重新绑定人物。已有对局暂停禁令、私密视角和时钟保持。重开回座位工具由用户再次点击开始；离开现场配置不暂停旧局，正式开始后替换当前观战局。
 
-通用Robot资料/控制类型归packages/core，页面DTO归apps/shared，目录加载装配归apps/server；根目录机器人配置资产独立于MOD。本轮复用已有三张授权人物素材配置12个昵称/用户ID，允许共享素材。素材通过限定静态目录发布，控制及人格不在公共目录接口暴露。
+通用Robot资料/控制类型归 `packages/core`，狼人杀页面DTO归 `mods/werewolf/shared`，目录加载装配归 `mods/werewolf/server`；本局的机器人配置与素材归 `mods/werewolf/robot-users`。本轮复用已有三张授权人物素材配置12个昵称/用户ID，允许共享素材。素材通过限定静态目录发布，控制及人格不在公共目录接口暴露。
 
 测试先行：未满/重复/未知用户拒绝；请求重放不重复开局、冲突拒绝；用户换座后资料与本用户发言不变；随机补满保留已有且不重复；草稿满员不启动时钟；开局后座位编辑不可变。UI实测选人、替换、移除、补满、手动开始及刷新草稿恢复，类型检查、单元、构建。代码修改前先保存已有验收基线Git检查点；本轮不修改通用引擎自动开局语义、不迁移数据库。
 

@@ -20,7 +20,7 @@
 - 扩展公开DTO：speakerSeat只在发言阶段有效；nightSegment仅为固定流程窗口（shared/medicine/null）；公开events保留sequence、day、period作为演出与投票分组依据。nightSegment不从角色存活推断。现有actor可以继续表达公开行动者，但不能作为立绘依据。
 - React拆分中央发言者展示、昼夜演出、出局公告、投票汇总组件。发言历史继续按天筛选且在局中持续更新，不因新发言强制跳动用户阅读位置。关闭浮层后显示当前现场，不补播过时动画；结果仍可在公开记录查看。
 - 演出仅消费已公开事件，按sequence去重，重新渲染/轮询/重连不重复播放。首屏载入已有局时显示当前状态，不重放所有旧动画。多个待展示事件按发生顺序播放；过时装饰过场可跳过，公告保留在记录中。终局优先显示终局状态。
-- 素材位于apps/web/public/werewolf；映射和组件归apps/web/src/werewolf；MOD文档、规则与验收归mods/werewolf。通用回合框架不引入题材演出。无私密视角权限变化、模型或RTC接入。
+- 素材位于 `mods/werewolf/web/public/werewolf`；映射和组件归 `mods/werewolf/web`；MOD文档、规则与验收归 `mods/werewolf/docs`。通用回合框架不引入题材演出。无私密视角权限变化、模型或RTC接入。
 
 ## 验收说明（确认后再编写可执行测试）
 

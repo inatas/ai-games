@@ -2,7 +2,7 @@
 
 本页记录最初已实施的测试口令方案。本机测试台现行接口与页面按[已实施的 v1.1](web-model-test-v1-1.md)运行，不再要求浏览器口令。
 
-关联[需求 005](../.agents/note/005-web-model-test.md)、[框架日志设计](../../../docs/specs/model-test-observability-v2.md)和[验收说明](web-model-test-testing-v1.md)。本页仅列 MOD 界面与接入，不复制底层日志协议。
+关联[需求 005](../.agents/note/005-web-model-test.md)、[框架日志设计](model-test-observability-v2.md)和[验收说明](web-model-test-testing-v1.md)。本页仅列 MOD 界面与接入，不复制底层日志协议。
 
 ## 页面流程
 

@@ -1,6 +1,6 @@
 # 狼人杀MOD
 
-12人预女猎白，支持纯脚本Robot对局，也支持一名模型Robot与十一名脚本Robot的持久对局。规则状态机、独立自爆抢占、固定阶段计时与旁观UI已实现。模型房间需要隔离的PostgreSQL和服务端模型配置，详见[模型Robot运行说明](../../docs/model-robot-run.md)。
+12人预女猎白，支持纯脚本演示，以及从13名配置用户中选择12人参加持久模型局（12名模型Robot、1名脚本Robot可混合）。规则状态机、独立自爆抢占、固定阶段计时与旁观UI已实现。模型房间需要PostgreSQL和服务端模型配置，详见[模型Robot运行说明](docs/model-robot-run.md)。
 
 ## 启动旁观UI
 
@@ -23,11 +23,11 @@ npm run demo:werewolf
 - [开发方案v3与实施结果](docs/implementation-review.md)
 - [UI原型v1及已确认实施验收](docs/ui-prototype-v1.md)
 - [UI演示接口与美术分层](docs/ui-demo.md)
-- [验收用例WW-01～WW-80](docs/mvp-testing.md)
+- [验收用例](docs/mvp-testing.md)
 - [事实上下文 v1.3 已实施与遗言保护待确认方案](docs/witch-claim-consistency-v1.md)
 - [网页模型测试台 v1 待确认方案](docs/web-model-test-v1.md)
 - [需求状态与验证证据](.agents/note/001-ai-spectator-mvp.md)
 
 本地验证：`npm run check`、`npm run check:repo`、`npm run test:unit`、`npm run build`。MOD单元测试包含规则、整局、抢占及演示接口；配置专用TEST_DATABASE_URL后`npm test`还包含真实数据库集成测试，各测试仅清理自己的随机schema。
 
-2026-09-23一局真实DeepSeek Flash模型Robot对局在隔离数据库与浏览器中完成，调用、费用与限制见[运行说明](../../docs/model-robot-run.md)。
+2026-09-23一局真实DeepSeek Flash模型Robot对局在隔离数据库与浏览器中完成，调用、费用与限制见[运行说明](docs/model-robot-run.md)。

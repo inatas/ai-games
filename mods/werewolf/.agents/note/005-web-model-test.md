@@ -49,10 +49,10 @@ Status: implemented；**v1 已部署本地网页，待用户实局复核**（202
 
 ## v1.2 待确认：一条指令启动本机网页（2026-09-25）
 
-用户要求以后通过指令快速启动狼人杀 web 服务，并在清理旧账本和日志后重新测试一局。拟新增 `scripts/start-werewolf-local.ps1`：从脚本所在目录确定仓库根目录，核对本机 Compose 配置与模型凭据文件，执行 `docker compose up -d --no-build app`，等待 `http://127.0.0.1:<APP_PORT>/api/health` 返回成功，再显示网页地址。重复调用只保证现有 Compose 服务运行，不创建房间或发起模型请求；缺 Docker、配置、镜像或健康超时明确报错且不输出 Key。此脚本不启动第二个宿主机模型调度进程、不自动清理数据或重建镜像；代码变化后的构建仍由开发命令负责。具体设计与验收见[本机测试运维 v1](../../../../docs/specs/local-werewolf-test-ops-v1.md)及[测试说明](../../../../docs/testing/local-werewolf-test-ops-v1.md)。
+用户要求以后通过指令快速启动狼人杀 web 服务，并在清理旧账本和日志后重新测试一局。拟新增 `scripts/start-werewolf-local.ps1`：从脚本所在目录确定仓库根目录，核对本机 Compose 配置与模型凭据文件，执行 `docker compose up -d --no-build app`，等待 `http://127.0.0.1:<APP_PORT>/api/health` 返回成功，再显示网页地址。重复调用只保证现有 Compose 服务运行，不创建房间或发起模型请求；缺 Docker、配置、镜像或健康超时明确报错且不输出 Key。此脚本不启动第二个宿主机模型调度进程、不自动清理数据或重建镜像；代码变化后的构建仍由开发命令负责。具体设计与验收见[本机测试运维 v1](../../docs/local-werewolf-test-ops-v1.md)及[测试说明](../../docs/local-werewolf-test-ops-testing-v1.md)。
 
 确认记录：用户在审阅本机测试运维 v1.1 的清理与快速启动范围后回复“确认按 v1.1 实施（推荐）”。
 
 实施前本地 Git 检查点：`main/92fc1c7`，保留既有无口令测试台及获确认的 v1.1 运维方案；`.env` 和 `.local` 均被 Git 忽略，`git diff --cached --check` 通过。该代码检查点不包含数据库，数据库将另作完整本机备份。
 
-实施状态：**已完成清理与快速启动，待用户网页新局复核**。完整备份保存在忽略目录 `.local/ai-games-before-werewolf-reset-20260925.dump`，清理事务及逐表计数见[本机测试运维 v1.1](../../../../docs/specs/local-werewolf-test-ops-v1.md)。`npm run werewolf:web` 已启动 `127.0.0.1:4318`，健康接口、模型 profile 列表均返回 200；未自动创建付费对局。
+实施状态：**已完成清理与快速启动，待用户网页新局复核**。完整备份保存在忽略目录 `.local/ai-games-before-werewolf-reset-20260925.dump`，清理事务及逐表计数见[本机测试运维 v1.1](../../docs/local-werewolf-test-ops-v1.md)。`npm run werewolf:web` 已启动 `127.0.0.1:4318`，健康接口、模型 profile 列表均返回 200；未自动创建付费对局。

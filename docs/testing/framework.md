@@ -2,7 +2,7 @@
 
 版本：0.2 ｜ 状态：验收规格；执行证据见 [验证记录](../verification.md)
 
-依据[框架规格](../specs/framework.md)。替代旧TC-01～41；不含题材或游戏规则验收。数据见[中性Mock契约](./fixtures.md)。
+依据[框架规格](../specs/framework.md)。替代旧TC-01～41；不含题材或游戏规则验收。数据见[中性Mock契约](fixtures.md)。
 
 ## 1. 公共条件
 

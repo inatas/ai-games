@@ -18,7 +18,7 @@
 
 - `packages/*/src`：可复用能力；跨包只使用 `@game-ai/*` 公共入口，不绕过导出读其他包的src。
 - `packages/*/tests`：包自身单元测试；`tests/integration`：真实数据库和框架集成；`tests/support`：中性测试工具。
-- `apps/server/src`：Fastify装配、鉴权与进程入口；`apps/web/src`：React Demo界面。
+- `apps/server/src`：Fastify与游戏宿主装配、鉴权及进程入口；`apps/web/src`：两个 MOD 页面的惰性入口。游戏专属服务、页面、素材和配置归 `mods/<mod>`，不再放应用目录。
 - `mods/qingxi`：武侠游戏规则、Quickstart、专属测试；不得反向导入core。
 - `.agents/note`：框架公共能力及仓库级需求；每项新的独立 feature 使用新序号文件，同一 feature 的修订在原文件维护，包含范围、验收、进展和未决项；状态与索引按该目录的 AGENTS.md、README.md 维护。
 - `mods/qingxi/.agents/note` 与 `mods/werewolf/.agents/note`：各 MOD 专属需求，各自独立编号。
@@ -28,7 +28,7 @@
 
 目标目录为`mods/<mod>`：具体世界的内容配置、规则实例、可执行规则、素材、测试和需求归其本地。通用房间/实体机制、realm/player/party归属与协调、身份授权及AI Harness能力归根需求。迁移期间`mods/qingxi`继续作为青溪镇唯一编辑入口，迁移后保留来源链接，不并行维护两份规则。具体门派、技能数值或题材公式不因被称为“规则”而进入通用框架。
 
-按需求职责归档，不按当前实现文件所在位置归档。账号与会话、持续记忆、上下文组装、模型适配、通用校验和执行属于根目录note；游戏世界观正文、背景故事、NPC设定、行动资格、奖励和剧情属于对应示例的note。即使游戏页面位于apps/web，游戏专属需求仍归示例。
+按需求职责归档，不按装配入口所在位置归档。账号与会话、持续记忆、上下文组装、模型适配、通用校验和执行属于根目录note；游戏世界观正文、背景故事、NPC设定、行动资格、奖励和剧情属于对应MOD的note。游戏专属页面位于 `mods/<mod>/web`，应用入口只加载页面。
 
 MOD如有自己的AGENTS.md，可补充本地指引；无论是否存在本地文件，都继承根目录及按需加载规则中的需求确认门禁、测试和安全规则，不重复维护另一套审批流程。MOD note沿用根目录模板与状态定义，使用NNN-topic.md命名，在本地README.md维护索引；根目录索引提供MOD入口。
 

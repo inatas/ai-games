@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { demoClock } from './demo-clock.ts';
-import { buildWerewolfDemo } from '../../../apps/server/src/werewolf-demo.ts';
+import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 
 test('PV public and seat perspectives are isolated across a complete game', () => {
   const clock = demoClock();

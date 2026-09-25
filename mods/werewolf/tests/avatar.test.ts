@@ -1,7 +1,7 @@
-import type { DemoSnapshot } from '../../../apps/shared/werewolf.ts';
+import type { DemoSnapshot } from '../shared/werewolf.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { publicSeatState } from '../../../apps/web/src/werewolf/seat-state.ts';
+import { publicSeatState } from '../web/seat-state.ts';
 
 test('AV-03/04: avatar deaths follow announced public events, never private medicine', () => {
   const events: Pick<DemoSnapshot['events'][number], 'type' | 'data'>[] = [{ type: 'night-deaths', data: { seats: [3] } }, { type: 'medicine', data: { seat: 5, action: { kind: 'poison', target: 3 } } }];

@@ -60,3 +60,9 @@ Docker Linux容器完整回归28组全部通过，类型检查、仓库检查、
 完整Docker回归29组通过，包括通用Chat Completions协议和DeepSeek专用`json_object + max_tokens + thinking.type=disabled`协议。真实奇遇请求committed，调用记录：模型`deepseek-flash`、输入400 tokens、输出6 tokens、世界观`wuxia/1`；游戏按宿主规则执行GIFT，银两20→24、memoryVersion=1、encounterDone=true。
 
 第一次真实请求以字符串发送thinking，供应商返回400；框架记录`MODEL_UNAVAILABLE`且银两20、memoryVersion=0、encounterDone=false。根据官方Schema修正为对象并加入回归测试后成功。真实模型原始正文及密钥未记录。
+
+## 全仓三层归属重组（2026-09-26）
+
+按[需求028](../.agents/note/028-repository-layer-reorganization.md)将狼人杀与清溪镇的专属文档、服务/页面、素材和测试移入对应 MOD，根目录保留通用协议与中性框架测试。迁移前检查点 `main/7e417df`。迁移后类型检查、仓库链接/边界检查、前端构建和130个单测通过；隔离 PostgreSQL 容器完整测试236/236通过。临时跨 MOD 反向导入探针使边界检查按预期失败，移除后恢复通过。
+
+Docker Hub 认证连接失败，使用本机原应用镜像离线构建新镜像，镜像内重复通过类型、仓库与构建检查。部署前后开发库均只有1个已结束的狼人杀房间；同一 Compose 应用容器重建后健康，网页、头像/背景素材、Robot目录和健康接口均返回200。该旧 `rules2` 房间在新 `rules3` 定义下读回放返回409，记录未删除；共用退水方案明确不迁移旧存档。未自动创建付费模型局；真实网页新局竞选回放仍待用户复核。

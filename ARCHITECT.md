@@ -16,7 +16,7 @@
 
 例如，狼人杀“候选人共用退水窗口”是独立可验收行为，应使用新的狼人杀 note；规则写入狼人杀现有游戏设计，10 秒窗口写入阶段计时，超时默认写入行动截止，行为用例写入现有游戏测试契约。它不应追加在早期旁观 MVP note 的尾部，也不应为同一功能另建互相平行的设计和测试 docs。跨层需求分别建立框架与 MOD note，并链接到各自的契约，不把题材逻辑塞入通用层。
 
-现存代码与文档仍有历史错位：游戏专属页面和服务位于 `apps/*`，部分狼人杀测试方案位于根 `docs`。完整迁移目标、依赖边界、兼容约束及验收见[重组方案028](.agents/note/028-repository-layer-reorganization.md)；方案未确认前，这里只说明拟议目标，不将其描述成当前目录状态。
+存量错位文件已按[重组方案028](.agents/note/028-repository-layer-reorganization.md)迁移：`apps/*` 保留进程和页面装配，游戏专属服务、页面、素材与测试放各自 MOD，根 `docs` 保留跨 MOD 协议。URL 与持久业务标识保持不变。
 
 ## 开发流程与架构一致性
 
@@ -43,7 +43,9 @@ Game AI Harness是其中供游戏按需调用的AI判定子系统。NPC与历史
 
 ```text
 apps/server ──► registered MOD host + platform + game-systems + identity + core + model + storage
-apps/web    ──► generic HTTP WorldView + identity browser adapter
+apps/web    ──► MOD web 入口 + identity browser adapter
+mods/qingxi/web + mods/werewolf/web ──► 各自授权视图
+mods/werewolf/server ──► turn-based + core + model + storage
 identity    ──► core persistence contracts + public HTTP/browser adapters
 mods/qingxi ──► game-systems + platform + core contracts + storage transaction
 game-systems ──► platform + core contracts

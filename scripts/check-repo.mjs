@@ -38,8 +38,17 @@ for(const p of files){
      if(norm.includes('/game-systems/src/')&&/from ['"]@game-ai\/(?:mud-core|storage)['"]/.test(text))errors.push(`${p}: systems import composition layer`);
    }
  }
- if(p.replaceAll('\\','/').includes('/apps/web/src/')&&/\.[cm]?tsx?$/.test(p)){
-   for(const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g))if(m[1].includes('/mods/')||m[1].includes('/packages/storage/')||m[1]==='@game-ai/storage')errors.push(`${p}: browser imports server rules ${m[1]}`);
+ const norm=p.replaceAll('\\','/');
+ if(/\.[cm]?tsx?$/.test(p)){
+   if(norm.includes('/apps/server/src/')&&!['app.ts','main.ts'].includes(basename(p)))errors.push(`${p}: app server contains MOD implementation`);
+   if(norm.includes('/apps/web/src/')&&basename(p)!=='main.tsx')errors.push(`${p}: app web contains MOD implementation`);
+   if(norm.includes('/apps/shared/'))errors.push(`${p}: game-specific shared code belongs to its MOD`);
+   const dependencies=[...text.matchAll(/(?:from\s+|import\s*\(|import\s+)['"]([^'"]+)['"]/g)].map(m=>m[1]);
+   if(/\/mods\/qingxi\/(?:src|server|web)\//.test(norm)&&dependencies.some(dep=>dep.includes('werewolf/')))errors.push(`${p}: Qingxi imports Werewolf`);
+   if(/\/mods\/werewolf\/(?:src|server|web|shared)\//.test(norm)&&dependencies.some(dep=>dep.includes('qingxi/')))errors.push(`${p}: Werewolf imports Qingxi`);
+   if(norm.includes('/apps/web/src/')||/\/mods\/(?:qingxi|werewolf)\/web\//.test(norm)){
+     for(const dep of dependencies)if(dep.includes('/packages/storage/')||dep==='@game-ai/storage'||dep.includes('/mods/werewolf/src/')||dep.includes('/mods/werewolf/server/')||dep.includes('/mods/qingxi/src/')||dep.includes('/mods/qingxi/server/'))errors.push(`${p}: browser imports server rules ${dep}`);
+   }
  }
 }
 for(const name of ['AGENTS.md','ARCHITECT.md','.agents/note/README.md','Dockerfile','compose.yaml']){try{await access(resolve(root,name));}catch{errors.push(`Missing ${name}`);}}

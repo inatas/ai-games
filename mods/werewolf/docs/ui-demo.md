@@ -7,13 +7,13 @@
 /werewolf 是独立React入口，保留木纹舞台、十二席、公开记录和历史浮层。MUD入口与样式保持隔离。
 中央用户Avatar由speakerSeat决定，仅在上警、PK、放逐讨论和遗言阶段展示；夜间及其他阶段隐藏。点击头像只查看资料和手工标记。
 
-三张用户直接提供的Avatar位于apps/web/public/werewolf/user-avatar-{brown,pink,blue}.png，原始参考归档在docs/prototypes。中央人物以CSS轮廓裁切，去掉截图的座位号/昵称；圆头像与中央形象使用相同稳定映射，在十二席临时复用。Avatar与游戏身份无关，不为狼人或神职更换。原图分辨率较低，放大仍保留原素材清晰度限制；没有重绘为另一种形象。
+三张用户直接提供的Avatar位于 `mods/werewolf/web/public/werewolf/user-avatar-{brown,pink,blue}.png`，原始参考归档在 `mods/werewolf/docs/prototypes`。中央人物以CSS轮廓裁切，去掉截图的座位号/昵称；圆头像与中央形象使用相同稳定映射，在十二席临时复用。Avatar与游戏身份无关，不为狼人或神职更换。原图分辨率较低，放大仍保留原素材清晰度限制；没有重绘为另一种形象。
 
 背景与木纹沿用既有素材。昼夜日月/云层、墓地木牌与乌鸦由CSS/SVG实现。过场2秒，已公开死讯公告3秒，可关闭，不阻塞对局时钟；减少动效模式取消运动。首夜天亮后仍先竞选，正式公布死讯才显示墓碑。
 
 ## 本地服务与接口
 
-独立入口apps/server/src/werewolf-demo.ts，默认仅监听127.0.0.1:4318，也可作为隔离Fastify插件装配到主应用。内存会话最多100个，闲置一小时回收；无模型、RTC、数据库或生产持久恢复。
+独立入口 `mods/werewolf/server/werewolf-demo.ts`，默认仅监听127.0.0.1:4318，也可作为隔离Fastify插件装配到主应用。内存会话最多100个，闲置一小时回收；无模型、RTC、数据库或生产持久恢复。
 
 | 请求 | 输入 | 语义 |
 |---|---|---|
