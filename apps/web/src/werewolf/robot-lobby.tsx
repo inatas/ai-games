@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import type { DemoSnapshot } from '../../../shared/werewolf.ts';
 import { fillRobotSeats, type RobotCatalogEntry } from '../../../shared/robot-seating.ts';
 import { portraitStyle } from './seat-avatar.tsx';
+import { modelTestHeaders, modelTestToken, setModelTestToken } from './model-test-auth.ts';
 import './robot-lobby.css';
 
-function savedDraft(): { seats: (string | null)[]; seed: number } {
+type Draft = { seats: (string | null)[]; profileIds: (string | null)[]; seed: number };
+type Profile = { id: string; label: string; model: string };
+function savedDraft(): Draft {
   try {
     const draft = JSON.parse(sessionStorage.getItem('werewolf:robot-draft') ?? 'null');
-    if (draft && Array.isArray(draft.seats) && draft.seats.length === 12 && draft.seats.every((id: unknown) => id === null || typeof id === 'string') && Number.isSafeInteger(draft.seed)) return draft;
+    if (draft && Array.isArray(draft.seats) && draft.seats.length === 12 && draft.seats.every((id: unknown) => id === null || typeof id === 'string') && Number.isSafeInteger(draft.seed))
+      return { ...draft, profileIds: Array.isArray(draft.profileIds) && draft.profileIds.length === 12 ? draft.profileIds : Array(12).fill(null) };
   } catch { /* Missing or invalid draft starts empty. */ }
-  return { seats: Array(12).fill(null), seed: 42 };
+  return { seats: Array(12).fill(null), profileIds: Array(12).fill(null), seed: 42 };
 }
 export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, seed: number, mode: 'demo' | 'model') => void; close?: () => void }) {
   const [draft, setDraft] = useState(savedDraft);
@@ -18,6 +22,9 @@ export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, s
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tokenInput, setTokenInput] = useState(modelTestToken);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [restoreId, setRestoreId] = useState('');
   const inFlight = useRef(false);
   useEffect(() => {
     let stopped = false;
@@ -41,20 +48,52 @@ export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, s
   useEffect(() => { try { sessionStorage.setItem('werewolf:robot-draft',JSON.stringify(draft)); } catch { setError('无法保存草稿，刷新后可能丢失配置'); } }, [draft]);
   function assign(id: string | null) {
     if (selected === null || busy || (id !== null && !users.some(user => user.userId === id && user.available))) return;
-    setDraft(current => ({ ...current, seats: current.seats.map((old,index) => index === selected ? id : old) }));
+    const user = users.find(item => item.userId === id);
+    setDraft(current => ({ ...current,
+      seats: current.seats.map((old,index) => index === selected ? id : old),
+      profileIds: current.profileIds.map((old,index) => index === selected ? user?.defaultProfileId ?? null : old),
+    }));
     setSelected(null); setError('');
+  }
+  async function connect() {
+    setError('');
+    try {
+      const response = await fetch('/api/werewolf/model/profiles', { headers: { 'x-model-test-token': tokenInput.trim() } });
+      if (!response.ok) throw new Error('测试口令无效或模型服务不可用');
+      const found = await response.json() as Profile[];
+      setProfiles(found); setModelTestToken(tokenInput);
+      if (!found.length) setError('当前没有可用的模型 profile');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '连接失败'); }
+  }
+  async function restore() {
+    setError('');
+    try {
+      const response = await fetch(`/api/werewolf/model/${encodeURIComponent(restoreId.trim())}`);
+      if (!response.ok) throw new Error('未找到该持久模型房间');
+      const room = await response.json() as DemoSnapshot;
+      sessionStorage.setItem('werewolf:active-room', JSON.stringify({ id: room.id, seed: room.seed ?? draft.seed, mode: 'model' }));
+      started(room, room.seed ?? draft.seed, 'model');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '恢复失败'); }
   }
   async function start() {
     if (inFlight.current || draft.seats.some(id => !id)) return;
     inFlight.current = true; setBusy(true); setError('');
     try {
-      const signature = JSON.stringify(draft);
+      const profileIds = draft.seats.map((id, index) => {
+        const user = users.find(item => item.userId === id);
+        return user?.controller === 'model' ? draft.profileIds[index] ?? user.defaultProfileId ?? null : null;
+      });
+      const mode = draft.seats.some(id => users.find(user => user.userId === id)?.controller === 'model') ? 'model' : 'demo';
+      if (mode === 'model' && (!modelTestToken() || profileIds.some(id => id !== null && !profiles.some(profile => profile.id === id))))
+        throw new Error('先输入测试口令并连接模型服务，确认每席 profile 可用');
+      const signature = JSON.stringify({ ...draft, profileIds });
       let attempt: {signature:string;id:string} | null = null;
       try { attempt = JSON.parse(sessionStorage.getItem('werewolf:robot-start') ?? 'null'); } catch { /* Invalid attempt is replaced. */ }
       if (attempt?.signature !== signature) attempt = {signature,id:crypto.randomUUID()};
       sessionStorage.setItem('werewolf:robot-start',JSON.stringify(attempt));
-      const mode = draft.seats.some(id => users.find(user => user.userId === id)?.controller === 'model') ? 'model' : 'demo';
-      const response = await fetch(`/api/werewolf/${mode}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:attempt!.id,seed:draft.seed,userIds:draft.seats})});
+      const response = await fetch(`/api/werewolf/${mode}/start`,{method:'POST',headers:{'Content-Type':'application/json',
+        ...(mode === 'model' ? modelTestHeaders() : {})},body:JSON.stringify({requestId:attempt!.id,seed:draft.seed,userIds:draft.seats,
+          ...(mode === 'model' ? { profileIds } : {})})});
       const result = await response.json();
       if (!response.ok) {
         if (response.status === 404) sessionStorage.removeItem('werewolf:robot-start');
@@ -70,12 +109,20 @@ export function RobotLobby({ started, close }: { started: (game: DemoSnapshot, s
   return <main className="robot-lobby">
     <header><small>十二人预女猎白 · Robot工具</small><h1>座位管理</h1><p>选择Robot用户入座，准备好后手动开始游戏。</p></header>
     <div className="robot-lobby-toolbar"><b>已入座 {count} / 12</b><button disabled={busy || loading || !users.length || count === 12} onClick={() => {setDraft(current => ({...current,seats:fillRobotSeats(current.seats,users)}));setSelected(null);}}>随机补满</button>{close && <button disabled={busy} onClick={close}>返回当前对局</button>}</div>
+    <section className="robot-test-connect"><label>测试口令 <input type="password" autoComplete="off" value={tokenInput} onChange={event => setTokenInput(event.target.value)} /></label>
+      <button type="button" onClick={() => void connect()}>连接模型服务</button><small>{profiles.length ? `已连接 · ${profiles.length} 个可用模型` : '模型密钥仍由服务端配置；口令只保留在当前标签页。'}</small></section>
+    <section className="robot-test-restore"><label>恢复房间 ID <input value={restoreId} onChange={event => setRestoreId(event.target.value)} placeholder="粘贴房间 ID" /></label>
+      <button type="button" disabled={!restoreId.trim()} onClick={() => void restore()}>查看已有对局</button></section>
     {loading && <p role="status">加载Robot用户…</p>}
     <div className="robot-seat-grid">{draft.seats.map((id,index) => {
       const user = users.find(item => item.userId === id);
-      return <button className={user ? 'occupied' : 'empty'} key={index} disabled={busy || loading || !users.length} onClick={() => setSelected(index)} aria-label={`${index+1}号座位，${user?.nickname ?? '空位'}`} aria-pressed={selected === index}>
+      return <div className="robot-seat-config" key={index}><button className={user ? 'occupied' : 'empty'} disabled={busy || loading || !users.length} onClick={() => setSelected(index)} aria-label={`${index+1}号座位，${user?.nickname ?? '空位'}`} aria-pressed={selected === index}>
         <b>{index+1}号位</b>{user ? <><span className="robot-face" style={portraitStyle(index+1,user)}/><strong>{user.nickname}</strong><small>Robot · {user.gender === 'female' ? '女' : user.gender === 'male' ? '男' : '未设置'}</small></> : <><span className="robot-seat-plus">＋</span><strong>选择Robot</strong><small>空座位</small></>}
-      </button>;
+      </button>{user?.controller === 'model' && profiles.length > 0 && <select aria-label={`${index+1}号模型 profile`}
+        value={draft.profileIds[index] ?? user.defaultProfileId ?? ''} onChange={event => setDraft(current => ({ ...current,
+          profileIds: current.profileIds.map((old, seat) => seat === index ? event.target.value : old) }))}>
+        {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label} · {profile.model}</option>)}
+      </select>}</div>;
     })}</div>
     {selected !== null && <section className="robot-picker" aria-label="Robot用户列表"><header><h2>{selected+1}号位 · {draft.seats[selected] ? '替换或移除' : '选择Robot用户'}</h2><button onClick={() => setSelected(null)}>收起</button>{draft.seats[selected] && <button disabled={busy} onClick={() => assign(null)}>移除此Robot</button>}</header><div className="robot-user-grid">{users.map(user => {
       const seat = draft.seats.indexOf(user.userId);

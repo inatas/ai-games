@@ -27,20 +27,28 @@ export class ChatCompletionsAdapter implements ModelAdapter {
       payload.max_completion_tokens = request.maxOutputTokens;
       payload.response_format = { type: 'json_schema', json_schema: { name: 'assessment', strict: true, schema: request.outputSchema } };
     }
-    const response = await fetch(this.config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-      method: 'POST', signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${this.config.apiKey}` },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) { await response.body?.cancel(); throw new HarnessError('MODEL_UNAVAILABLE'); }
+    let response: Response;
+    try {
+      response = await fetch(this.config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        method: 'POST', signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${this.config.apiKey}` },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new HarnessError('MODEL_UNAVAILABLE', 503, undefined,
+        { transportCategory: signal.aborted ? 'cancelled' : 'network' });
+    }
+    if (!response.ok) { await response.body?.cancel(); throw new HarnessError('MODEL_UNAVAILABLE', 503, undefined,
+      { httpStatus: response.status, transportCategory: 'http' }); }
     // Bound the transport envelope as well as the eventual model text.
-    const reader = response.body?.getReader(); if (!reader) throw new HarnessError('MODEL_UNAVAILABLE');
+    const reader = response.body?.getReader(); if (!reader) throw new HarnessError('MODEL_UNAVAILABLE', 503, undefined,
+      { transportCategory: 'response' });
     let size = 0; const parts: Uint8Array[] = [];
     try {
       while (true) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 262144) { await reader.cancel(); throw new HarnessError('MODEL_UNAVAILABLE'); } parts.push(value); }
     } finally { reader.releaseLock(); }
     let body: any;
     try { body = JSON.parse(Buffer.concat(parts).toString('utf8')); }
-    catch { throw new HarnessError('MODEL_UNAVAILABLE'); }
+    catch { throw new HarnessError('MODEL_UNAVAILABLE', 503, undefined, { transportCategory: 'response' }); }
     const text = body.choices?.[0]?.message?.content;
     if (typeof text !== 'string' || !text.trim()) throw new HarnessError('MODEL_UNAVAILABLE');
     const providerUsage = body.usage;

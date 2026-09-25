@@ -7,6 +7,11 @@ export interface RoomTokenUsage {
   outputTokens: number;
   reportedCalls: number;
   unreportedCalls: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  cacheReportedCalls: number;
+  cacheUnreportedCalls: number;
+  cacheRate: number | null;
 }
 
 const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
@@ -37,18 +42,42 @@ export async function summarizeRoomTokenUsage(store: PostgresStore, roomId: stri
           AND (usage->>'outputTokens')::numeric <= 9007199254740991
         ELSE false END AS reported
       FROM calls
+    ), cache_checked AS (
+      SELECT usage, reported,
+        CASE WHEN reported
+          AND jsonb_typeof(usage->'promptCacheHitTokens')='number'
+          AND jsonb_typeof(usage->'promptCacheMissTokens')='number'
+          AND (usage->>'promptCacheHitTokens') ~ '^(0|[1-9][0-9]*)$'
+          AND (usage->>'promptCacheMissTokens') ~ '^(0|[1-9][0-9]*)$'
+          AND length(usage->>'promptCacheHitTokens') <= 16
+          AND length(usage->>'promptCacheMissTokens') <= 16
+        THEN (usage->>'promptCacheHitTokens')::numeric <= 9007199254740991
+          AND (usage->>'promptCacheMissTokens')::numeric <= 9007199254740991
+          AND (usage->>'promptCacheHitTokens')::numeric + (usage->>'promptCacheMissTokens')::numeric = (usage->>'inputTokens')::numeric
+        ELSE false END AS cache_reported
+      FROM validated
     )
     SELECT COALESCE(SUM(CASE WHEN reported THEN (usage->>'inputTokens')::numeric ELSE 0 END),0)::text AS input_tokens,
       COALESCE(SUM(CASE WHEN reported THEN (usage->>'outputTokens')::numeric ELSE 0 END),0)::text AS output_tokens,
       COUNT(*) FILTER (WHERE reported)::text AS reported_calls,
-      COUNT(*) FILTER (WHERE NOT reported)::text AS unreported_calls
-    FROM validated`, [roomId]);
+      COUNT(*) FILTER (WHERE NOT reported)::text AS unreported_calls,
+      COALESCE(SUM(CASE WHEN cache_reported THEN (usage->>'promptCacheHitTokens')::numeric ELSE 0 END),0)::text AS cache_hit_tokens,
+      COALESCE(SUM(CASE WHEN cache_reported THEN (usage->>'promptCacheMissTokens')::numeric ELSE 0 END),0)::text AS cache_miss_tokens,
+      COUNT(*) FILTER (WHERE cache_reported)::text AS cache_reported_calls,
+      COUNT(*) FILTER (WHERE NOT cache_reported)::text AS cache_unreported_calls
+    FROM cache_checked`, [roomId]);
   const row = rows[0];
+  const cacheHitTokens = safeCount(row.cache_hit_tokens);
+  const cacheMissTokens = safeCount(row.cache_miss_tokens);
   return {
     roomId,
     inputTokens: safeCount(row.input_tokens),
     outputTokens: safeCount(row.output_tokens),
     reportedCalls: safeCount(row.reported_calls),
     unreportedCalls: safeCount(row.unreported_calls),
+    cacheHitTokens, cacheMissTokens,
+    cacheReportedCalls: safeCount(row.cache_reported_calls),
+    cacheUnreportedCalls: safeCount(row.cache_unreported_calls),
+    cacheRate: cacheHitTokens + cacheMissTokens > 0 ? cacheHitTokens / (cacheHitTokens + cacheMissTokens) : null,
   };
 }

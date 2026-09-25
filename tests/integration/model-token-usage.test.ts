@@ -20,7 +20,7 @@ test('MT-01/02/03/04/05/08: per-room totals use only provider-reported successfu
   const room = randomUUID();
   const other = randomUUID();
   await event(room, 'model.call.finished.v1', { simulated: false,
-    usage: { inputTokens: 10, outputTokens: 3 } });
+    usage: { inputTokens: 10, outputTokens: 3, promptCacheHitTokens: 7, promptCacheMissTokens: 3 } });
   // A correction attempt consumes tokens even if its output was invalid.
   await event(room, 'model.call.finished.v1', { simulated: false, schemaValid: false,
     usage: { inputTokens: 20, outputTokens: 4 } });
@@ -38,11 +38,14 @@ test('MT-01/02/03/04/05/08: per-room totals use only provider-reported successfu
   await event(other, 'model.call.finished.v1', { simulated: false,
     usage: { inputTokens: 100, outputTokens: 100 } });
   const expected = { roomId: room, inputTokens: 30, outputTokens: 7,
-    reportedCalls: 2, unreportedCalls: 4 };
+    reportedCalls: 2, unreportedCalls: 4, cacheHitTokens: 7, cacheMissTokens: 3,
+    cacheReportedCalls: 1, cacheUnreportedCalls: 5, cacheRate: 0.7 };
   assert.deepEqual(await summarizeRoomTokenUsage(db.store, room), expected);
   assert.deepEqual(await summarizeRoomTokenUsage(db.store, room), expected);
   assert.deepEqual(await summarizeRoomTokenUsage(db.store, other), { roomId: other,
-    inputTokens: 100, outputTokens: 100, reportedCalls: 1, unreportedCalls: 0 });
+    inputTokens: 100, outputTokens: 100, reportedCalls: 1, unreportedCalls: 0,
+    cacheHitTokens: 0, cacheMissTokens: 0, cacheReportedCalls: 0,
+    cacheUnreportedCalls: 1, cacheRate: null });
 });
 
 test('MT-08: aggregate overflow is rejected instead of truncated', async () => {

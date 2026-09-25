@@ -21,6 +21,7 @@ export type MemoryChange =
   | { op: 'close_item'; id: string };
 export interface Prepared {
   gameVersion: string; facts: Json; instructions: string;
+  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json };
   subjectIds: string[]; tags: string[]; requiredMemoryIds: string[];
   visibility?: Visibility[];
   eventContext?: { userId?: string | null; modId?: string | null; roomId?: string | null; details?: Json };
@@ -53,6 +54,7 @@ export interface RequestView {
   result: Json | null; error: { code: string; detail?: string } | null; memoryVersion: number | null;
 }
 export class HarnessError extends Error {
-  constructor(public code: string, public httpStatus = 400, public detail?: string) { super(code); }
+  constructor(public code: string, public httpStatus = 400, public detail?: string,
+    public diagnostics?: { httpStatus?: number; transportCategory?: 'http' | 'network' | 'cancelled' | 'response' }) { super(code); }
 }
 

@@ -3,6 +3,7 @@ import type { Perspective } from '../../mods/werewolf/src/perspective.ts';
 import type { Json } from '@game-ai/core';
 
 export interface DemoSnapshot {
+  seed?: number;
   perspective?: Perspective;
   id: string;
   revision: number;

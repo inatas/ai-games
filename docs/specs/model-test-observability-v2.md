@@ -1,6 +1,6 @@
-# 模型测试与调用日志 v2（待确认）
+# 模型测试与调用日志 v2（已实施，待网页实局复核）
 
-关联[框架需求 021](../../.agents/note/021-event-log.md)、[狼人杀网页方案](../../mods/werewolf/docs/web-model-test-v1.md)及[验收说明](../testing/model-test-observability-v2.md)。本版仅为待审方案，原 v1.3 日志已实施。
+关联[框架需求 021](../../.agents/note/021-event-log.md)、[狼人杀网页方案](../../mods/werewolf/docs/web-model-test-v1.md)及[验收说明](../testing/model-test-observability-v2.md)。用户于 2026-09-25 确认实施；v2 代码与网页已部署到本地测试服务，真实模型整局仍待网页复核。
 
 ## 目标与边界
 

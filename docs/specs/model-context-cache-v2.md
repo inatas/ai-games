@@ -1,6 +1,6 @@
-# 模型上下文缓存 v2（待确认）
+# 模型上下文缓存 v2（已实施，待实局验证）
 
-关联[框架需求 023](../../.agents/note/023-model-context-cache.md)、[狼人杀需求 003](../../mods/werewolf/.agents/note/003-model-context-cache.md)与[验收说明](../testing/model-context-cache-v2.md)。v1 的稳定前两条 system 消息已实施；本版为新待审范围。
+关联[框架需求 023](../../.agents/note/023-model-context-cache.md)、[狼人杀需求 003](../../mods/werewolf/.agents/note/003-model-context-cache.md)与[验收说明](../testing/model-context-cache-v2.md)。用户于 2026-09-25 确认实施；v2 已部署到本地测试服务，真实供应商命中率仍待新局对比。
 
 ## 现状与目标
 

@@ -250,15 +250,22 @@ export class RoomRuntime {
       prepare: async (_input, scopeId) => {
         if (scopeId !== job.scopeId) throw new HarnessError('FORBIDDEN', 403);
         requirePending(await this.inspect(snapshot.id));
+        const facts = job.decisionInput?.context ?? job.facts;
+        const parts = job.decisionInput?.context;
+        const promptParts = parts ? {
+          sharedPublicFacts: parts.public_history,
+          dynamicFacts: Object.fromEntries(Object.entries(parts).filter(([key]) => key !== 'public_history')),
+        } : undefined;
         return {
-          gameVersion: `${job.phaseInstance}:${job.decisionEpoch}`, facts: job.decisionInput?.context ?? job.facts,
+          gameVersion: `${job.phaseInstance}:${job.decisionEpoch}`, facts, promptParts,
           instructions: this.definition.instructions,
           subjectIds: [], tags: [], requiredMemoryIds: [], visibility: [],
           eventContext: {
             userId: snapshot.seats.find(seat => seat.seat === job.seat)?.userId ?? null,
             modId: this.definition.id, roomId: snapshot.id,
             details: { ...(job.decisionInput?.audit ?? {}), modelProfile: job.modelProfile,
-              phaseInstance: job.phaseInstance, decisionEpoch: job.decisionEpoch, lane: job.lane },
+              phaseInstance: job.phaseInstance, scene: job.decisionInput?.scene ?? snapshot.phase?.key ?? null,
+              decisionEpoch: job.decisionEpoch, lane: job.lane },
           },
         };
       },

@@ -12,11 +12,15 @@ interface SeatingRuntime {
 }
 
 /** Trusted host operation; a model user cannot be silently replaced by a script. */
-export async function setupRobotRoom(runtime: SeatingRuntime, runKey: string, roster: readonly RobotUser[]): Promise<string> {
+export async function setupRobotRoom(runtime: SeatingRuntime, runKey: string, roster: readonly RobotUser[],
+  profileIds: readonly (string | null)[] = roster.map(user => user.control.kind === 'model' ? user.control.modelProfile : null)): Promise<string> {
   if (roster.length !== 12 || new Set(roster.map(user => user.userId)).size !== 12 ||
+      profileIds.length !== 12 || profileIds.some((profile, index) =>
+        roster[index].control.kind === 'model' ? !profile : profile !== null) ||
       !roster.some(user => user.control.kind === 'model') ||
       roster.some(user => user.kind !== 'robot')) throw new Error('INVALID_ROSTER');
-  const signature = createHash('sha256').update(JSON.stringify(roster.map(user => user.userId))).digest('hex');
+  const signature = createHash('sha256').update(JSON.stringify(roster.map((user, index) =>
+    [user.userId, profileIds[index] ?? profileForRobot(user)]))).digest('hex');
   const room = await runtime.create(runKey, {}, signature);
   if (room.status && room.status !== 'waiting') return room.id;
   for (const [index, user] of roster.entries()) {
@@ -27,7 +31,7 @@ export async function setupRobotRoom(runtime: SeatingRuntime, runKey: string, ro
     }
     await runtime.seat(room.id, {
       seat: index + 1, userId: user.userId, name: user.nickname,
-      persona: user.persona.description, modelProfile: profileForRobot(user), controllerKind: 'robot',
+      persona: user.persona.description, modelProfile: profileIds[index] ?? profileForRobot(user), controllerKind: 'robot',
     });
   }
   return room.id;

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {ChatCompletionsAdapter} from '@game-ai/model';
+import { HarnessError } from '@game-ai/core';
 
 test('Provider protocol: structured request, usage, non-200 errors and cancellation',async()=>{
  let mode='ok';let seen:any;
@@ -16,7 +17,11 @@ test('Provider protocol: structured request, usage, non-200 errors and cancellat
  const request={requestId:'test',attempt:1,messages:[{role:'user' as const,content:'sample'}],outputSchema:{type:'object'},maxOutputTokens:100};
  try{
    const result=await adapter.generate(request,new AbortController().signal);assert.deepEqual(result.usage,{inputTokens:7,outputTokens:3});assert.equal(seen.response_format.type,'json_schema');
-   mode='error';await assert.rejects(adapter.generate(request,new AbortController().signal),/MODEL_UNAVAILABLE/);
+   mode='error';await assert.rejects(adapter.generate(request,new AbortController().signal), error => {
+     assert.equal((error as HarnessError).code, 'MODEL_UNAVAILABLE');
+     assert.equal((error as HarnessError).diagnostics?.httpStatus, 503);
+     return true;
+   });
    mode='wait';const controller=new AbortController();const pending=adapter.generate(request,controller.signal);controller.abort();await assert.rejects(pending);
  }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
 });

@@ -14,6 +14,19 @@ test('MC-01: framework and game rules form a stable prefix before the dynamic sc
   assert.notDeepEqual(first.messages[2], second.messages[2]);
 });
 
+test('MC2-01: authorized public facts precede changing schema and private facts', () => {
+  const sharedPublicFacts = [{ sequence: 1, type: 'speech', data: { text: 'hello' } }];
+  const first = buildContext({ ...emptyContext, instructions: 'rules', facts: { self: { seat: 1 } },
+    promptParts: { sharedPublicFacts, dynamicFacts: { self: { seat: 1 } } }, schema: { enum: ['a'] } });
+  const second = buildContext({ ...emptyContext, instructions: 'rules', facts: { self: { seat: 2 } },
+    promptParts: { sharedPublicFacts, dynamicFacts: { self: { seat: 2 } } }, schema: { enum: ['b'] } });
+  assert.deepEqual(first.messages.slice(0, 3), second.messages.slice(0, 3));
+  assert.match(first.messages[2].content, /^SHARED_PUBLIC_FACTS:/);
+  assert.match(first.messages[3].content, /^OUTPUT_SCHEMA:/);
+  assert.match(first.messages[4].content, /^CURRENT_FACTS:/);
+  assert.notDeepEqual(first.messages[3], second.messages[3]);
+});
+
 test('F-19: optional memory is ranked, deduplicated and budgeted', () => {
   const records = [1, 2, 3].map(n => ({ id: `E${n}`, kind: 'event' as const, payload: { n }, importance: n, sequence: n, sourceIds: [], visibility: 'public' as const }));
   const counter = (messages: any[]) => 7000 + JSON.parse(messages.find(m => m.content.startsWith('HISTORY:')).content.slice(8)).length * 500;

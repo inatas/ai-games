@@ -14,7 +14,8 @@ test('RR-01/02: twelve model users keep distinct identities and persona when sea
   const runtime = {
     async create(key: string, _limits: object, signature: string) {
       assert.equal(key, 'run-1');
-      assert.equal(signature, createHash('sha256').update(JSON.stringify(roster.map(user => user.userId))).digest('hex'));
+      assert.equal(signature, createHash('sha256').update(JSON.stringify(roster.map(user =>
+        [user.userId, user.control.kind === 'model' ? user.control.modelProfile : `script:${user.userId}`]))).digest('hex'));
       return { id: 'room-1' };
     },
     async seat(_roomId: string, config: unknown) { seats.push(config); return {} as never; },
@@ -54,4 +55,20 @@ test('RR-03: a model room accepts a mixed roster and rejects an all-script roste
   const allScript = users.slice(0, 12).map(user => ({ ...user, control: script.control }));
   await assert.rejects(() => setupRobotRoom(runtime, 'script-only', allScript), /INVALID_ROSTER/);
   assert.equal(model.control.kind, 'model');
+});
+
+test('WW-W02: per-seat profile choices are frozen into seating and idempotency signature', async () => {
+  const roster = loadRobotUsers().slice(0, 12);
+  const profileIds = roster.map((_user, index) => index === 0 ? 'alternate' : 'environment-default');
+  let signature = '';
+  const seated: { modelProfile: string }[] = [];
+  const runtime = {
+    async create(_key: string, _limits: object, value: string) { signature = value; return { id: 'configured' }; },
+    async seat(_id: string, seat: { modelProfile: string }) { seated.push(seat); return {}; },
+  };
+  await setupRobotRoom(runtime, 'configured-key', roster, profileIds);
+  assert.equal(seated[0].modelProfile, 'alternate');
+  assert.equal(seated[1].modelProfile, 'environment-default');
+  assert.equal(signature, createHash('sha256').update(JSON.stringify(roster.map((user, index) =>
+    [user.userId, profileIds[index]]))).digest('hex'));
 });

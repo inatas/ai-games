@@ -1,4 +1,4 @@
-# 狼人杀网页模型测试台 v1（待确认）
+# 狼人杀网页模型测试台 v1（已实施，待网页实局复核）
 
 关联[需求 005](../.agents/note/005-web-model-test.md)、[框架日志设计](../../../docs/specs/model-test-observability-v2.md)和[验收说明](web-model-test-testing-v1.md)。本页仅列 MOD 界面与接入，不复制底层日志协议。
 

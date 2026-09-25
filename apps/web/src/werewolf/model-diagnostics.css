@@ -1,0 +1,18 @@
+.ww-dialog:has(.ww-diagnostics) { width:min(94vw,900px); }
+.ww-diagnostics { display:grid; gap:12px; margin-top:12px; }
+.ww-diagnostic-login,.ww-diagnostic-filters,.ww-diagnostic-totals,.ww-diagnostic-pages { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.ww-diagnostic-totals { padding:10px; border:1px solid #b49360; background:#e9d5a9; }
+.ww-diagnostic-totals span { padding:3px 8px; border-right:1px solid #af9367; }
+.ww-diagnostic-room { margin:0; overflow-wrap:anywhere; }
+.ww-diagnostic-room code { font-size:12px; }
+.ww-diagnostic-filters label { display:grid; gap:3px; }
+.ww-diagnostic-list { max-height:44dvh; overflow:auto; display:grid; gap:7px; }
+.ww-diagnostic-list>button { display:grid; gap:3px; width:100%; text-align:left; border-radius:6px; background:#f3e4c0; color:#382a1b; }
+.ww-diagnostic-list>button:hover { background:#fff2d3; }
+.ww-diagnostic-list small { color:#664f36; font-size:12px; overflow-wrap:anywhere; }
+.ww-diagnostic-detail { border-top:1px solid #a98553; padding-top:8px; }
+.ww-diagnostic-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; max-height:24dvh; overflow:auto; }
+.ww-diagnostic-groups p { margin:4px 0; }
+.ww-diagnostic-groups small { color:#6d573e; }
+.ww-diagnostic-detail pre { max-height:36dvh; overflow:auto; padding:12px; background:#241e19; color:#f5e6c5; font:12px/1.45 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.ww-diagnostic-error { color:#8a241a; font-weight:bold; }

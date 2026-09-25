@@ -14,6 +14,19 @@ export function buildRobotAdapters(
   wrapModel: (adapter: ModelAdapter) => ModelAdapter = adapter => adapter,
 ): Record<string, ModelAdapter | DecisionAdapter> {
   const adapters: Record<string, ModelAdapter | DecisionAdapter> = {};
+  for (const profile of profiles) {
+    const { environment: names } = profile;
+    const baseUrl = env[names.baseUrl];
+    const model = env[names.model];
+    const apiKey = env[names.apiKey];
+    const protocol = env[names.protocol] ?? profile.defaultProtocol;
+    if (!baseUrl || !model || !apiKey) {
+      if (users.some(user => user.control.kind === 'model' && user.control.modelProfile === profile.id)) throw new Error('MODEL_ENV_MISSING');
+      continue;
+    }
+    if (protocol !== 'json-schema' && protocol !== 'deepseek') throw new Error('MODEL_PROTOCOL_INVALID');
+    adapters[profile.id] = wrapModel(new ChatCompletionsAdapter({ baseUrl, model, apiKey, protocol }));
+  }
   for (const user of users) {
     const id = profileForRobot(user);
     if (adapters[id]) continue;
@@ -23,16 +36,7 @@ export function buildRobotAdapters(
       });
       continue;
     }
-    const profile = profiles.find(item => item.id === id);
-    if (!profile) throw new Error('UNKNOWN_MODEL_PROFILE');
-    const { environment: names } = profile;
-    const baseUrl = env[names.baseUrl];
-    const model = env[names.model];
-    const apiKey = env[names.apiKey];
-    const protocol = env[names.protocol] ?? profile.defaultProtocol;
-    if (!baseUrl || !model || !apiKey) throw new Error('MODEL_ENV_MISSING');
-    if (protocol !== 'json-schema' && protocol !== 'deepseek') throw new Error('MODEL_PROTOCOL_INVALID');
-    adapters[id] = wrapModel(new ChatCompletionsAdapter({ baseUrl, model, apiKey, protocol }));
+    throw new Error('UNKNOWN_MODEL_PROFILE');
   }
   // Pre-v5 rooms persisted script:<userId> for the twelve users now controlled by a model.
   // Keep their previous deterministic controller available only for those stored seats.

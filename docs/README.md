@@ -10,10 +10,11 @@
 | [DeepSeek测试设计 v1](testing/deepseek-provider.md) | 协议、密钥与真实冒烟验收记录 |
 | [模型上下文前缀缓存设计 v1](specs/model-context-cache-v1.md) | 待确认的消息顺序与缓存用量接口 |
 | [模型上下文前缀缓存测试设计 v1](testing/model-context-cache-v1.md) | 待确认的前缀、权限与用量验收场景 |
-| [模型上下文缓存 v2](specs/model-context-cache-v2.md) | 待确认的共享公开前缀与真实命中率观测 |
-| [模型上下文缓存 v2 验收](testing/model-context-cache-v2.md) | 待确认的前缀、权限和供应商对比用例 |
-| [模型测试与日志 v2](specs/model-test-observability-v2.md) | 待确认的网页诊断查询、失败分类与持久记录 |
-| [模型测试与日志 v2 验收](testing/model-test-observability-v2.md) | 待确认的成功、失败、恢复与隐私用例 |
+| [模型上下文缓存 v2](specs/model-context-cache-v2.md) | 已实施的共享公开前缀与真实命中率观测；待新局实测 |
+| [模型上下文缓存 v2 验收](testing/model-context-cache-v2.md) | 已实施的前缀、权限和供应商对比用例 |
+| [模型测试与日志 v2](specs/model-test-observability-v2.md) | 已实施的网页诊断查询、失败分类与持久记录 |
+| [模型测试与日志 v2 验收](testing/model-test-observability-v2.md) | 已实施的成功、失败、恢复与隐私用例 |
+| [狼人杀本机模型测试台 v1.1](../mods/werewolf/docs/web-model-test-v1-1.md) | 待确认的免手工口令与用户目录凭据装配 |
 | [Robot 阵容升级 v5](specs/robot-roster-deepseek-v5.md) | 待确认的 12 DeepSeek＋1 Script 配置与房间接入 |
 | [Robot 阵容验收 v5](testing/robot-roster-deepseek-v5.md) | 配置、路由、预算和恢复用例 |
 | [模型对局 Token 用量记账 v1](specs/model-token-accounting-v1.md) | 已确认的按房间实际 Token 汇总与旧预留停用方案 |

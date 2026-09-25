@@ -9,31 +9,42 @@ import type { WerewolfModelService } from './werewolf-model-service.ts';
 import { WerewolfModelService as ModelService } from './werewolf-model-service.ts';
 import { PostgresStore } from '@game-ai/storage';
 import pg from 'pg';
+import { timingSafeEqual } from 'node:crypto';
 
-export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms; modelService?: WerewolfModelService } = {}) {
+export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?: DemoRooms; modelService?: WerewolfModelService; modelTestToken?: string } = {}) {
   const rooms = options.rooms ?? new DemoRooms();
   const robots = loadRobotUsers();
-  const local = (ip: string) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip);
+  const secret = options.modelTestToken ?? process.env.MODEL_TEST_TOKEN;
+  const diagnostic = (header: string | string[] | undefined) => {
+    if (!secret || typeof header !== 'string') return false;
+    const actual = Buffer.from(header);
+    const expected = Buffer.from(secret);
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
+  };
   const starts = new Map<string, { signature: string; id: string; at: number }>();
   app.get('/api/robot-users', async () => robots.map(user => ({ ...publicRobot(user),
     controller: user.control.kind,
+    ...(user.control.kind === 'model' ? { defaultProfileId: user.control.modelProfile } : {}),
     available: user.control.kind === 'script' || !!options.modelService,
     ...(user.control.kind === 'model' && !options.modelService ? { unavailableReason: '模型服务未配置' } : {}),
   })));
   if (options.modelService) {
-    app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/model/start', {
+    app.get('/api/werewolf/model/profiles', async (request, reply) => diagnostic(request.headers['x-model-test-token'])
+      ? options.modelService!.profiles() : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
+    app.post<{ Body: { requestId: string; seed: number; userIds: string[]; profileIds?: (string | null)[] } }>('/api/werewolf/model/start', {
       schema: { body: { type: 'object', additionalProperties: false, required: ['requestId', 'seed', 'userIds'],
         properties: { requestId: { type: 'string', minLength: 8, maxLength: 80 }, seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
-          userIds: { type: 'array', minItems: 12, maxItems: 12, uniqueItems: true, items: { type: 'string' } } } } },
-    }, async (request, reply) => local(request.ip)
-      ? options.modelService!.start(request.body.requestId, request.body.seed, request.body.userIds)
-      : reply.code(403).send({ error: 'LOCAL_ONLY' }));
+          userIds: { type: 'array', minItems: 12, maxItems: 12, uniqueItems: true, items: { type: 'string' } },
+          profileIds: { type: 'array', minItems: 12, maxItems: 12, items: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] } } } } },
+    }, async (request, reply) => diagnostic(request.headers['x-model-test-token'])
+      ? options.modelService!.start(request.body.requestId, request.body.seed, request.body.userIds, request.body.profileIds)
+      : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
     app.get<{ Params: { id: string }; Querystring: { seat?: string } }>('/api/werewolf/model/:id', {
       schema: { querystring: { type: 'object', additionalProperties: false,
         properties: { seat: { type: 'string', pattern: '^(?:[1-9]|1[0-2])$' } } } },
     }, async (request, reply) => {
       const viewer = request.query.seat === undefined ? null : Number(request.query.seat);
-      if (viewer !== null && !local(request.ip)) return reply.code(403).send({ error: 'LOCAL_ONLY' });
+      if (viewer !== null && !diagnostic(request.headers['x-model-test-token'])) return reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' });
       return options.modelService!.get(request.params.id, viewer);
     });
     app.get<{ Params: { id: string }; Querystring: { after?: string; limit?: string } }>(
@@ -42,12 +53,21 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
           after: { type: 'string', pattern: '^[0-9]+$' },
           limit: { type: 'string', pattern: '^(?:[1-9]|[1-9][0-9]|100)$' },
         } } },
-      }, async (request, reply) => local(request.ip)
+      }, async (request, reply) => diagnostic(request.headers['x-model-test-token'])
         ? options.modelService!.events(request.params.id, Number(request.query.after ?? 0), Number(request.query.limit ?? 50))
-        : reply.code(403).send({ error: 'LOCAL_ONLY' }));
-    app.get<{ Params: { id: string } }>('/api/werewolf/model/:id/usage', async (request, reply) => local(request.ip)
+        : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
+    app.get<{ Params: { id: string } }>('/api/werewolf/model/:id/usage', async (request, reply) => diagnostic(request.headers['x-model-test-token'])
       ? options.modelService!.usage(request.params.id)
-      : reply.code(403).send({ error: 'LOCAL_ONLY' }));
+      : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
+    app.get<{ Params: { id: string }; Querystring: { after?: string; limit?: string; seat?: string; result?: string } }>(
+      '/api/werewolf/model/:id/model-calls', async (request, reply) => diagnostic(request.headers['x-model-test-token'])
+        ? options.modelService!.calls(request.params.id, Number(request.query.after ?? 0), Number(request.query.limit ?? 50),
+          request.query.seat ? Number(request.query.seat) : undefined, request.query.result)
+        : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
+    app.get<{ Params: { id: string; requestId: string; attempt: string } }>(
+      '/api/werewolf/model/:id/model-calls/:requestId/:attempt', async (request, reply) => diagnostic(request.headers['x-model-test-token'])
+        ? options.modelService!.call(request.params.id, request.params.requestId, Number(request.params.attempt))
+        : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
   }
   await app.register(fastifyStatic, { root: resolve(robotRoot,'assets'), prefix:'/robot-assets/', decorateReply:false });
   app.post<{ Body: { requestId: string; seed: number; userIds: string[] } }>('/api/werewolf/demo/start', {
@@ -97,7 +117,7 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
 
 }
 
-export async function buildWerewolfDemo(options: { rooms?: DemoRooms; modelService?: WerewolfModelService } = {}) {
+export async function buildWerewolfDemo(options: { rooms?: DemoRooms; modelService?: WerewolfModelService; modelTestToken?: string } = {}) {
   const app = Fastify({ bodyLimit: 1024, ajv: { customOptions: { removeAdditional: false, coerceTypes: false } } });
   let modelService = options.modelService;
   let ownStore: PostgresStore | undefined;

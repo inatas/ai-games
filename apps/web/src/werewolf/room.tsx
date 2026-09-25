@@ -8,9 +8,11 @@ import { boardEvents } from './presentation.ts';
 import './room.css';
 import { RobotLobby } from './robot-lobby.tsx';
 import { RobotUsersContext } from './robot-context.tsx';
+import { ModelDiagnostics } from './model-diagnostics.tsx';
+import { modelTestHeaders, modelTestToken } from './model-test-auth.ts';
 
 type Event = DemoSnapshot['events'][number];
-type Modal = 'perspective' | 'knowledge' | 'history' | 'samples' | 'settings' | 'restart' | 'player' | 'roles' | null;
+type Modal = 'perspective' | 'knowledge' | 'history' | 'samples' | 'settings' | 'restart' | 'player' | 'roles' | 'diagnostics' | null;
 const roleNames: Record<string, string> = { wolf: '狼人', villager: '村民', seer: '预言家', witch: '女巫', hunter: '猎人', idiot: '白痴' };
 const preview: DemoSnapshot = {
   id: 'preview', revision: 0, status: 'running', day: 2, period: 'day', phaseLabel: '放逐投票', actor: 5,
@@ -26,8 +28,8 @@ const preview: DemoSnapshot = {
 
 async function request(path: string, mode: 'demo' | 'model' = 'demo', body?: object): Promise<DemoSnapshot> {
   const response = await fetch(`/api/werewolf/${mode}${path}`, body ? {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  } : undefined);
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(mode === 'model' ? modelTestHeaders() : {}) }, body: JSON.stringify(body),
+  } : mode === 'model' ? { headers: modelTestHeaders() } : undefined);
   if (!response.ok) {
     const error = await response.json().catch(() => null) as { error?: string } | null;
     throw Object.assign(new Error(error?.error ?? '连接中断，请重试'), { status: response.status });
@@ -73,6 +75,7 @@ export default function WerewolfRoom() {
   const [viewer, setViewer] = useState<number | null>(null);
   const viewEpoch = useRef(0);
   function switchViewer(seat: number | null) {
+    if (seat !== null && roomMode === 'model' && !modelTestToken()) { setModal('diagnostics'); return; }
     if (seat === viewer) { setModal(null); return; }
     viewEpoch.current++;
     setViewer(seat);
@@ -115,7 +118,7 @@ export default function WerewolfRoom() {
       const active = JSON.parse(saved) as { id: string; seed: number; mode?: 'demo' | 'model' };
       setBusy(true);
       void request(`/${active.id}`, active.mode ?? 'demo').then(next => {
-        if (!cancelled) { setGame(next); setActiveSeed(active.seed); setRoomMode(active.mode ?? 'demo'); }
+        if (!cancelled) { setGame(next); setActiveSeed(next.seed ?? active.seed); setRoomMode(active.mode ?? 'demo'); }
       }).catch(() => { sessionStorage.removeItem('werewolf:active-room'); })
         .finally(() => { if (!cancelled) setBusy(false); });
     } catch { sessionStorage.removeItem('werewolf:active-room'); }
@@ -199,13 +202,15 @@ export default function WerewolfRoom() {
     <nav className="ww-controls" aria-label="演示控制">
       {ended ? <button onClick={() => setModal('roles')}>查看身份</button> : isPreview ? <button className="ww-autoplay" onClick={() => setShowLobby(true)} disabled={busy}>开始对局</button> : <span className="ww-playback-label">对局进行中 · 实时旁观</span>}
       <button className="ww-restart" onClick={() => setModal('restart')}>⟳ {ended ? '再来一局' : '重开'}</button>
+      {roomMode === 'model' && <button onClick={() => setModal('diagnostics')}>模型诊断</button>}
     </nav>
     <p className="ww-caption">{isPreview ? '原型示意 · 点击开始对局' : ended
       ? `${roomMode === 'model' ? '模型Robot对局' : '脚本Robot对局'} · 终局公开`
       : `${roomMode === 'model' ? '模型与脚本Robot' : '脚本Robot · 固定短句发言'} · 查看历史不停表`}</p>
     <LiveTransition game={game} suppressed={modal !== null}/>
     {modal === 'history' && <SpeechHistory key={game.id} game={game} close={() => setModal(null)} />}
-    {modal && modal !== 'history' && <Dialog title={{ perspective: '选择观察视角', knowledge: '当前视角 · 已知信息', samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', player: `${selected}号玩家`, roles: '终局身份' }[modal]} close={() => setModal(null)}>
+    {modal && modal !== 'history' && <Dialog title={{ perspective: '选择观察视角', knowledge: '当前视角 · 已知信息', samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', player: `${selected}号玩家`, roles: '终局身份', diagnostics: '模型调用诊断' }[modal]} close={() => setModal(null)}>
+      {modal === 'diagnostics' && <ModelDiagnostics roomId={game.id} />}
       {modal === 'perspective' && <><p>仅切换观察视角，玩家继续自动行动。此入口用于本地调试。</p><button aria-pressed={viewer === null} onClick={() => switchViewer(null)}>公共旁观</button><div className="ww-view-grid">{game.players.map(player => <button key={player.seat} aria-label={`观察${player.seat}号`} aria-pressed={viewer === player.seat} onClick={() => switchViewer(player.seat)}><span style={portraitStyle(player.seat, player.user)}/>{player.seat}号</button>)}</div></>}
       {modal === 'knowledge' && (!knowledge ? <p>正在加载当前视角信息…</p> : <div className="ww-knowledge"><h3>{knowledge.seat}号 · {roleNames[knowledge.role]}</h3>{knowledge.wolves && <p>狼队友：{knowledge.wolves.filter(seat => seat !== viewer).join('、')}号</p>}{knowledge.knives?.map(item => <p key={item.night}>第{item.night}夜狼刀：{item.target === null ? '空刀' : `${item.target}号`}</p>)}{knowledge.inspections && <><h3>已查验</h3>{knowledge.inspections.length ? knowledge.inspections.map(item => <p key={item.night}>第{item.night}夜 · {item.target}号：{item.alignment === 'wolf' ? '狼' : '好'}</p>) : <p>尚无查验结果</p>}</>}{knowledge.medicine && <><p>解药：{knowledge.medicine.antidote ? '剩余1瓶' : '已用'} · 毒药：{knowledge.medicine.poison ? '剩余1瓶' : '已用'}</p><p>授权刀口：{'knife' in knowledge ? knowledge.knife === null ? '空刀' : `${knowledge.knife}号` : '当前不可见'}</p></>}{knowledge.deaths.map(item => <p key={item.seat}>{item.seat}号：{item.cause === 'poison' ? '毒杀' : '狼刀'}出局</p>)}<p>只显示该席位有权知道的信息。</p></div>)}
       {modal === 'samples' && <AvatarExamples />}

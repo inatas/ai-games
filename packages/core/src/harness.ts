@@ -140,7 +140,8 @@ export class Harness {
         const memories = await this.store.contextMemory(input.scopeId, prepared.visibility ?? ['public'], prepared.requiredMemoryIds, prepared.subjectIds, prepared.tags);
         let context: ReturnType<typeof buildContext>;
         try {
-          context = buildContext({ worldview, facts: prepared.facts, instructions: prepared.instructions, input: input.input, schema: binding.outputSchema!, ...memories,
+          context = buildContext({ worldview, facts: prepared.facts, promptParts: prepared.promptParts,
+            instructions: prepared.instructions, input: input.input, schema: binding.outputSchema!, ...memories,
             counter: this.options.counter, inputBudget: this.options.inputBudget, outputBudget: this.options.outputBudget, window: this.options.modelWindow });
         } catch (error) {
           if (error instanceof HarnessError && error.code === 'CONTEXT_TOO_LARGE') {
@@ -162,6 +163,9 @@ export class Harness {
           const started = this.clock.now(); let response;
           await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
             attempt, deadlineAt: deadline, modelRequest: request,
+            promptLayoutVersion: prepared.promptParts ? 2 : 1,
+            ...(prepared.promptParts ? { sharedPublicDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedPublicFacts)).digest('hex'),
+              sharedPublicBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedPublicFacts), 'utf8') } : {}),
             contextIds: context.contextIds, worldId: worldview?.worldId ?? null,
             worldVersion: worldview?.version ?? null, worldDigest: worldview?.digest ?? null,
           });
@@ -170,6 +174,7 @@ export class Harness {
             await this.logModelEvent(this.store.pool, input, prepared, 'model.call.failed.v1', 'failed', {
               attempt, latencyMs: Math.max(0, this.clock.now() - started),
               errorCode: error instanceof HarnessError ? error.code : 'MODEL_UNAVAILABLE',
+              ...(error instanceof HarnessError && error.diagnostics ? error.diagnostics : {}),
             });
             throw error;
           }
