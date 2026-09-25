@@ -14,7 +14,9 @@
 | [模型上下文缓存 v2 验收](testing/model-context-cache-v2.md) | 已实施的前缀、权限和供应商对比用例 |
 | [模型测试与日志 v2](specs/model-test-observability-v2.md) | 已实施的网页诊断查询、失败分类与持久记录 |
 | [模型测试与日志 v2 验收](testing/model-test-observability-v2.md) | 已实施的成功、失败、恢复与隐私用例 |
-| [狼人杀本机模型测试台 v1.1](../mods/werewolf/docs/web-model-test-v1-1.md) | 待确认的免手工口令与用户目录凭据装配 |
+| [狼人杀本机模型测试台 v1.1](../mods/werewolf/docs/web-model-test-v1-1.md) | 已实施的免手工口令与用户目录凭据装配；待网页新局实测 |
+| [本机狼人杀测试运维 v1.1](specs/local-werewolf-test-ops-v1.md) | 待确认的旧账本、日志、四局回放清理与一条指令启动 |
+| [本机狼人杀测试运维 v1.1 验收](testing/local-werewolf-test-ops-v1.md) | 待确认的清理边界、备份、启动与新局留痕用例 |
 | [Robot 阵容升级 v5](specs/robot-roster-deepseek-v5.md) | 待确认的 12 DeepSeek＋1 Script 配置与房间接入 |
 | [Robot 阵容验收 v5](testing/robot-roster-deepseek-v5.md) | 配置、路由、预算和恢复用例 |
 | [模型对局 Token 用量记账 v1](specs/model-token-accounting-v1.md) | 已确认的按房间实际 Token 汇总与旧预留停用方案 |

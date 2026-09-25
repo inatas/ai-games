@@ -9,7 +9,6 @@ import './room.css';
 import { RobotLobby } from './robot-lobby.tsx';
 import { RobotUsersContext } from './robot-context.tsx';
 import { ModelDiagnostics } from './model-diagnostics.tsx';
-import { modelTestHeaders, modelTestToken } from './model-test-auth.ts';
 
 type Event = DemoSnapshot['events'][number];
 type Modal = 'perspective' | 'knowledge' | 'history' | 'samples' | 'settings' | 'restart' | 'player' | 'roles' | 'diagnostics' | null;
@@ -28,8 +27,8 @@ const preview: DemoSnapshot = {
 
 async function request(path: string, mode: 'demo' | 'model' = 'demo', body?: object): Promise<DemoSnapshot> {
   const response = await fetch(`/api/werewolf/${mode}${path}`, body ? {
-    method: 'POST', headers: { 'Content-Type': 'application/json', ...(mode === 'model' ? modelTestHeaders() : {}) }, body: JSON.stringify(body),
-  } : mode === 'model' ? { headers: modelTestHeaders() } : undefined);
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  } : undefined);
   if (!response.ok) {
     const error = await response.json().catch(() => null) as { error?: string } | null;
     throw Object.assign(new Error(error?.error ?? '连接中断，请重试'), { status: response.status });
@@ -75,7 +74,6 @@ export default function WerewolfRoom() {
   const [viewer, setViewer] = useState<number | null>(null);
   const viewEpoch = useRef(0);
   function switchViewer(seat: number | null) {
-    if (seat !== null && roomMode === 'model' && !modelTestToken()) { setModal('diagnostics'); return; }
     if (seat === viewer) { setModal(null); return; }
     viewEpoch.current++;
     setViewer(seat);

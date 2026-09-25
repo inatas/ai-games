@@ -12,4 +12,5 @@
 - [002 Robot策略规则集](002-decision-rules.md)：in_progress；预言家首日 80% 概率上警 v1 已实施，女巫平安夜公开刀口留待单独裁定；依赖[框架需求 022](../../../../.agents/note/022-decision-rules-engine.md)。
 - [003 狼人杀模型规则前缀](003-model-context-cache.md)：in_progress；稳定牌局规则前置与动态事实去重 v1 已确认实施，依赖[框架需求 023](../../../../.agents/note/023-model-context-cache.md)。
 - [004 狼人杀事实上下文与遗言一致性](004-witch-claim-consistency.md)：in_progress；事实上下文投影 v1.3 已实施并验证，遗言拦截待单独确认；双服务调度另见[根需求 025](../../../../.agents/note/025-model-room-single-owner.md)。
-- [005 网页模型对局测试台](005-web-model-test.md)：v1 已部署本地，待新局实测；本机免手工口令与用户目录凭据 v1.1 待确认。
+- [005 网页模型对局测试台](005-web-model-test.md)：v1.1 本机免手工口令与用户目录凭据已部署，待网页新局实测。
+- [005 本机快速启动 v1.2](005-web-model-test.md)：一条 PowerShell 指令启动与健康检查，待确认；旧账本/日志清理见根需求 021、024。

@@ -1,5 +1,7 @@
 # 模型测试与调用日志 v2（已实施，待网页实局复核）
 
+本页保留 v2 最初的测试口令协议记录。本机狼人杀测试台现行授权按[MOD v1.1](../../mods/werewolf/docs/web-model-test-v1-1.md)执行：回环端口、本机模式、无需浏览器口令；日志数据与投影契约不变。
+
 关联[框架需求 021](../../.agents/note/021-event-log.md)、[狼人杀网页方案](../../mods/werewolf/docs/web-model-test-v1.md)及[验收说明](../testing/model-test-observability-v2.md)。用户于 2026-09-25 确认实施；v2 代码与网页已部署到本地测试服务，真实模型整局仍待网页复核。
 
 ## 目标与边界

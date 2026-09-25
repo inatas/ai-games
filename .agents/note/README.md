@@ -55,3 +55,5 @@
 [025 模型房间单一调度宿主](025-model-room-single-owner.md)：draft；防止新旧服务连接同一数据库并行推进模型房间，方案 v1 待确认。
 
 [021 模型调用事件日志](021-event-log.md)与[023 模型上下文前缀缓存](023-model-context-cache.md)的网页排障、持久测试和缓存优化 v2 已实施，待新局验证真实供应商命中率；狼人杀页面见[MOD 005](../../mods/werewolf/.agents/note/005-web-model-test.md)。
+
+[021 旧日志清理](021-event-log.md)、[024 旧预算账本删除](024-model-token-accounting.md)与[MOD 005 一条指令启动](../../mods/werewolf/.agents/note/005-web-model-test.md)的本机测试运维 v1.1 待确认，包含四局旧回放清理；[方案与验收](../../docs/specs/local-werewolf-test-ops-v1.md)。

@@ -2,11 +2,11 @@
 
 座位工具仍在`/werewolf`。当前目录包含`robot-001`～`012`共12名模型Robot，以及`robot-013`“星河”脚本Robot。模型服务启用后，可选择12名模型Robot满席，或选择包含“星河”的混合阵容，点击“开始游戏”进入独立的PostgreSQL持久房间。刷新后从已保存的房间号继续公共旁观，本地调试可切换席位视角。无模型服务时，手动座位工具只有1名脚本用户可选；独立的自动脚本演示仍可使用。
 
-启用前为本地服务提供开发用`DATABASE_URL`、DeepSeek的`MODEL_BASE_URL`、`MODEL_NAME`、`MODEL_API_KEY`、`MODEL_PROTOCOL=deepseek`。显式设置`WEREWOLF_MODEL_ENABLED=true`后重启`npm run demo:werewolf`；缺模型凭据时，模型服务启动失败，不会改用脚本代替。不要把密钥写进Robot JSON、浏览器或文档。宿主机启动进程必须能访问DeepSeek；只在浏览器能访问不代表后端进程有外网权限，可先从同一启动环境检查不计费的`GET /models`。
+本机 Compose 测试把 DeepSeek 的`MODEL_BASE_URL`、`MODEL_NAME`、`MODEL_API_KEY`、`MODEL_PROTOCOL=deepseek`保存到用户专用的`~/.codex/ai-games-model.env`；仓库忽略的`.env`只保存`AI_GAMES_MODEL_ENV_FILE`的绝对路径及`WEREWOLF_MODEL_ENABLED=true`、`WEREWOLF_LOCAL_TEST=true`等非密钥开关。`docker compose up -d --no-build app`从该文件向后端容器注入环境变量，不需在网页重复输入。宿主机直启`npm run demo:werewolf`时仍需在服务进程环境中提供数据库和模型变量。缺模型凭据时服务启动失败，不会改用脚本代替。不要把密钥写进Robot JSON、浏览器或文档。后端进程须能访问DeepSeek。
 
-本地Compose应用也会转发上述模型房间开关；运行时继续使用现有持久PostgreSQL和4318端口。全局MUD的`MODEL_MODE=mock`不影响独立的狼人杀模型房间。2026-09-24本机已启用DeepSeek Flash模型房间服务，目录13人均可选。若改在宿主机启动同一数据库的模型房间服务，先执行`docker compose stop app`；旧容器即使没有发布端口，也会继续恢复房间并与宿主机服务并行调度。
+本机 Compose 只把网页发布到`127.0.0.1:4318`，运行时继续使用现有持久 PostgreSQL。全局 MUD 的`MODEL_MODE=mock`不影响狼人杀模型房间。`WEREWOLF_LOCAL_TEST=true`时可直接在网页选模型、开局和查看诊断，不需要测试口令；关闭本机测试模式则拒绝付费开局和私有诊断。若改在宿主机启动同一数据库的模型房间服务，先执行`docker compose stop app`；旧容器即使没有发布端口，也会继续恢复房间并与宿主机服务并行调度。
 
-`GET /api/werewolf/model/:id/usage`按局返回供应商成功响应报告的`inputTokens`、`outputTokens`、`reportedCalls`与`unreportedCalls`；仅本机可访问。失败请求不记Token；成功响应缺少usage时只增加`unreportedCalls`，不估算，也不换算人民币。API端负责费用控制。旧`ww_model_budget`表保留历史预留数据，但模型服务不再读写它。目录只公开模型席位是否可选，不返回profile环境变量名或密钥。付费开局及席位私密调试视角仍仅接受本机请求。
+`GET /api/werewolf/model/:id/usage`按局返回供应商成功响应报告的`inputTokens`、`outputTokens`、`reportedCalls`与`unreportedCalls`；本机测试模式下可访问。失败请求不记 Token；成功响应缺少 usage 时只增加`unreportedCalls`，不估算，也不换算人民币。API 端负责费用控制。旧`ww_model_budget`表保留历史预留数据，但模型服务不再读写它。目录只公开模型席位是否可选，不返回 profile 环境变量名或密钥。本机访问边界由宿主端口绑定保证，不靠浏览器口令。
 
 狼人、预言家并行共享前60秒；女巫随后30秒。即使女巫死亡，前60秒行动截止后仍保持30秒黑夜。上警竞选发言与普通日间发言上限120秒，当选警长的日间发言上限150秒，PK与遗言90秒，报名/投票/猎人30秒，退水/方向/警徽20秒。模型或脚本Robot在普通日间发言、上警竞选发言和PK发言提交合法非空内容后，保留3秒再结束当前席位；距原截止不足3秒时仍以原截止结束。其他阶段的早到结果不会推进下一阶段；无合法输入时按[游戏默认动作](../mods/werewolf/docs/action-deadlines-v1.md)在行动截止结算。模型不主动自爆。
 

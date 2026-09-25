@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { modelTestHeaders, modelTestToken, setModelTestToken } from './model-test-auth.ts';
 import './model-diagnostics.css';
 
 type Call = { sequence: number; occurredAt: string; requestId: string; seatNo: number | null;
@@ -17,8 +16,6 @@ const statusNames: Record<string, string> = { started: '进行中', succeeded: '
   unknown: '结果未知', 'not-sent': '请求未发出' };
 
 export function ModelDiagnostics({ roomId }: { roomId: string }) {
-  const [tokenInput, setTokenInput] = useState(modelTestToken);
-  const [unlocked, setUnlocked] = useState(!!modelTestToken());
   const [calls, setCalls] = useState<Call[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [after, setAfter] = useState(0);
@@ -28,19 +25,17 @@ export function ModelDiagnostics({ roomId }: { roomId: string }) {
   const [detail, setDetail] = useState<unknown>(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!unlocked) return;
     let stopped = false;
     async function load() {
       try {
         const query = new URLSearchParams({ after: String(after), limit: '100' });
         if (seat) query.set('seat', seat);
         if (result) query.set('result', result);
-        const headers = modelTestHeaders();
         const [callResponse, usageResponse] = await Promise.all([
-          fetch(`/api/werewolf/model/${roomId}/model-calls?${query}`, { headers }),
-          fetch(`/api/werewolf/model/${roomId}/usage`, { headers }),
+          fetch(`/api/werewolf/model/${roomId}/model-calls?${query}`),
+          fetch(`/api/werewolf/model/${roomId}/usage`),
         ]);
-        if (!callResponse.ok || !usageResponse.ok) throw new Error('诊断查询失败，请检查测试口令和模型服务');
+        if (!callResponse.ok || !usageResponse.ok) throw new Error('诊断查询失败，请检查本机模型测试服务');
         const [nextCalls, nextUsage] = await Promise.all([callResponse.json() as Promise<Call[]>, usageResponse.json() as Promise<Usage>]);
         if (!stopped) { setCalls(nextCalls); setUsage(nextUsage); setError(''); }
       } catch (cause) { if (!stopped) setError(cause instanceof Error ? cause.message : '诊断查询失败'); }
@@ -48,12 +43,11 @@ export function ModelDiagnostics({ roomId }: { roomId: string }) {
     void load();
     const timer = window.setInterval(() => void load(), 5000);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [roomId, unlocked, after, seat, result]);
+  }, [roomId, after, seat, result]);
   async function inspect(call: Call) {
     setError('');
     try {
-      const response = await fetch(`/api/werewolf/model/${roomId}/model-calls/${call.requestId}/${call.attempt}`,
-        { headers: modelTestHeaders() });
+      const response = await fetch(`/api/werewolf/model/${roomId}/model-calls/${call.requestId}/${call.attempt}`);
       if (!response.ok) throw new Error('调用详情读取失败');
       setDetail(await response.json());
     } catch (cause) { setError(cause instanceof Error ? cause.message : '调用详情读取失败'); }
@@ -61,10 +55,6 @@ export function ModelDiagnostics({ roomId }: { roomId: string }) {
   const phases = [...new Set(calls.map(call => call.phase).filter((value): value is string => !!value))].sort();
   const shown = phase ? calls.filter(call => call.phase === phase) : calls;
   return <section className="ww-diagnostics">
-    {!unlocked && <div className="ww-diagnostic-login"><p>输入服务端测试口令以查看调用日志和私密上下文。</p>
-      <input type="password" autoComplete="off" value={tokenInput} onChange={event => setTokenInput(event.target.value)} />
-      <button onClick={() => { setModelTestToken(tokenInput); setUnlocked(!!modelTestToken()); }}>查看诊断</button></div>}
-    {unlocked && <>
       <p className="ww-diagnostic-room">房间 ID：<code>{roomId}</code> <button onClick={() => void navigator.clipboard.writeText(roomId)}>复制</button></p>
       {usage && <div className="ww-diagnostic-totals">
         <span>输入 {usage.inputTokens.toLocaleString()} token</span><span>输出 {usage.outputTokens.toLocaleString()} token</span>
@@ -98,7 +88,6 @@ export function ModelDiagnostics({ roomId }: { roomId: string }) {
         <button disabled={calls.length < 100} onClick={() => setAfter(calls.at(-1)!.sequence)}>下一页</button></div>
       {detail !== null && <div className="ww-diagnostic-detail"><h3>私密调用详情</h3><button onClick={() => setDetail(null)}>收起详情</button>
         <pre>{JSON.stringify(detail, null, 2)}</pre></div>}
-    </>}
     {error && <p role="alert" className="ww-diagnostic-error">{error}</p>}
   </section>;
 }

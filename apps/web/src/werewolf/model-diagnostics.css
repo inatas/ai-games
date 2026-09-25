@@ -1,6 +1,6 @@
 .ww-dialog:has(.ww-diagnostics) { width:min(94vw,900px); }
 .ww-diagnostics { display:grid; gap:12px; margin-top:12px; }
-.ww-diagnostic-login,.ww-diagnostic-filters,.ww-diagnostic-totals,.ww-diagnostic-pages { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.ww-diagnostic-filters,.ww-diagnostic-totals,.ww-diagnostic-pages { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
 .ww-diagnostic-totals { padding:10px; border:1px solid #b49360; background:#e9d5a9; }
 .ww-diagnostic-totals span { padding:3px 8px; border-right:1px solid #af9367; }
 .ww-diagnostic-room { margin:0; overflow-wrap:anywhere; }
