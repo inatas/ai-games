@@ -1,4 +1,4 @@
-# 本机狼人杀模型测试运维 v1.1（已确认，实施中）
+# 本机狼人杀模型测试运维 v1.1（已实施）
 
 关联[账本需求 024](../../.agents/note/024-model-token-accounting.md)、[日志需求 021](../../.agents/note/021-event-log.md)、[MOD 网页需求 005](../../mods/werewolf/.agents/note/005-web-model-test.md)及[验收说明](../testing/local-werewolf-test-ops-v1.md)。本版只处理本机开发库的历史测试资料及本机启动命令，不改变游戏规则、供应商计费或模型调用协议。
 
@@ -12,9 +12,13 @@
 
 ## 快速启动
 
-新增 PowerShell 脚本 `scripts/start-werewolf-local.ps1`，从 `$PSScriptRoot` 定位项目根目录，验证 `.env` 指向的 `AI_GAMES_MODEL_ENV_FILE` 存在、Docker Compose 可用且现有模型镜像可启动，再在项目目录执行 `docker compose up -d --no-build app`。等待健康接口成功后输出 `http://127.0.0.1:<APP_PORT>/werewolf`。脚本可重复运行；不接收或打印供应商 Key，不对旧库执行清理，不自动创建付费房间，不起第二个宿主机进程。若镜像缺失，给出需要构建的提示。Compose 宿主端口继续只绑定回环地址。
+新增 PowerShell 脚本 `scripts/start-werewolf-local.ps1`，并提供 `npm run werewolf:web` 快捷指令。脚本从 `$PSScriptRoot` 定位项目根目录，验证 `.env` 指向的 `AI_GAMES_MODEL_ENV_FILE` 存在、Docker Compose 可用且现有模型镜像可启动，再在项目目录执行 `docker compose up -d --no-build app`。等待健康接口成功后输出 `http://127.0.0.1:<APP_PORT>/werewolf`。脚本可重复运行；不接收或打印供应商 Key，不对旧库执行清理，不自动创建付费房间，不起第二个宿主机进程。若镜像缺失，给出需要构建的提示。Compose 宿主端口继续只绑定回环地址。
 
 当前已运行的服务不依赖新增脚本；清理时先停 app，脚本完成并验证后由新脚本启动同一服务，供用户从网页亲自开新局。
+
+## 实施记录（2026-09-26）
+
+停服后将完整开发库备份到 Git 忽略的 `.local/ai-games-before-werewolf-reset-20260925.dump`（2,854,779 字节），并用 `pg_restore -l` 验证归档可读取。单事务断言房间归属、终态与目标行数后，删除 886 条请求、318 条记忆、48 个座位、96 个 scope、4 个房间和 2,162 条狼人杀日志，移除旧预算表；事务提交后复查狼人杀房间和日志均为 0、旧表不存在。`npm run werewolf:web` 已启动本机服务，健康接口和可用 DeepSeek profile 均返回 200；未发起新付费对局。
 
 ## 不在本版
 

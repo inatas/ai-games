@@ -1,6 +1,14 @@
 # 文档导航
 
-当前规范入口：[开发指引](../AGENTS.md)、[架构指引](../ARCHITECT.md)。需求按主题维护于[.agents/note](../.agents/note/README.md)。
+当前规范入口：[开发指引](../AGENTS.md)、[架构指引](../ARCHITECT.md)。开发任务先判断行为归属，再使用同层的 note 与 docs：
+
+| 层级 | 需求索引 | 设计与验收文档 |
+|---|---|---|
+| 底层与游戏框架 | [根 note](../.agents/note/README.md) | 本目录的 `specs`、`testing` 及通用架构/操作文档 |
+| 清溪镇 MOD | [清溪镇 note](../mods/qingxi/.agents/note/README.md) | [清溪镇 docs](../mods/qingxi/docs/README.md) 与本地测试契约 |
+| 狼人杀 MOD | [狼人杀 note](../mods/werewolf/.agents/note/README.md) | [狼人杀 docs](../mods/werewolf/docs/README.md) 与本地测试契约 |
+
+下表包含部分历史上放在根 docs 的 MOD 专题链接，作为现有导航保留，不代表新的归属规则。修改这些专题时先核对所有者；若任务涉及迁移路径，应同步更新入站链接。新文档按上表归档，跨层契约拆分并互链。
 
 | 文档 | 作用 |
 |---|---|

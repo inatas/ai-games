@@ -1,6 +1,6 @@
 # 需求：未来 NPC 互动和历史事件响应
 
-Status: draft
+Status: proposed
 
 ## 需求
 

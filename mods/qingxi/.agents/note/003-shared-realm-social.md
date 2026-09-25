@@ -1,6 +1,6 @@
 # 需求：共享江湖与轻量社交
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

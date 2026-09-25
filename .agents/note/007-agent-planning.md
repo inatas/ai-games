@@ -1,6 +1,6 @@
 # 需求：未来自主规划与 Agent 路由
 
-Status: draft
+Status: proposed
 
 ## 需求
 

@@ -1,6 +1,6 @@
 # 需求：模型适配和受控判定
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

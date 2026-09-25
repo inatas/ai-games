@@ -1,6 +1,6 @@
 # 需求：可组合的多游戏上下文
 
-Status: draft
+Status: proposed
 
 ## 需求
 

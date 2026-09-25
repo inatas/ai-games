@@ -1,6 +1,6 @@
 # 需求：角色属性完善
 
-Status: draft
+Status: proposed
 
 ## 需求
 

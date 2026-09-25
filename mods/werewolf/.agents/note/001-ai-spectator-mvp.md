@@ -1,6 +1,6 @@
 # 需求：全AI十二人狼人杀旁观MVP
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

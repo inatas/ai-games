@@ -1,5 +1,5 @@
 import { readdir, readFile, access } from 'node:fs/promises';
-import { resolve, dirname, extname } from 'node:path';
+import { resolve, dirname, extname, basename } from 'node:path';
 const root=process.cwd();
 const ignored=new Set(['node_modules','.git','.local','dist']);
 const files=[];
@@ -43,6 +43,13 @@ for(const p of files){
  }
 }
 for(const name of ['AGENTS.md','ARCHITECT.md','.agents/note/README.md','Dockerfile','compose.yaml']){try{await access(resolve(root,name));}catch{errors.push(`Missing ${name}`);}}
-const notes=files.filter(p=>p.replaceAll('\\','/').includes('/.agents/note/')&&!['README.md','TEMPLATE.md'].includes(p.split(/[\\/]/).at(-1)));
-for(const p of notes){const t=await readFile(p,'utf8');for(const field of ['Status:','## 需求','## 范围','## 验收','## 当前进展','## 待完善'])if(!t.includes(field))errors.push(`${p}: missing ${field}`);}
+const notes=files.filter(p=>p.replaceAll('\\','/').includes('/.agents/note/')&&/^\d{3}-.*\.md$/.test(basename(p)));
+for(const p of notes){
+  const t=await readFile(p,'utf8');
+  for(const field of ['## 需求','## 范围','## 验收','## 当前进展','## 待完善'])if(!t.includes(field))errors.push(`${p}: missing ${field}`);
+  if((t.match(/^Status: (?:proposed|implemented|rejected|archived)(?=[；（\r\n])/gm)?.length??0)!==1)errors.push(`${p}: expected one canonical Status`);
+  const index=await readFile(resolve(dirname(p),'README.md'),'utf8');
+  const reference=`](${basename(p)})`;
+  if(index.split(reference).length!==2)errors.push(`${p}: expected one README index entry`);
+}
 if(errors.length){console.error(errors.join('\n'));process.exit(1);}console.log(`Repository checks passed: ${files.length} files, ${notes.length} requirement notes.`);

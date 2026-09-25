@@ -1,6 +1,6 @@
 # 需求：AI驱动的多人MUD框架与世界MOD
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

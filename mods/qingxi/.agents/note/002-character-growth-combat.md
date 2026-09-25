@@ -1,6 +1,6 @@
 # 需求：角色成长与确定性战斗
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

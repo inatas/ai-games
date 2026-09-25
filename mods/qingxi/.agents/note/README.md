@@ -4,11 +4,11 @@
 
 本目录存放武侠示例专属需求：角色设定、世界观正文、背景故事、行动规则、拜师、挑战和奇遇等。公共能力需求仍归[框架需求索引](../../../../.agents/note/README.md)。
 
-遵循[根目录开发指引](../../../../AGENTS.md)与[示例开发指引](../../AGENTS.md)，从[公共模板](../../../../.agents/note/TEMPLATE.md)开始，按本目录独立编号命名NNN-topic.md。模板中的相对链接须按本地位置调整；沿用draft、in_progress、implemented、rejected状态及需求、范围、验收、当前进展、待完善字段。每份note记录待确认版本或已确认范围，并链接设计、测试数据和实际验证证据。
+遵循[本目录规范](AGENTS.md)、[根目录开发指引](../../../../AGENTS.md)与[示例开发指引](../../AGENTS.md)，从[公共模板](../../../../.agents/note/TEMPLATE.md)开始，按本目录独立编号命名NNN-topic.md。模板中的相对链接须按本地位置调整；状态统一为 proposed、implemented、rejected、archived。每份note记录待确认版本或已确认范围，并链接设计、测试数据和实际验证证据。当前索引包含本目录全部六份编号 note。
 
 ## 现有需求入口
 
-[005 角色属性完善](005-character-attributes.md)：draft；四维资质、资源、技能派生方案仍未确认，当前版本不采用。
+[005 角色属性完善](005-character-attributes.md)：proposed；四维资质、资源、技能派生方案仍未确认，当前版本不采用。
 
 | 入口 | 用途 |
 |---|---|
@@ -17,8 +17,8 @@
 | [游戏测试与数据](../../tests/README.md) | 当前游戏验收与测试数据契约 |
 
 | [001 房间驱动的武侠世界](001-room-world.md) | implemented：世界MVP、地图/NPC目录与共享运行时已接入 |
-| [002 角色成长与确定性战斗](002-character-growth-combat.md) | implemented：成长、师门任务与战斗闭环已接入 |
-| [003 共享江湖与轻量社交](003-shared-realm-social.md) | implemented：共享空间、聊天、临时队伍与双人委托已接入 |
+| [002 角色成长与确定性战斗](002-character-growth-combat.md) | proposed：已接入成长、师门任务与战斗，剩余范围见 note |
+| [003 共享江湖与轻量社交](003-shared-realm-social.md) | proposed：已接入共享空间、聊天与队伍，剩余范围见 note |
 
 后续新增或调整游戏功能在本目录记录。跨层需求分别链接框架note与本地note，公共协议仅在框架文档维护。
 

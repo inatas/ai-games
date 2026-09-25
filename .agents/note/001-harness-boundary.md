@@ -1,6 +1,6 @@
 # 需求：游戏无关的 AI 判定 Harness
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

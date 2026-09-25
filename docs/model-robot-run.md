@@ -6,7 +6,9 @@
 
 本机 Compose 只把网页发布到`127.0.0.1:4318`，运行时继续使用现有持久 PostgreSQL。全局 MUD 的`MODEL_MODE=mock`不影响狼人杀模型房间。`WEREWOLF_LOCAL_TEST=true`时可直接在网页选模型、开局和查看诊断，不需要测试口令；关闭本机测试模式则拒绝付费开局和私有诊断。若改在宿主机启动同一数据库的模型房间服务，先执行`docker compose stop app`；旧容器即使没有发布端口，也会继续恢复房间并与宿主机服务并行调度。
 
-`GET /api/werewolf/model/:id/usage`按局返回供应商成功响应报告的`inputTokens`、`outputTokens`、`reportedCalls`与`unreportedCalls`；本机测试模式下可访问。失败请求不记 Token；成功响应缺少 usage 时只增加`unreportedCalls`，不估算，也不换算人民币。API 端负责费用控制。旧`ww_model_budget`表保留历史预留数据，但模型服务不再读写它。目录只公开模型席位是否可选，不返回 profile 环境变量名或密钥。本机访问边界由宿主端口绑定保证，不靠浏览器口令。
+以后在项目根目录运行 `npm run werewolf:web` 即可启动已有本机镜像并等待健康检查，成功后输出网页地址。该命令不清理历史数据、不重建镜像、不开新局；代码更新后的镜像构建另行执行。
+
+`GET /api/werewolf/model/:id/usage`按局返回供应商成功响应报告的`inputTokens`、`outputTokens`、`reportedCalls`与`unreportedCalls`；本机测试模式下可访问。失败请求不记 Token；成功响应缺少 usage 时只增加`unreportedCalls`，不估算，也不换算人民币。API 端负责费用控制。旧`ww_model_budget`表已从本机开发库清理；模型服务不读写它。目录只公开模型席位是否可选，不返回 profile 环境变量名或密钥。本机访问边界由宿主端口绑定保证，不靠浏览器口令。
 
 狼人、预言家并行共享前60秒；女巫随后30秒。即使女巫死亡，前60秒行动截止后仍保持30秒黑夜。上警竞选发言与普通日间发言上限120秒，当选警长的日间发言上限150秒，PK与遗言90秒，报名/投票/猎人30秒，退水/方向/警徽20秒。模型或脚本Robot在普通日间发言、上警竞选发言和PK发言提交合法非空内容后，保留3秒再结束当前席位；距原截止不足3秒时仍以原截止结束。其他阶段的早到结果不会推进下一阶段；无合法输入时按[游戏默认动作](../mods/werewolf/docs/action-deadlines-v1.md)在行动截止结算。模型不主动自爆。
 

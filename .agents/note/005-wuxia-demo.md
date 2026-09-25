@@ -1,6 +1,6 @@
 # 需求：超简易武侠 MUD 宿主演示
 
-Status: in_progress
+Status: proposed
 
 归档说明：本文件保留基础Demo的历史需求及框架接入边界；后续游戏专属需求归[青溪镇note索引](../../mods/qingxi/.agents/note/README.md)。
 

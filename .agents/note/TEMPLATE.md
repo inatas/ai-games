@@ -1,6 +1,6 @@
 # 需求：简短标题
 
-Status: draft
+Status: proposed
 
 ## 需求
 
@@ -21,3 +21,5 @@ Status: draft
 ## 待完善
 
 记录开放问题、剩余实现和实际阻碍。
+
+状态迁移时同步本目录 README；`implemented` 需列出真实验证证据，`rejected` 需有明确不采用的依据，`archived` 需说明失效原因及后继链接。详细生命周期见[目录规范](AGENTS.md)。

@@ -1,6 +1,6 @@
 # 需求：判定请求的可靠执行
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 

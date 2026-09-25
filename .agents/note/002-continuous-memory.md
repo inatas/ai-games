@@ -1,6 +1,6 @@
 # 需求：综合持续记忆与上下文组装
 
-Status: in_progress
+Status: proposed
 
 ## 需求
 
