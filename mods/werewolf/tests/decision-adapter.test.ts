@@ -21,7 +21,7 @@ test('script adapter returns the same speech/selected proposal envelope used by 
   assert.equal(choice.kind, 'proposal');
   assert.ok(['abstain', 'seat-4'].includes((choice as { value: { selected: string } }).value.selected));
   assert.deepEqual(decodeWerewolfDecision(select, choice), select.options.find(option => option.id === (choice as { value: { selected: string } }).value.selected)?.value);
-  const speak = { ...select, intent: 'SPEAK' as const, scene: 'last-words', options: [] };
+  const speak = { ...select, intent: 'SPEECH' as const, scene: 'last-words', options: [] };
   const utterance = await adapter.decide(speak, signal);
   assert.deepEqual(utterance, { kind: 'proposal', value: { speech: '我是狼人杀玩家' } });
   assert.deepEqual(decodeWerewolfDecision(speak, utterance), { kind: 'last-words', text: '我是狼人杀玩家' });

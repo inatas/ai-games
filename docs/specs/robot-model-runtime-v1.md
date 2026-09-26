@@ -2,9 +2,9 @@
 
 状态：待确认。本文定义Robot用户以模型身份参赛时，模型**路由、调用、上下文组装输入、结果输出**四段的接入契约。通用框架契约不在此重复：调用时序与截止见[运行时v3](turn-based-model-runtime-v3.md)，上下文装配机制见[Context Composition v1](context-composition.md)与[框架规格](framework.md)，狼人杀场景与输出契约见[MOD模型方案](../../mods/werewolf/docs/model-integration-v1.md)。本文只定义接入参数、职责边界、缺口与验收；确认前不写实现与可执行测试。
 
-## 发言命名统一 v1（2026-09-26，待审阅）
+## 发言命名统一 v1（2026-09-26，已实施）
 
-当前实现的任务意图为`SPEAK | SELECT`，模型输出字段为`speech`；狼人杀内部行动还使用`kind:'speak'`。用户要求统一称为`SPEECH`。拟议当前协议改为`DecisionInput.intent`及`current_action.request_type`使用`SPEECH | SELECT`，发言结果字段保持`speech`，MOD行动改用`kind:'speech'`。下面历史 v2 示例中的`SPEAK`表示**尚未迁移的当前实现**，不能作为迁移后的第二套协议。跨层范围、旧房间处理及验收见[根需求 029](../../.agents/note/029-speech-terminology.md)；游戏接入见[狼人杀需求 008](../../mods/werewolf/.agents/note/008-public-evidence-and-terms.md)。实施确认后，正文与全部调用方收敛为唯一命名。
+当前协议的 `DecisionInput.intent` 与 `current_action.request_type` 只使用 `SPEECH | SELECT`；模型发言结果字段为 `speech`，狼人杀普通发言行动为 `kind:'speech'`。跨层验收见[根需求 029](../../.agents/note/029-speech-terminology.md)，游戏接入见[狼人杀需求 008](../../mods/werewolf/.agents/note/008-public-evidence-and-terms.md)。旧协议房间需在部署前核对，不能自动按新定义恢复。
 
 ## v2 增量：统一决策适配与六区充足性（2026-09-23，已确认实施）
 
@@ -18,7 +18,7 @@
 type DecisionInput = {
   requestId: string;
   actor: { roomId: string; seat: number; phaseInstance: number; windowId: string };
-  intent: 'SPEAK' | 'SELECT';
+  intent: 'SPEECH' | 'SELECT';
   scene: string;
   context: AuthorizedContext;
   constraints: { deadlineAt: number; outputSchema: object };
@@ -41,7 +41,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 | self | userId、座位、本局真实身份、技能资格与余量、固定persona及当前身份策略 | 本席私有且必需；战术偏好不覆盖规则 |
 | private_information | 该席可知的队友、查验、授权刀口、药量及私人行动结果 | 依角色与时点裁剪；不可借观战视角扩大权限 |
 | public_history | 按顺序的公开发言原文、遗言、公开投票/结算；本人已提交的主张和承诺 | 结构化索引与最近相关原文必需；更早原文按预算选择，保留来源与顺序 |
-| current_action | SPEAK/SELECT意图、scene、发言目标或合法optionSet、约束、阶段/窗口ID、绝对截止点 | 必需；只给当前行动可用的选项 |
+| current_action | SPEECH/SELECT意图、scene、发言目标或合法optionSet、约束、阶段/窗口ID、绝对截止点 | 必需；只给当前行动可用的选项 |
 
 六区之外仍由Harness附带**协议与输出Schema**，由宿主附带`phaseInstance/windowId/actionId`、可见事件水位与来源版本。这些是信封元数据，不应伪装成第七种游戏事实。`public_history`不能只有一句自然语言摘要：模型判断“谁先说了什么、谁投了谁、主张是否反复”需要原始发言及结构化票型。本人的私有已提交行动、曾经公开的身份主张与事实查验也必须能区分；公开声称不能升级为系统事实。
 
@@ -49,7 +49,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 
 ### 本次验收与待裁定
 
-先用脚本/可控模型适配器的同一`DecisionInput`分别走SPEAK和SELECT，验证提交事件与默认规则一致；验证密封阶段模型席与脚本席并行不互泄秘密；验证长发言历史的预算裁剪保留最新必需记录；验证旧窗口、无效选项、重复提交与重启恢复均不能二次生效。随后用一个真实模型Robot加11个脚本Robot跑完全局，单列真实调用、用量与费用证据。具体测试在方案确认后再写。
+先用脚本/可控模型适配器的同一`DecisionInput`分别走SPEECH和SELECT，验证提交事件与默认规则一致；验证密封阶段模型席与脚本席并行不互泄秘密；验证长发言历史的预算裁剪保留最新必需记录；验证旧窗口、无效选项、重复提交与重启恢复均不能二次生效。随后用一个真实模型Robot加11个脚本Robot跑完全局，单列真实调用、用量与费用证据。具体测试在方案确认后再写。
 
 待裁定：统一适配器是只用于新的持久模型局，还是同批迁移现有`DemoRooms`；首个真实模型试跑的请求/token/费用上限；`public_history`必需窗口采用“本日全部原文＋更早摘要”还是别的可复现策略；以及[Context Composition v1](context-composition.md)的Profile/Manifest是否同批实施。既有SELECT候选表示尚有两项未决，见[MOD方案](../../mods/werewolf/docs/model-integration-v1.md)。
 
@@ -102,7 +102,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 ## 四、结果输出
 
 - **通路**：`rawText`（上限16KiB）→ `JSON.parse` → `outputSchema`严格校验（Ajv、`additionalProperties=false`、枚举为当前optionSet）→ 业务二次验证（游戏`validate`）→ 解码为引擎动作 → 单事务提交（房间状态＋有效记忆＋请求终态）。模型输出只作为数据，不作为可执行代码。
-- **SELECT**：输出`{selected, candidates?}`。引擎**只执行`selected`**；非法selected不执行、不换目标、不二次调用模型、不从候选补正，等同"该席没有合法游戏输入"，在该阶段截止点由裁判默认结算。`candidates`仅作内部日志，不参与判定、不改变状态。SPEAK输出`{speech}`，长度由 MOD 的输出 Schema 与游戏裁判规则限制。
+- **SELECT**：输出`{selected, candidates?}`。引擎**只执行`selected`**；非法selected不执行、不换目标、不二次调用模型、不从候选补正，等同"该席没有合法游戏输入"，在该阶段截止点由裁判默认结算。`candidates`仅作内部日志，不参与判定、不改变状态。SPEECH输出`{speech}`，长度由 MOD 的输出 Schema 与游戏裁判规则限制。
 - **失败分类**：格式/Schema错误最多一次纠正；业务非法直接拒绝；网络错误不重试；超时与非法输入走同一默认结算路径。业务拒绝不自动改选目标。数据库或规则异常`blocked`，不伪装成默认成功。
 - **审计**：记录每次尝试的profile、实际返回model、用量、耗时、错误码、纠正次数与提交终态；审计存profile与prompt/上下文/选项摘要，不把私密正文发到公共DTO。
 - **公共投影**：只消费已提交事件；生成中不广播未校验片段，不预填固定句子；夜间不因生成时长或失败暴露行动者、角色生死或人数。
@@ -118,7 +118,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 3. 先写中性失败测试：profile装配（缺失env／非法／重复）、按席路由、不可用用户拒绝、预算中止。
 4. 实现服务端profile→模型适配器与Robot→席位绑定；脚本与模型接入同一决策注册表，模型席位再调用模型适配器。
 5. 按v3实现密封并行、绝对截止、编解码与截止点默认提交。
-6. MOD接入六区上下文、SELECT/SPEAK编解码与候选日志字段。
+6. MOD接入六区上下文、SELECT/SPEECH编解码与候选日志字段。
 7. 验证：单元与中性契约 → 真实PostgreSQL并发与恢复 → 1模型席位+11脚本席位整局 → 12席；真实模型证据单列profile、额度与时间。
 
 ## 七、验收说明

@@ -27,3 +27,13 @@
 公开旁观快照与游戏发言、投票回放只含按阶段授权的游戏事实。完整模型上下文、私有角色、原始响应和调用错误仅测试口令授权的诊断页面可见；在终局前也不能通过普通旁观接口间接读取。现有 `seat` 查询的私有视角同样纳入测试口令保护，避免绕过日志权限。逐次状态为 `started → finished|failed|orphaned`，`finished → judged` 独立；若短暂没有终态，网页显示“进行中”，超过恢复边界显示“结果未知/已孤儿化”，不写“成功”。
 
 本版不做日志驱动的游戏画面回放、旧测试库恢复、脚本 Robot 伪造 API 日志、供应商原文错误体存储、远程权限系统或 API 价格控制。实现顺序：先写持久化/失败分类/权限/分页/汇总的行为测试，再适配器诊断与服务端投影，最后网页接入并用真实模型整局验证。
+
+## JEV SELECT 旁路日志（v1 历史实现；本机当前暂停）
+
+关联[需求 009](../.agents/note/009-jev-select-shadow-comparison.md)与[模型接入设计](model-integration-v1.md)。比较器在已有私有 `fw_event_log` 追加 `model.shadow.jev.started.v1`、`model.shadow.jev.finished.v1`、`model.shadow.jev.failed.v1`、`model.shadow.jev.unknown.v1` 事件；原 `request_id`、房间、座位、阶段、角色和源事件 sequence 用于关联。`started` 先于网络调用持久化，内容包括实际送给 JEV 的 `state`、`questions`、目标模型及上下文摘要；`finished` 保存实际模型版本、选中 ID、概率分布、置信度、响应 token 用量及延迟；`failed` 只存脱敏状态码/错误类别/延迟，绝不保存 Authorization 或原始错误体。已领取但崩溃未得终态的请求记 `unknown`，不能伪称失败或成功。无法转换为 JEV 合法请求时记 `skipped` 及原因，没有 `started`，也不调用 API。
+
+按 `request_id` 查询现有原模型事件与 JEV 旁路事件，即可人工核对两个 `selected`、实际裁判状态、发起时的上下文、用量和耗时。JEV 的成功是供应商成功响应，不意味着其选择有效或游戏执行；JEV 没有 `judged` 事件。原用量统计仅计算 `model.call.finished.v1`，旁路 token 在私有调用详情中单列，不与原模型账本相加。上述完整上下文与概率仅在本机私有诊断接口可读，不进入公共旁观、游戏历史、其他 Robot 的上下文或普通房间回放。
+
+本机网页开新局后，在“模型调用”列表选一条 SELECT，点开“私密调用详情”：`model.call.finished.v1.details.rawText` 是原模型输出，`model.call.judged.v1` 是实际动作是否提交；同一详情中的 `model.shadow.jev.finished.v1.details.choice` 是 JEV 建议，`probabilities`、`confidence`、`usage` 和 `latencyMs` 可用于比较。JEV 报错则查 `model.shadow.jev.failed.v1.details.errorCode`；正在进行时可能只有 started，进程失联后标记 unknown。规则强制选项、SPEECH 和脚本动作没有这组旁路事件。网页刷新后按同一房间 ID 可继续查询这些私有日志。
+
+2026-09-26 本机 JEV 旁路已关闭。上述查询仍适用于停用前的历史事件；新模型决策只生成原模型的调用日志，不再生成 JEV 旁路事件。旧记录未清理。

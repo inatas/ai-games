@@ -65,12 +65,12 @@ test('DR-v2: a hard rule keeps guidance on a probability miss and validates its 
   assert.throws(() => compileDecisionRuleSet(config, { 'choose-a': { matches: () => true } }), /INVALID_RULE_HANDLER/);
 });
 
-test('DR-v2.1: stable guidance preserves priority and only accepts guidance enforcement', () => {
+test('DR-v3: guidance preserves priority and rejects obsolete placement', () => {
   const config = { id: 'neutral', version: 3, rules: [
-    { id: 'seat-language', priority: 80, instruction: 'Use seat numbers.', enforcement: 'guidance', placement: 'stable' },
+    { id: 'seat-language', priority: 80, instruction: 'Use seat numbers.', enforcement: 'guidance' },
   ] };
   const handlers = { 'seat-language': { matches: (_task: DecisionInput) => true } };
   const evaluation = evaluateDecisionRules(compileDecisionRuleSet(config, handlers), input);
-  assert.deepEqual(evaluation.guidance, [{ id: 'seat-language', priority: 80, instruction: 'Use seat numbers.', placement: 'stable' }]);
-  assert.throws(() => compileDecisionRuleSet({ ...config, rules: [{ ...config.rules[0], enforcement: 'require-option' }] }, handlers), /INVALID_RULE_SET/);
+  assert.deepEqual(evaluation.guidance, [{ id: 'seat-language', priority: 80, instruction: 'Use seat numbers.' }]);
+  assert.throws(() => compileDecisionRuleSet({ ...config, rules: [{ ...config.rules[0], placement: 'stable' }] }, handlers), /INVALID_RULE_SET/);
 });

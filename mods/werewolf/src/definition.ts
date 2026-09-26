@@ -7,6 +7,7 @@ import { decodeWerewolfDecision } from './decision-adapter.ts';
 import { fallbackWerewolfAction } from './fallback.ts';
 import { werewolfDecisionRules } from './decision-rules/index.ts';
 import { maxSpeechChars } from './speech-policy.ts';
+import { currentBoardId, werewolfKnowledge } from './knowledge.ts';
 
 function transition(match: Match, eventOffset: number): Transition {
   const state = match as unknown as Json;
@@ -18,9 +19,10 @@ function transition(match: Match, eventOffset: number): Transition {
 /** Ordinary and independent interrupt decisions share the same authoritative Match state. */
 export function werewolfDefinition(options: MatchOptions): RoomDefinition {
   const config = { ...options };
+  if (config.boardId !== undefined && config.boardId !== currentBoardId) throw new Error('UNKNOWN_BOARD');
   const definition: RoomDefinition = {
-    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}.rules4`, seats: 12,
-    instructions: `你是十二人预女猎白的一名玩家。只根据授权事实和自己的身份决策，不得假设未知身份。game_state与public_history是所有平民能看到的公开事实；self与private_information是你因自身身份额外知道的事实。私密狼刀口只代表攻击目标，不代表目标已经死亡；实际夜死以公开公告和存活状态为准。你可以策略性谎报，但须先分清事实与自己的说法。按当前JSON Schema选择行动；发言最多${maxSpeechChars}字。狼人屠边，好人消灭狼人，双方同时达标平局；所有出局链结束再结算。狼刀忽略空刀票，女巫不可自救且每夜单药，预言家不可连续查验同一人。警长放逐票权1.5，白痴翻牌后无投票权且不可被投。`,
+    id: 'werewolf', version: `5.${config.seed}.${config.sheriff}.${currentBoardId}.${werewolfKnowledge.digest}`, seats: 12,
+    instructions: `你是当前狼人杀对局的一名玩家。板子、职业和术语以随后提供的知识库为背景，实际游戏状态和行动以裁判的当前授权事实与合法选项为准。只根据授权事实和自己的身份决策，不得假设未知身份。game_state与public_history是公共事实；发言只证明玩家说过，不证明内容属实。self与private_information是本人获授权的事实。私密狼刀口只代表攻击目标，不代表目标已经死亡；实际夜死以公开公告和存活状态为准。你可以策略性谎报，但须先分清事实与自己的说法。按当前JSON Schema选择行动；发言最多${maxSpeechChars}字。`,
     initialize: () => {
       const match = createMatch(config);
       return { state: match as unknown as Json, phase: matchPhase(match)! };

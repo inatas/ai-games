@@ -34,7 +34,7 @@ function decision(request: ModelRequest, state: Match, seat: number, nominate: b
     case 'nominate': return { kind, run: nominate && seat <= 2 };
     case 'withdraw': return { kind, withdraw: false };
     case 'direction': return { kind, direction: 'clockwise' };
-    case 'speak': case 'last-words': return { kind, text: `seat-${seat}-public` };
+    case 'speech': case 'last-words': return { kind, text: `seat-${seat}-public` };
     case 'vote': return { kind, target: state.stage === 'election' ? state.election!.candidates[0]
       : state.game.players.find(p => p.alive && p.role === 'wolf')!.seat };
     default: return { kind, target: null };
@@ -56,7 +56,7 @@ async function game(nominate = false, hold?: (request: ModelRequest) => Promise<
       }
       const task = prepareWerewolfDecision(room, seat, definition);
       const wanted = decision({ ...request, outputSchema: room.phase!.schema }, state, seat, nominate, hunterChain);
-      if (task.intent === 'SPEAK') return JSON.stringify({ speech: (wanted as { text: string }).text });
+      if (task.intent === 'SPEECH') return JSON.stringify({ speech: (wanted as { text: string }).text });
       const option = task.options.find(item => canonical(item.value) === canonical(wanted));
       if (!option) throw new Error(`NO_TEST_OPTION:${room.phase?.key}:${seat}`);
       return JSON.stringify({ selected: option.id });
@@ -101,7 +101,7 @@ test('WW-73/77/79/80: real database interrupts waiting speech, restarts and fini
     assert.equal((after.state as unknown as Match).game.night, 2);
     assert.equal(after.events.filter(e => e.type === 'wolf-explosion').length, 1);
   } finally { holdSpeech = false; gate.release(); await normal; }
-  assert.equal((await db.store.memory(dawn.seats[speaker - 1].scopeId, ['internal'])).filter(m => JSON.stringify(m.payload).includes('speak')).length, 0);
+  assert.equal((await db.store.memory(dawn.seats[speaker - 1].scopeId, ['internal'])).filter(m => JSON.stringify(m.payload).includes('speech')).length, 0);
   const interruptInput = profiles[`seat-${wolf}`].calls.at(-1)!;
   assert.doesNotMatch(JSON.stringify(interruptInput.messages), /antidote|inspections/);
   assert.doesNotMatch(JSON.stringify(await r.spectate(roomId)), /interruptScopeId|antidote|inspections/);

@@ -15,11 +15,11 @@ function choice(state: Match, seat: number): Json {
     case 'witch': return { kind: 'pass' };
     case 'nominations': return { kind: 'nominate', run: state.game.players.find(p => p.seat === seat)!.role === 'seer' };
     case 'direction': return { kind: 'direction', direction: 'clockwise' };
-    case 'speech': case 'pk': return { kind: 'speak', text: '公开发言' };
+    case 'speech': case 'pk': return { kind: 'speech', text: '公开发言' };
     case 'vote': return { kind: 'vote', target: null };
     case 'election': {
       const election = state.election!;
-      if (election.stage === 'speech' || election.stage === 'pk') return { kind: 'speak', text: '竞选' };
+      if (election.stage === 'speech' || election.stage === 'pk') return { kind: 'speech', text: '竞选' };
       if (election.stage === 'withdrawal') return { kind: 'withdraw', withdraw: false };
       return { kind: 'vote', target: election.candidates[0] };
     }
@@ -85,7 +85,7 @@ test('WW-14–15,54–55,68: day explosion interrupts another speaker; old respo
   assert.equal(night.stage, 'wolves');
   assert.equal(night.game.night, 2);
   assert.equal(night.game.players.find(p => p.seat === exploding)!.alive, false);
-  assert.throws(() => decideMatch(night, day.revision, speaker, { kind: 'speak', text: '迟到' }), /REVISION_CONFLICT/);
+  assert.throws(() => decideMatch(night, day.revision, speaker, { kind: 'speech', text: '迟到' }), /REVISION_CONFLICT/);
   assert.equal(day.game.night, 1);
 });
 
@@ -103,7 +103,7 @@ test('WW-04–06: exile tie triggers only tied speakers; second tie advances nig
   while (state.stage === 'pk') {
     const actor = matchPhase(state)!.actors[0];
     heard.push(actor);
-    state = decideMatch(state, state.revision, actor, { kind: 'speak', text: 'PK' });
+    state = decideMatch(state, state.revision, actor, { kind: 'speech', text: 'PK' });
   }
   assert.deepEqual(heard, targets);
   assert.ok(matchPhase(state)!.actors.every(seat => !targets.includes(seat)));

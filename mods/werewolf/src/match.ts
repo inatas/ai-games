@@ -9,11 +9,13 @@ import {
 import { beginElection, electionAllowsExplosion, advanceElection, explodeElection, resumeElection, type Election, type ElectionAction, type SheriffMode } from './election.ts';
 import { beginSettlement, advanceSettlement, type Settlement, type SettlementAction } from './settlement.ts';
 import { maxSpeechChars } from './speech-policy.ts';
+import { currentBoardId } from './knowledge.ts';
 
 export type MatchStage = 'wolves' | 'witch' | 'nominations' | 'election'
   | 'settlement' | 'direction' | 'speech' | 'vote' | 'pk' | 'finished';
-export interface MatchOptions { seed: number; sheriff: SheriffMode }
+export interface MatchOptions { seed: number; sheriff: SheriffMode; boardId?: string }
 export interface Match {
+  boardId: string;
   game: GameState;
   mode: SheriffMode;
   stage: MatchStage;
@@ -47,7 +49,9 @@ const targetSchema = (seats: number[], nullable = true) => ({ enum: nullable ? [
 
 export function createMatch(options: MatchOptions): Match {
   if (!['double', 'single', 'none'].includes(options.sheriff)) throw new Error('INVALID_SHERIFF_MODE');
+  if (options.boardId !== undefined && options.boardId !== currentBoardId) throw new Error('UNKNOWN_BOARD');
   const state: Match = {
+    boardId: currentBoardId,
     game: createGame(options.seed), mode: options.sheriff, stage: 'wolves', revision: 0,
     pending: [], choices: [], nominations: [], knife: null, poison: null, nightDeaths: [], runoff: [],
     election: null, settlement: null, afterSettlement: 'day', events: [], result: null,
@@ -176,7 +180,7 @@ export function matchPhase(state: Match): Phase | null {
     }
     case 'nominations': schema = actionSchema('nominate', { run: { type: 'boolean' } }); mode = 'sealed'; label = '上警报名'; break;
     case 'direction': schema = actionSchema('direction', { direction: { enum: ['clockwise', 'counterclockwise'] } }); label = '发言方向'; break;
-    case 'speech': case 'pk': schema = actionSchema('speak', { text: speechSchema }); break;
+    case 'speech': case 'pk': schema = actionSchema('speech', { text: speechSchema }); break;
     case 'vote': schema = actionSchema('vote', { target: targetSchema(state.runoff.length ? state.runoff : alive(state).filter(p => !p.revealed).map(p => p.seat)) }); mode = 'sealed'; label = '放逐投票'; break;
     case 'election': {
       const election = state.election!;
@@ -188,7 +192,7 @@ export function matchPhase(state: Match): Phase | null {
       } else if (election.stage === 'withdrawal') {
         mode = 'sealed'; schema = actionSchema('withdraw', { withdraw: { type: 'boolean' } });
       }
-      else schema = actionSchema('speak', { text: speechSchema });
+      else schema = actionSchema('speech', { text: speechSchema });
       break;
     }
     case 'settlement': {
@@ -254,7 +258,7 @@ export function decideMatch(source: Match, revision: number, seat: number, value
         state.events.push(...next.events.slice(settlement.events.length));
         state.settlement = next;
         afterChains(state);
-      } else if (action.kind === 'speak') {
+      } else if (action.kind === 'speech') {
         state.events.push({ type: 'speech', audience: 'public', data: { seat, text: action.text, runoff: state.runoff.length > 0 } });
         if (!state.pending.length) startVote(state);
       } else if (action.kind === 'vote') {

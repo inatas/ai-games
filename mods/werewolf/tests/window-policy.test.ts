@@ -66,7 +66,7 @@ test('WW-77,78,83: one sealed ten-second window hides withdrawals until final se
   const match = createMatch({ seed: 17, sheriff: 'double' });
   let election = beginElection(match.game, [1, 2, 3]);
   while (election.stage === 'speech') election = advanceElection(election, election.revision, election.pending[0],
-    { kind: 'speak', text: '竞选发言' });
+    { kind: 'speech', text: '竞选发言' });
   match.stage = 'election';
   match.election = election;
   match.game = election.game;

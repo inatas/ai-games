@@ -5,7 +5,7 @@ import { maxSpeechChars } from './speech-policy.ts';
 export type SheriffMode = 'double' | 'single' | 'none';
 export type ElectionStage = 'speech' | 'withdrawal' | 'voting' | 'pk' | 'suspended' | 'finished';
 export type ElectionAction =
-  | { kind: 'speak'; text: string }
+  | { kind: 'speech'; text: string }
   | { kind: 'withdraw'; withdraw: boolean }
   | { kind: 'vote'; target: number | null };
 
@@ -83,17 +83,17 @@ export function beginElection(game: GameState, nominations: readonly number[], m
 
 export function advanceElection(source: Election, revision: number, seat: number, action: ElectionAction): Election {
   checkRevision(source, revision);
-  const expected = source.stage === 'speech' || source.stage === 'pk' ? 'speak'
+  const expected = source.stage === 'speech' || source.stage === 'pk' ? 'speech'
     : source.stage === 'withdrawal' ? 'withdraw' : source.stage === 'voting' ? 'vote' : null;
   if (!action || !expected || action.kind !== expected) throw new Error('WRONG_ELECTION_ACTION');
   if (!source.pending.includes(seat) || (source.stage !== 'voting' && source.stage !== 'withdrawal' && source.pending[0] !== seat)) {
     throw new Error('INELIGIBLE_ELECTION_ACTOR');
   }
-  const keys = action.kind === 'speak' ? 'kind,text' : action.kind === 'withdraw' ? 'kind,withdraw' : 'kind,target';
+  const keys = action.kind === 'speech' ? 'kind,text' : action.kind === 'withdraw' ? 'kind,withdraw' : 'kind,target';
   if (Object.keys(action).sort().join(',') !== keys) throw new Error('INVALID_ELECTION_ACTION');
   const election = structuredClone(source);
   election.pending = election.pending.filter(actor => actor !== seat);
-  if (action.kind === 'speak') {
+  if (action.kind === 'speech') {
     if (typeof action.text !== 'string' || [...action.text].length > maxSpeechChars) throw new Error('INVALID_SPEECH');
     election.events.push({ type: 'sheriff-speech', audience: 'public', data: { seat, text: action.text, runoff: election.runoff } });
     if (!election.pending.length) {

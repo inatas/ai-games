@@ -54,13 +54,13 @@ test('committed single-speaker decision advances three seconds later, exactly on
   const speaker: DecisionAdapter = { async decide() { return { kind: 'proposal', value: { speech: 'hello' } }; } };
   const definition: RoomDefinition = {
     id: 'early-neutral', version: '1', seats: 1, instructions: 'Speak.',
-    initialize: () => ({ state: {}, phase: { key: 'speak', label: 'Speak', round: 1, mode: 'sequential', actors: [1],
+    initialize: () => ({ state: {}, phase: { key: 'speech', label: 'Speak', round: 1, mode: 'sequential', actors: [1],
       schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } } } }),
     project: () => ({}), validate: () => true,
     resolve: state => ({ state, result: 'done', events: [{ type: 'done', audience: 'public', data: {} }] }),
-    decisionSpec: (room, seat) => ({ intent: 'SPEAK', scene: 'speak', actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance },
+    decisionSpec: (room, seat) => ({ intent: 'SPEECH', scene: 'speech', actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance },
       context: { rules: {}, game_state: {}, self: { seat, name: 'One', role: null }, private_information: {}, public_history: [],
-        current_action: { request_type: 'SPEAK', scene: 'speak', options: [], phaseInstance: room.phaseInstance } },
+        current_action: { request_type: 'SPEECH', scene: 'speech', options: [], phaseInstance: room.phaseInstance } },
       options: [], outputSchema: { type: 'object', required: ['speech'], properties: { speech: { type: 'string' } } } }),
     decodeDecision: (_input, output) => output.kind === 'proposal' && 'speech' in output.value ? { text: output.value.speech } : null,
     windowMs: () => 120_000, fixedWindow: () => true, completionDelayMs: () => 3_000,

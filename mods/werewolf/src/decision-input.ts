@@ -3,6 +3,8 @@ import { actorView, type DecisionInput, type DecisionOption, type Room, type Roo
 import { nightActionSchema, type Match } from './match.ts';
 import type { GameView } from './views.ts';
 import { maxSpeechChars } from './speech-policy.ts';
+import { currentBoardId, selectWerewolfKnowledge, werewolfKnowledge } from './knowledge.ts';
+import type { Role } from './rules.ts';
 
 interface ChoiceSchema {
   const?: Json;
@@ -103,12 +105,14 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   const { self: roleFacts, ...publicState } = envelope.state;
   const persona = room.seats.find(candidate => candidate.seat === seat)?.persona;
   if (!roleFacts) throw new Error('MISSING_ACTOR_FACTS');
+  if ((room.state as unknown as Match).boardId !== currentBoardId) throw new Error('UNKNOWN_BOARD');
+  const knowledge = selectWerewolfKnowledge(werewolfKnowledge, roleFacts.role as Role);
   const schema = room.phase.key === 'wolves'
     ? nightActionSchema(room.state as unknown as Match, seat) as ChoiceSchema
     : room.phase.schema as ChoiceSchema;
   const speech = schema.properties?.text?.type === 'string';
   const options: DecisionOption[] = speech ? [] : choices(schema).map((value, index) => ({ id: `option-${index}`, value }));
-  const intent: DecisionInput['intent'] = speech ? 'SPEAK' : 'SELECT';
+  const intent: DecisionInput['intent'] = speech ? 'SPEECH' : 'SELECT';
   const scene = room.phase.key;
   const spokenPhases = (room.phaseHistory ?? []).filter(phase =>
     phase.key === scene && phase.round === room.phase!.round && phase.instance <= room.phaseInstance);
@@ -122,6 +126,7 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   };
   return {
     actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance }, intent, scene, options,
+    ...knowledge,
     audit: { seatNo: seat, micNo, role: roleFacts.role, phaseInstance: room.phaseInstance,
       publicEventWatermark: events.length },
     outputSchema: speech

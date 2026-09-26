@@ -10,7 +10,7 @@ export class ScriptDecisionAdapter implements DecisionAdapter {
 
   async decide(input: DecisionInput, signal: AbortSignal): Promise<DecisionOutput> {
     if (signal.aborted) return { kind: 'no-valid-input', reason: 'ABORTED' };
-    if (input.intent === 'SPEAK') return { kind: 'proposal', value: { speech: this.config.speech } };
+    if (input.intent === 'SPEECH') return { kind: 'proposal', value: { speech: this.config.speech } };
     if (!input.options.length) return { kind: 'no-valid-input', reason: 'NO_OPTIONS' };
     let index = 0;
     if (this.config.strategy !== 'fixed') {
@@ -27,10 +27,10 @@ export class ScriptDecisionAdapter implements DecisionAdapter {
 /** Model and script proposals must pass this same allowlisted decoder before game validation. */
 export function decodeWerewolfDecision(input: DecisionInput, output: DecisionOutput): Json | null {
   if (output.kind !== 'proposal') return null;
-  if (input.intent === 'SPEAK') {
+  if (input.intent === 'SPEECH') {
     if (!('speech' in output.value) || typeof output.value.speech !== 'string' ||
         !output.value.speech.trim() || [...output.value.speech].length > maxSpeechChars) return null;
-    return { kind: input.scene === 'last-words' ? 'last-words' : 'speak', text: output.value.speech };
+    return { kind: input.scene === 'last-words' ? 'last-words' : 'speech', text: output.value.speech };
   }
   if (!('selected' in output.value) || typeof output.value.selected !== 'string') return null;
   const selected = output.value.selected;

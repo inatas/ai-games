@@ -27,21 +27,46 @@ test('MC2-01: authorized public facts precede changing schema and private facts'
   assert.notDeepEqual(first.messages[3], second.messages[3]);
 });
 
-test('MC2-08: shared guidance is a stable message before public, schema and private facts', () => {
+test('MC3-04: matched rules follow private knowledge and are absent when unmatched', () => {
   const sharedPublicFacts = [{ sequence: 1, type: 'announcement' }];
   const first = buildContext({ ...emptyContext, instructions: 'rules', facts: {},
-    promptParts: { stableGuidance: ['Refer to seats by number.'], sharedPublicFacts,
-      dynamicFacts: { self: { seat: 1 }, rules: { strategy_rules: ['private one'] } } }, schema: { enum: ['a'] } });
+    promptParts: { matchedGuidance: ['Refer to seats by number.'], sharedPublicFacts,
+      privateKnowledge: { id: 'guide:seer', content: 'private one' }, dynamicFacts: { self: { seat: 1 } } }, schema: { enum: ['a'] } });
   const second = buildContext({ ...emptyContext, instructions: 'rules', facts: {},
-    promptParts: { stableGuidance: ['Refer to seats by number.'], sharedPublicFacts,
-      dynamicFacts: { self: { seat: 2 }, rules: { strategy_rules: ['private two'] } } }, schema: { enum: ['b'] } });
-  assert.deepEqual(first.messages.slice(0, 4), second.messages.slice(0, 4));
-  assert.equal(first.messages[2].role, 'system');
-  assert.match(first.messages[2].content, /^STABLE_GUIDANCE:/);
-  assert.match(first.messages[3].content, /^SHARED_PUBLIC_FACTS:/);
-  assert.match(first.messages[4].content, /^OUTPUT_SCHEMA:/);
-  assert.match(first.messages[5].content, /^CURRENT_FACTS:/);
-  assert.equal(first.messages.slice(0, 5).some(message => message.content.includes('private one')), false);
+    promptParts: { sharedPublicFacts, privateKnowledge: { id: 'guide:witch', content: 'private two' },
+      dynamicFacts: { self: { seat: 2 } } }, schema: { enum: ['b'] } });
+  assert.deepEqual(first.messages.slice(0, 3), second.messages.slice(0, 3));
+  assert.match(first.messages[2].content, /^SHARED_PUBLIC_FACTS:/);
+  assert.match(first.messages[3].content, /^PRIVATE_KNOWLEDGE:/);
+  assert.match(first.messages[4].content, /^MATCHED_GUIDANCE:/);
+  assert.match(first.messages[5].content, /^OUTPUT_SCHEMA:/);
+  assert.equal(second.messages.some(message => message.content.startsWith('MATCHED_GUIDANCE:')), false);
+});
+
+test('MC3-01: shared knowledge and public facts precede private guide and matched rules', () => {
+  const sharedKnowledge = [
+    { id: 'board:12p', content: '十二人板子背景' },
+    { id: 'role:seer', content: '预言家公开职业描述' },
+    { id: 'term:gold-water', content: '金水词条' },
+  ];
+  const publicFacts = [{ sequence: 1, type: 'speech' }];
+  const make = (guide: string) => buildContext({ ...emptyContext, instructions: 'protocol',
+    promptParts: { sharedKnowledge, sharedPublicFacts: publicFacts,
+      privateKnowledge: { id: `guide:${guide}`, content: guide }, matchedGuidance: ['当前发言规则'],
+      dynamicFacts: { self: guide } } });
+  const seer = make('预言家指南');
+  const witch = make('女巫指南');
+  assert.deepEqual(seer.messages.slice(0, 6), witch.messages.slice(0, 6));
+  assert.deepEqual(seer.messages.slice(2, 5).map(message => message.content), [
+    'KNOWLEDGE:board:12p:十二人板子背景',
+    'KNOWLEDGE:role:seer:预言家公开职业描述',
+    'KNOWLEDGE:term:gold-water:金水词条',
+  ]);
+  assert.match(seer.messages[5].content, /^SHARED_PUBLIC_FACTS:/);
+  assert.match(seer.messages[6].content, /^PRIVATE_KNOWLEDGE:guide:预言家指南:/);
+  assert.match(seer.messages[7].content, /^MATCHED_GUIDANCE:/);
+  assert.match(seer.messages[8].content, /^OUTPUT_SCHEMA:/);
+  assert.equal(seer.messages.some(message => message.content.includes('女巫指南')), false);
 });
 
 test('F-19: optional memory is ranked, deduplicated and budgeted', () => {

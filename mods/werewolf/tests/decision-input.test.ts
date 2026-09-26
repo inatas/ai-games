@@ -6,7 +6,7 @@ import { prepareWerewolfDecision } from '../src/decision-input.ts';
 import { decodeWerewolfDecision } from '../src/decision-adapter.ts';
 import type { Match } from '../src/match.ts';
 
-test('script and model seats receive the same six-part authorized SPEAK/SELECT contract', () => {
+test('script and model seats receive the same six-part authorized SPEECH/SELECT contract', () => {
   const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
   let room = createRoom('test-room', 'test-run', definition);
   for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
@@ -56,6 +56,8 @@ test('model facts separate the peaceful public night from a wolf private knife t
   ];
   const wolfTask = prepareWerewolfDecision(room, wolf, definition);
   const villagerTask = prepareWerewolfDecision(room, villager, definition);
+  assert.equal(wolfTask.intent, 'SPEECH');
+  assert.equal(wolfTask.context.current_action.request_type, 'SPEECH');
   assert.equal((wolfTask.outputSchema as { properties: { speech: { maxLength: number } } }).properties.speech.maxLength, 200);
   assert.deepEqual((wolfTask.context.game_state as PublicFacts).last_announced_night, {night:1,deaths:[],peaceful:true});
   assert.deepEqual((villagerTask.context.game_state as PublicFacts).last_announced_night, {night:1,deaths:[],peaceful:true});
@@ -165,7 +167,7 @@ test('the witch sees the target and settled survival of her own antidote', () =>
   assert.deepEqual(actions[0].result, { status: 'settled', effect: 'antidote-applied', target_alive_after_night: true });
 });
 
-test('every live Werewolf phase exposes a decodable SPEAK or SELECT task', () => {
+test('every live Werewolf phase exposes a decodable SPEECH or SELECT task', () => {
   const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
   let room = createRoom('all-phases', 'all-phases', definition);
   for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
@@ -178,13 +180,13 @@ test('every live Werewolf phase exposes a decodable SPEAK or SELECT task', () =>
     const task = prepareWerewolfDecision(room, actor, definition);
     assert.equal(task.audit?.seatNo, actor);
     assert.equal(task.audit?.role, task.context.self.role);
-    if (task.intent === 'SPEAK') assert.ok(Number.isInteger(task.audit?.micNo) && task.audit!.micNo! > 0,
+    if (task.intent === 'SPEECH') assert.ok(Number.isInteger(task.audit?.micNo) && task.audit!.micNo! > 0,
       `${task.scene} must record its speaking order`);
     else assert.equal(task.audit?.micNo, null);
     const publicEvents = task.context.public_history as { sequence: number }[];
     assert.ok(publicEvents.every((event, index) => index === 0 || event.sequence > publicEvents[index - 1].sequence));
     seen.add(task.scene);
-    const output = task.intent === 'SPEAK'
+    const output = task.intent === 'SPEECH'
       ? { kind: 'proposal' as const, value: { speech: '本轮我会谨慎判断。' } }
       : { kind: 'proposal' as const, value: { selected: task.options[0].id } };
     const action = decodeWerewolfDecision(task, output);

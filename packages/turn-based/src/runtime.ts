@@ -201,13 +201,7 @@ export class RoomRuntime {
           return { room: next };
         }
         if (evaluation.guidance.length) {
-          const rules = input.context.rules;
-          const existing = rules && typeof rules === 'object' && !Array.isArray(rules) ? rules : {};
-          const stableGuidance = evaluation.guidance.filter(rule => rule.placement === 'stable').map(rule => rule.instruction);
-          const privateGuidance = evaluation.guidance.filter(rule => rule.placement !== 'stable');
-          ordinaryInput = { ...input, context: { ...input.context,
-            rules: privateGuidance.length ? { ...existing, strategy_rules: privateGuidance } : existing,
-          }, ...(stableGuidance.length ? { stableGuidance } : {}) };
+          ordinaryInput = { ...input, matchedGuidance: evaluation.guidance.map(rule => rule.instruction) };
         }
       }
       const scopeId = interruptSeat === undefined ? seat.scopeId : seat.interruptScopeId;
@@ -257,7 +251,9 @@ export class RoomRuntime {
         const promptParts = parts ? {
           sharedPublicFacts: parts.public_history,
           dynamicFacts: Object.fromEntries(Object.entries(parts).filter(([key]) => key !== 'public_history')),
-          ...(job.decisionInput?.stableGuidance?.length ? { stableGuidance: job.decisionInput.stableGuidance } : {}),
+          ...(job.decisionInput?.sharedKnowledge ? { sharedKnowledge: job.decisionInput.sharedKnowledge } : {}),
+          ...(job.decisionInput?.privateKnowledge ? { privateKnowledge: job.decisionInput.privateKnowledge } : {}),
+          ...(job.decisionInput?.matchedGuidance?.length ? { matchedGuidance: job.decisionInput.matchedGuidance } : {}),
         } : undefined;
         return {
           gameVersion: `${job.phaseInstance}:${job.decisionEpoch}`, facts, promptParts,

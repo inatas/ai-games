@@ -1,6 +1,6 @@
 {
   "id": "werewolf.robot-strategy",
-  "version": 3,
+  "version": 4,
   "speech": { "maxChars": 200 },
   "rules": [
     {
@@ -14,8 +14,7 @@
       "id": "speech-language",
       "priority": 80,
       "instruction": "自称“我”或“X号”；提到其他玩家只用座位号，例如“3号”，不使用自己或他人的游戏昵称。",
-      "enforcement": "guidance",
-      "placement": "stable"
+      "enforcement": "guidance"
     }
   ]
 }

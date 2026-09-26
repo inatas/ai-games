@@ -1,4 +1,7 @@
 export type Role = 'wolf' | 'villager' | 'seer' | 'witch' | 'hunter' | 'idiot';
+/** Single authoritative roster for the current playable board. */
+export const BOARD_ROLES: readonly Role[] = ['wolf', 'wolf', 'wolf', 'wolf', 'villager', 'villager',
+  'villager', 'villager', 'seer', 'witch', 'hunter', 'idiot'];
 export type DeathCause = 'knife' | 'poison' | 'exile' | 'shot' | 'explode';
 export type Chain = 'last-words' | 'shot' | 'badge-transfer';
 export interface Player {
@@ -60,8 +63,7 @@ export function createGame(seed: number): GameState {
     players: [], night: 1, random: seed, sheriff: null,
     antidote: true, poison: true, medicineNight: null, inspections: [],
   };
-  const roles: Role[] = ['wolf', 'wolf', 'wolf', 'wolf', 'villager', 'villager',
-    'villager', 'villager', 'seer', 'witch', 'hunter', 'idiot'];
+  const roles: Role[] = [...BOARD_ROLES];
   for (let index = roles.length - 1; index > 0; index--) {
     const other = draw(state, index + 1);
     [roles[index], roles[other]] = [roles[other], roles[index]];

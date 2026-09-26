@@ -6,7 +6,7 @@ export interface DecisionOption {
 }
 
 export interface DecisionInput {
-  intent: 'SPEAK' | 'SELECT';
+  intent: 'SPEECH' | 'SELECT';
   scene: string;
   actor: { roomId: string; seat: number; phaseInstance: number };
   /** Server-side audit metadata; never included in the model's six-part context. */
@@ -18,13 +18,17 @@ export interface DecisionInput {
     self: { seat: number; name: string; role: string | null; persona?: string };
     private_information: Json;
     public_history: Json;
-    current_action: { request_type: 'SPEAK' | 'SELECT'; scene: string; options: Json[]; phaseInstance: number;
+    current_action: { request_type: 'SPEECH' | 'SELECT'; scene: string; options: Json[]; phaseInstance: number;
       deadlineAt?: number; publicEventWatermark?: number };
   };
   options: DecisionOption[];
   outputSchema: object;
-  /** Matched, seat-independent guidance moved ahead of dynamic facts for prompt caching. */
-  stableGuidance?: string[];
+  /** Trusted MOD projection; all seats on the same board receive identical shared entries. */
+  sharedKnowledge?: { id: string; content: string }[];
+  /** Only the acting seat's actual role guide. */
+  privateKnowledge?: { id: string; content: string };
+  /** Rules matched for this seat and action, after the private guide. */
+  matchedGuidance?: string[];
 }
 
 export type DecisionOutput =

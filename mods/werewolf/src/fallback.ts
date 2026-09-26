@@ -6,8 +6,8 @@ import { prepareWerewolfDecision } from './decision-input.ts';
 /** The game's deadline ruling; controller failures do not choose this action. */
 export function fallbackWerewolfAction(room: Room, seat: number, definition: RoomDefinition): Json {
   const task = prepareWerewolfDecision(room, seat, definition);
-  if (task.intent === 'SPEAK') {
-    const action = { kind: task.scene === 'last-words' ? 'last-words' : 'speak', text: '' };
+  if (task.intent === 'SPEECH') {
+    const action = { kind: task.scene === 'last-words' ? 'last-words' : 'speech', text: '' };
     validateDecision(room, room.phaseInstance, seat, action, definition);
     return action;
   }

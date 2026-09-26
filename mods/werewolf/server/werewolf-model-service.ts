@@ -9,10 +9,11 @@ import { summarizeRoomTokenUsage } from './model-token-usage.ts';
 import { modelRoomSnapshot } from './werewolf-model-snapshot.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
 import type { ModelProfile } from './robot-users.ts';
+import { JevShadowWorker } from './jev-shadow.ts';
 
 /** Accept only the version produced by the current game definition for this seed. */
 export function modelRoomSeedFromVersion(version: string): number | null {
-  const match = /^4\.(\d+)\.double\.[a-z0-9]+$/.exec(version);
+  const match = /^5\.(\d+)\.double\.12p-seer-witch-hunter-idiot\.[a-f0-9]{64}$/.exec(version);
   if (!match) return null;
   const seed = Number(match[1]);
   return Number.isSafeInteger(seed) && werewolfDefinition({ seed, sheriff: 'double' }).version === version ? seed : null;
@@ -26,10 +27,15 @@ export class WerewolfModelService {
   private runtimes = new Map<number, RoomRuntime>();
   private running = new Set<string>();
   private closed = false;
+  private jevShadow: JevShadowWorker | undefined;
 
   constructor(private store: PostgresStore) {
     this.modelProfiles = loadModelProfiles();
     this.adapters = buildRobotAdapters(this.users, this.modelProfiles);
+    if (process.env.JEV_SHADOW_ENABLED === 'true') {
+      if (!process.env.JEV_API_KEY) throw new Error('JEV_API_KEY_REQUIRED');
+      this.jevShadow = new JevShadowWorker(store, { apiKey: process.env.JEV_API_KEY });
+    }
   }
 
   profiles() {
@@ -51,6 +57,10 @@ export class WerewolfModelService {
   async migrate(): Promise<void> {
     await this.store.migrate();
     await this.runtime(0).migrate();
+    if (this.jevShadow) {
+      await this.jevShadow.activate();
+      this.jevShadow.start();
+    }
   }
 
   private async roomSeed(id: string): Promise<number> {
@@ -216,6 +226,7 @@ export class WerewolfModelService {
 
   async close(): Promise<void> {
     this.closed = true;
+    await this.jevShadow?.close();
     await Promise.all([...this.runtimes.values()].map(runtime => runtime.close()));
   }
 }

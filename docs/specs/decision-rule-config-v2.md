@@ -26,15 +26,13 @@
 
 `id` 是 MOD 内受信任处理器的稳定键。`priority` 为整数，降序排列、同值按 ID 排列。`instruction` 是非空短文本，进入当前席位私有上下文，不作为游戏事实。`enforcement` 仅允许 `guidance` 或 `require-option`。`guidance` 只加文本；`require-option` 在命中时沿用 v1 的程序约束。`probability` 是 `require-option` 的可选 0～1 数值，缺省为 1；它只控制强制效果，未命中仍可给模型该条 instruction。`guidance` 不接受 probability，避免把“是否显示说明”与“是否强制动作”混淆。
 
-v2.1 已实施：`guidance` 可选 `placement: stable`，仅用于已匹配且所有席位共享的固定文本。它在固定游戏规则之后生成独立 system 消息、先于公开历史和动态事实；缺省指导继续在后部 `CURRENT_FACTS`。`require-option` 不接受该字段。具体消息顺序见[缓存设计](model-context-cache-v2.md)。
-
-v3 待审阅：用户要求四层知识库先于 ruleset。`placement: stable` 的提前发送语义因此拟移除，**所有已匹配 guidance** 经通用 `matchedGuidance` 段放在 MOD 授权的本人职业指南之后；未匹配规则不发送，`require-option` 的程序强制仍由规则引擎执行。固定的板子、全职业描述和通用词条不是规则集条目，不使用优先级、匹配器或 enforcement。迁移同步更新配置验证、MOD 作者文件、全部调用方与测试；v2.1 仅作为当前已实施历史，实施 v3 后不并存。详见[上下文缓存 v3](model-context-cache-v2.md)及[框架需求 023](../../.agents/note/023-model-context-cache.md)。
+当前 v3 契约：所有已匹配 `guidance` 经通用 `matchedGuidance` 段放在 MOD 授权的本人职业指南之后；未匹配规则不发送，`require-option` 的程序强制仍由规则引擎执行。`placement` 字段不再接受。固定的板子、全职业描述和通用词条不是规则集条目，不使用优先级、匹配器或 enforcement。详见[上下文缓存 v3](model-context-cache-v2.md)及[框架需求 023](../../.agents/note/023-model-context-cache.md)。
 
 ## 规则注册与执行
 
 - MOD 在内部注册与配置 `id` 对应的纯 `matches(DecisionInput)`，以及强制规则的 `selectOption(DecisionInput)`；这段代码是游戏适配，不再作为人维护的规则文件。未知 ID、缺少处理器、强制规则没有合法选项映射、重复 ID、未知字段、无效概率或空说明在装配时拒绝。
 - 框架通用装配函数把配置与 MOD 处理器合成为当前 `DecisionRuleSet`，并计算配置摘要。房间固定 `id/version/digest`；重启时若同版本内容变了则拒绝自动决策，不静默使用新文案。配置改变必须增加版本。当前不提供运行中热编辑或管理 API。
-- `matches` 先用当前席位授权的 `DecisionInput` 判定。已匹配的说明按优先级进入 `context.rules.strategy_rules`，供模型和脚本看到；未匹配、其他座位及公共视图均不包含。说明低于游戏硬规则、合法选项和输出 Schema。现有 `definition.instructions` 继续保留。
+- `matches` 先用当前席位授权的 `DecisionInput` 判定。已匹配的说明按优先级进入该次决策的 `matchedGuidance`，由模型上下文在本人指南之后提供；未匹配、其他座位及公共视图均不包含。说明低于游戏硬规则、合法选项和输出 Schema。现有 `definition.instructions` 继续保留。
 - `require-option` 的概率命中且选项合法时，维持 v1 在房间事务内直接提交的行为，不调用模型/脚本；未命中时说明仍可进入本席决策上下文，模型自行选择。`guidance` 不过滤选项、不覆盖输出。硬规则始终先生成合法选项，策略不可增加动作。
 
 ## 接口、恢复与范围

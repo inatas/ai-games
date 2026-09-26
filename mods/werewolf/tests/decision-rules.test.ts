@@ -22,7 +22,7 @@ const task = (role: string, round = 1): DecisionInput => ({
 
 test('WW-R01: seer first-day strategy refers to the legal run option', () => {
   assert.equal(werewolfDecisionRules.id, 'werewolf.robot-strategy');
-  assert.equal(werewolfDecisionRules.version, 3);
+  assert.equal(werewolfDecisionRules.version, 4);
   assert.ok(werewolfDecisionRules.digest);
   assert.equal(werewolfDecisionRules.digest,
     createHash('sha256').update(canonical(authorRules as unknown as Json)).digest('hex'));
@@ -37,9 +37,9 @@ test('WW-R01: seer first-day strategy refers to the legal run option', () => {
 
 test('WW-S01: shared language guidance applies to every speech scene, never choices', () => {
   for (const scene of ['speech', 'election-speech', 'pk', 'election-pk', 'last-words']) {
-    const evaluation = evaluateDecisionRules(werewolfDecisionRules, { ...task('wolf'), intent: 'SPEAK', scene, options: [] });
+    const evaluation = evaluateDecisionRules(werewolfDecisionRules, { ...task('wolf'), intent: 'SPEECH', scene, options: [] });
     assert.deepEqual(evaluation.guidance.map(rule => rule.id), ['speech-language']);
-    assert.equal(evaluation.guidance[0]?.placement, 'stable');
+    assert.match(evaluation.guidance[0]?.instruction ?? '', /只用座位号/);
   }
   assert.deepEqual(evaluateDecisionRules(werewolfDecisionRules, task('wolf')).guidance, []);
 });

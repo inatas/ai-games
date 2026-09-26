@@ -163,7 +163,7 @@ export class Harness {
           const started = this.clock.now(); let response;
           await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
             attempt, deadlineAt: deadline, modelRequest: request,
-            promptLayoutVersion: prepared.promptParts?.stableGuidance?.length ? 3 : prepared.promptParts ? 2 : 1,
+            promptLayoutVersion: prepared.promptParts?.sharedKnowledge?.length ? 4 : prepared.promptParts ? 2 : 1,
             ...(prepared.promptParts ? { sharedPublicDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedPublicFacts)).digest('hex'),
               sharedPublicBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedPublicFacts), 'utf8') } : {}),
             contextIds: context.contextIds, worldId: worldview?.worldId ?? null,

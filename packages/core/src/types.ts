@@ -21,7 +21,10 @@ export type MemoryChange =
   | { op: 'close_item'; id: string };
 export interface Prepared {
   gameVersion: string; facts: Json; instructions: string;
-  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json; stableGuidance?: string[] };
+  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json;
+    sharedKnowledge?: { id: string; content: string }[];
+    privateKnowledge?: { id: string; content: string };
+    matchedGuidance?: string[] };
   subjectIds: string[]; tags: string[]; requiredMemoryIds: string[];
   visibility?: Visibility[];
   eventContext?: { userId?: string | null; modId?: string | null; roomId?: string | null; details?: Json };
