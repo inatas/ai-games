@@ -58,11 +58,11 @@ test('WW-75: potential victory waits for last words and badge transfer; gun can 
 test('WW-30,67,71: invalid inputs do not mutate state; self explosion and idiot reveal have no last words', () => {
   const original = beginSettlement(exile(game(), 11), [11]);
   const snapshot = structuredClone(original);
-  assert.throws(() => advanceSettlement(original, 0, 11, { kind: 'last-words', text: '字'.repeat(301) }), /INVALID_SPEECH/);
+  assert.throws(() => advanceSettlement(original, 0, 11, { kind: 'last-words', text: '字'.repeat(201) }), /INVALID_SPEECH/);
   assert.throws(() => advanceSettlement(original, 0, 11, { kind: 'shot', target: 5 }), /WRONG_SETTLEMENT_ACTION/);
   assert.throws(() => beginSettlement(settleNight(game(), 5, null), [5]), /DEATH_NOT_ANNOUNCED/);
   assert.throws(() => beginSettlement(exile(game(), 12), [12]), /NOT_DEAD/);
-  const words = advanceSettlement(original, 0, 11, { kind: 'last-words', text: '字'.repeat(300) });
+  const words = advanceSettlement(original, 0, 11, { kind: 'last-words', text: '字'.repeat(200) });
   assert.throws(() => advanceSettlement(words, 1, 11, { kind: 'shot', target: 11 }), /PLAYER_DEAD/);
   const exploded = beginSettlement(kill({ ...game(), sheriff: 1 }, 1, 'explode'), [1]);
   assert.equal(exploded.complete, true);

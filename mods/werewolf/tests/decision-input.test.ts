@@ -56,6 +56,7 @@ test('model facts separate the peaceful public night from a wolf private knife t
   ];
   const wolfTask = prepareWerewolfDecision(room, wolf, definition);
   const villagerTask = prepareWerewolfDecision(room, villager, definition);
+  assert.equal((wolfTask.outputSchema as { properties: { speech: { maxLength: number } } }).properties.speech.maxLength, 200);
   assert.deepEqual((wolfTask.context.game_state as PublicFacts).last_announced_night, {night:1,deaths:[],peaceful:true});
   assert.deepEqual((villagerTask.context.game_state as PublicFacts).last_announced_night, {night:1,deaths:[],peaceful:true});
   assert.deepEqual((wolfTask.context.private_information as PrivateFacts).events[0].data, {night:1,target:12});

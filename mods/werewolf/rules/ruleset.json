@@ -1,6 +1,7 @@
 {
   "id": "werewolf.robot-strategy",
-  "version": 2,
+  "version": 3,
+  "speech": { "maxChars": 200 },
   "rules": [
     {
       "id": "seer-first-day-run",
@@ -8,6 +9,13 @@
       "instruction": "首日通常应上警，结合自己的查验信息争取警徽。",
       "enforcement": "require-option",
       "probability": 0.8
+    },
+    {
+      "id": "speech-language",
+      "priority": 80,
+      "instruction": "自称“我”或“X号”；提到其他玩家只用座位号，例如“3号”，不使用自己或他人的游戏昵称。",
+      "enforcement": "guidance",
+      "placement": "stable"
     }
   ]
 }

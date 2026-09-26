@@ -1,5 +1,6 @@
 import type { GameEvent } from '@game-ai/turn-based';
 import { announceDeaths, electionEligible, kill, tallyVotes, type Ballot, type GameState } from './rules.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 export type SheriffMode = 'double' | 'single' | 'none';
 export type ElectionStage = 'speech' | 'withdrawal' | 'voting' | 'pk' | 'suspended' | 'finished';
@@ -93,7 +94,7 @@ export function advanceElection(source: Election, revision: number, seat: number
   const election = structuredClone(source);
   election.pending = election.pending.filter(actor => actor !== seat);
   if (action.kind === 'speak') {
-    if (typeof action.text !== 'string' || [...action.text].length > 300) throw new Error('INVALID_SPEECH');
+    if (typeof action.text !== 'string' || [...action.text].length > maxSpeechChars) throw new Error('INVALID_SPEECH');
     election.events.push({ type: 'sheriff-speech', audience: 'public', data: { seat, text: action.text, runoff: election.runoff } });
     if (!election.pending.length) {
       if (election.runoff) beginVoting(election);

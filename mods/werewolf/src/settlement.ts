@@ -3,6 +3,7 @@ import {
   canShoot, hasLastWords, kill, transferBadge, verdict,
   type Chain, type GameState,
 } from './rules.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 export type SettlementAction =
   | { kind: 'last-words'; text: string }
@@ -60,7 +61,7 @@ export function advanceSettlement(
   const next = structuredClone(source);
   next.queue.shift();
   if (action.kind === 'last-words') {
-    if (typeof action.text !== 'string' || [...action.text].length > 300) throw new Error('INVALID_SPEECH');
+    if (typeof action.text !== 'string' || [...action.text].length > maxSpeechChars) throw new Error('INVALID_SPEECH');
     next.events.push({ type: 'last-words', audience: 'public', data: { seat, text: action.text } });
   } else if (action.kind === 'shot') {
     if (!canShoot(next.game, seat)) throw new Error('CANNOT_SHOOT');

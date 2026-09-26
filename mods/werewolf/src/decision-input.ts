@@ -2,6 +2,7 @@ import type { Json } from '@game-ai/core';
 import { actorView, type DecisionInput, type DecisionOption, type Room, type RoomDefinition } from '@game-ai/turn-based';
 import { nightActionSchema, type Match } from './match.ts';
 import type { GameView } from './views.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 interface ChoiceSchema {
   const?: Json;
@@ -124,7 +125,7 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
     audit: { seatNo: seat, micNo, role: roleFacts.role, phaseInstance: room.phaseInstance,
       publicEventWatermark: events.length },
     outputSchema: speech
-      ? { type: 'object', additionalProperties: false, required: ['speech'], properties: { speech: { type: 'string', minLength: 1, maxLength: 300 } } }
+      ? { type: 'object', additionalProperties: false, required: ['speech'], properties: { speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars } } }
       : { type: 'object', additionalProperties: false, required: ['selected'], properties: { selected: { enum: options.map(option => option.id) } } },
     context: {
       rules: {

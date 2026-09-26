@@ -5,6 +5,7 @@ import { acceptDecision, createRoom, eligibleActors, occupySeat, spectatorView, 
 import { werewolfDefinition } from './definition.ts';
 import type { GameView } from './views.ts';
 import { nightActionSchema, type Match } from './match.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 interface Session {
   roster?: ScriptRobotUser[];
@@ -29,14 +30,14 @@ export class DemoRooms {
   constructor(options: { now?: () => number; speechText?: string } = {}) {
     this.now = options.now ?? Date.now;
     this.speechText = options.speechText ?? '我是狼人杀玩家';
-    if (!this.speechText.trim() || [...this.speechText].length > 300) throw new Error('INVALID_DEMO_SPEECH');
+    if (!this.speechText.trim() || [...this.speechText].length > maxSpeechChars) throw new Error('INVALID_DEMO_SPEECH');
   }
 
   private budget(session: Session): number {
     const key = session.room.phase?.key;
     if (key === 'wolves') return session.nightTail ? 30_000 : 60_000;
     if (key === 'witch') return 30_000;
-    if (key === 'speech' || key === 'election-speech') return 150_000;
+    if (key === 'speech' || key === 'election-speech') return session.definition.windowMs!(session.room);
     if (key === 'pk' || key === 'election-pk' || key === 'last-words') return 90_000;
     if (key === 'election-withdrawal') return 10_000;
     if (key === 'direction' || key === 'badge-transfer') return 20_000;
@@ -44,7 +45,7 @@ export class DemoRooms {
   }
 
   private waitTime(session: Session): number {
-    return ['wolves', 'witch', 'election-withdrawal'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
+    return ['wolves', 'witch', 'election-withdrawal', 'speech', 'election-speech', 'pk', 'election-pk', 'last-words'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
   }
 
   create(seed: number, strategy: 'fixed' | 'random', roster?: RobotUser[]) {

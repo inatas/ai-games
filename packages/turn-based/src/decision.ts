@@ -23,6 +23,8 @@ export interface DecisionInput {
   };
   options: DecisionOption[];
   outputSchema: object;
+  /** Matched, seat-independent guidance moved ahead of dynamic facts for prompt caching. */
+  stableGuidance?: string[];
 }
 
 export type DecisionOutput =

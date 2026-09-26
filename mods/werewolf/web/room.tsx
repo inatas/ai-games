@@ -84,6 +84,13 @@ export default function WerewolfRoom() {
   const [modal, setModal] = useState<Modal>(null);
   const [expanded, setExpanded] = useState(true);
   const [reduced, setReduced] = useState(false);
+  const [systemReduced, setSystemReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setSystemReduced(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
   const [largeText, setLargeText] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -159,7 +166,7 @@ export default function WerewolfRoom() {
     }}
     close={isPreview ? undefined : () => setShowLobby(false)} />;
 
-  return <RobotUsersContext.Provider value={game.players}><div className="ww-page"><main className={`ww-stage ${viewer !== null ? 'has-perspective' : ''} ${night ? 'is-night' : ''} ${reduced ? 'reduced-motion' : ''} ${largeText ? 'large-text' : ''}`} aria-label="狼人杀旁观房间">
+  return <RobotUsersContext.Provider value={game.players}><div className="ww-page"><main className={`ww-stage ${viewer !== null ? 'has-perspective' : ''} ${night ? 'is-night' : ''} ${reduced || systemReduced ? 'reduced-motion' : ''} ${largeText ? 'large-text' : ''}`} aria-label="狼人杀旁观房间">
     <div className="ww-background" />
     <a className="ww-back ww-round" href="/" aria-label="返回首页">◀</a>
     <div className="ww-room"><small>房间号：</small><b>{isPreview ? '000042' : String(activeSeed).padStart(6, '0')}</b></div>
@@ -193,7 +200,8 @@ export default function WerewolfRoom() {
         selected={selected === player.seat} active={game.speakerSeat === player.seat}
         onClick={() => { setSelected(player.seat); setModal('player'); }} />;
     })}
-    <SpeakerAvatar seat={game.speakerSeat}/><SpeechBubble game={game}/>
+    <SpeakerAvatar seat={game.speakerSeat}/><SpeechBubble game={game} suppressed={modal !== null} reduced={reduced || systemReduced}/>
+    {game.speakerSeat !== null && !game.currentSpeech && <div className="ww-speech-pending">{game.speakerSeat}号正在组织发言…</div>}
     {night && !ended && <div className="ww-night-notice"><strong>{game.nightSegment === 'medicine' ? '女巫行动中' : '狼人、预言家行动中'}</strong><span>夜间行动结束后公布公开结果</span></div>}
         <button className="ww-observer" disabled={isPreview} title={isPreview ? '开始对局后可切换视角' : undefined} onClick={() => setModal('perspective')}>◉ {viewer === null ? '公共旁观' : `${viewer}号视角`} ▾</button>
     {viewer !== null && <button className="ww-view-knowledge" onClick={() => setModal('knowledge')}><span style={portraitStyle(viewer, game.players.find(player => player.seat === viewer)?.user)}/><b>{viewer}号 · {knowledge ? roleNames[knowledge.role] : '加载中'}</b><small>已知信息 ▸</small></button>}
@@ -206,7 +214,7 @@ export default function WerewolfRoom() {
     <p className="ww-caption">{isPreview ? '原型示意 · 点击开始对局' : ended
       ? `${roomMode === 'model' ? '模型Robot对局' : '脚本Robot对局'} · 终局公开`
       : `${roomMode === 'model' ? '模型与脚本Robot' : '脚本Robot · 固定短句发言'} · 查看历史不停表`}</p>
-    <LiveTransition game={game} suppressed={modal !== null}/>
+    <LiveTransition game={game} suppressed={modal !== null} reduced={reduced || systemReduced}/>
     {modal === 'history' && <SpeechHistory key={game.id} game={game} close={() => setModal(null)} />}
     {modal && modal !== 'history' && <Dialog title={{ perspective: '选择观察视角', knowledge: '当前视角 · 已知信息', samples: '头像状态 · v2.1', settings: '显示设置', restart: '开启新对局', player: `${selected}号玩家`, roles: '终局身份', diagnostics: '模型调用诊断' }[modal]} close={() => setModal(null)}>
       {modal === 'diagnostics' && <ModelDiagnostics roomId={game.id} />}

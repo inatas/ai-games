@@ -9,6 +9,7 @@ export interface DecisionRule {
   mode: 'require-option' | 'guidance';
   instruction?: string;
   probability?: number;
+  placement?: 'stable';
   matches(input: DecisionInput): boolean;
   selectOption?(input: DecisionInput): string | null;
 }
@@ -26,6 +27,7 @@ export interface RuleConfig {
   instruction: string;
   enforcement: 'guidance' | 'require-option';
   probability?: number;
+  placement?: 'stable';
 }
 
 export interface RuleSetConfig { id: string; version: number; rules: RuleConfig[] }
@@ -38,7 +40,7 @@ export type RuleHandlerRegistry = Readonly<Record<string, RuleHandler>>;
 export interface RuleEvaluation {
   allowedOptionIds: string[];
   requiredOptionId?: string;
-  guidance: Array<{ id: string; priority: number; instruction: string }>;
+  guidance: Array<{ id: string; priority: number; instruction: string; placement?: 'stable' }>;
   results: Array<{ id: string; sampled: boolean; matched: boolean; selected?: string }>;
 }
 
@@ -58,11 +60,12 @@ export function compileDecisionRuleSet(source: unknown, handlers: RuleHandlerReg
       !Array.isArray(source.rules)) throw new HarnessError('INVALID_RULE_SET');
   const rules: DecisionRule[] = [];
   for (const raw of source.rules) {
-    if (!record(raw) || !onlyKeys(raw, ['id', 'priority', 'instruction', 'enforcement', 'probability']) ||
+    if (!record(raw) || !onlyKeys(raw, ['id', 'priority', 'instruction', 'enforcement', 'probability', 'placement']) ||
         typeof raw.id !== 'string' || !raw.id.trim() ||
         !Number.isSafeInteger(raw.priority) ||
         typeof raw.instruction !== 'string' || !raw.instruction.trim() || raw.instruction.length > 500 ||
         !['guidance', 'require-option'].includes(raw.enforcement as string) ||
+        (raw.placement !== undefined && (raw.placement !== 'stable' || raw.enforcement !== 'guidance')) ||
         (raw.probability !== undefined && (raw.enforcement !== 'require-option' ||
           typeof raw.probability !== 'number' || !Number.isFinite(raw.probability) ||
           raw.probability < 0 || raw.probability > 1))) throw new HarnessError('INVALID_RULE_SET');
@@ -76,6 +79,7 @@ export function compileDecisionRuleSet(source: unknown, handlers: RuleHandlerReg
       id: raw.id, priority: raw.priority as number, instruction: raw.instruction,
       mode: raw.enforcement as DecisionRule['mode'],
       ...(raw.probability === undefined ? {} : { probability: raw.probability as number }),
+      ...(raw.placement === undefined ? {} : { placement: 'stable' as const }),
       matches: handler.matches, ...(handler.selectOption ? { selectOption: handler.selectOption } : {}),
     });
   }
@@ -98,6 +102,7 @@ export function assertDecisionRuleSet(set: DecisionRuleSet): void {
         !['require-option', 'guidance'].includes(rule.mode) ||
         (rule.instruction !== undefined && (typeof rule.instruction !== 'string' || !rule.instruction.trim())) ||
         (rule.probability !== undefined && (!Number.isFinite(rule.probability) || rule.probability < 0 || rule.probability > 1)) ||
+        (rule.placement !== undefined && (rule.placement !== 'stable' || rule.mode !== 'guidance')) ||
         typeof rule.matches !== 'function' ||
         (rule.mode === 'require-option' && typeof rule.selectOption !== 'function')) {
       throw new HarnessError('INVALID_RULE_SET');
@@ -125,7 +130,8 @@ export function evaluateDecisionRules(set: DecisionRuleSet, input: DecisionInput
   const ordered = [...set.rules].sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
   for (const rule of ordered) {
     const matches = rule.matches(input);
-    if (matches && rule.instruction) result.guidance.push({ id: rule.id, priority: rule.priority, instruction: rule.instruction });
+    if (matches && rule.instruction) result.guidance.push({ id: rule.id, priority: rule.priority, instruction: rule.instruction,
+      ...(rule.placement ? { placement: rule.placement } : {}) });
     const hit = matches && (rule.mode === 'guidance' || sampled(set, rule, input));
     if (hit && rule.mode === 'require-option' && input.intent !== 'SELECT') throw new HarnessError('RULE_INTENT_MISMATCH');
     const id = hit && rule.mode === 'require-option' ? rule.selectOption!(input) : null;

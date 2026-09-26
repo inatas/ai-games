@@ -15,19 +15,6 @@ export function portraitStyle(seat: number, user?: RobotPublicUser): CSSProperti
   const portrait = portraits[(seat - 1) % portraits.length];
   return { backgroundImage: `url('/werewolf/user-avatar-${portrait.name}.png')`, backgroundSize: portrait.size, backgroundPosition: portrait.position };
 }
-function Skull() {
-  return <><path d="M50 12C27 10 15 25 17 44c0 14 9 20 16 22v15l10 3 7-7 7 7 10-3V66c9-3 16-12 16-23C85 25 72 11 50 12Z"/><ellipse cx="35" cy="42" rx="10" ry="12" fill="#331824"/><ellipse cx="65" cy="42" rx="10" ry="12" fill="#331824"/><path d="m50 55-6 11h12Z" fill="#331824"/><path d="M42 70v10m16-10v10" fill="none"/></>;
-}
-function DeathIcon({ kind }: { kind: DeathDisplay }) {
-  return <svg viewBox="0 0 100 100" aria-hidden="true" fill="currentColor" stroke="#351a23" strokeWidth="3" strokeLinejoin="round">
-    {kind === 'night' && <Skull />}
-    {kind === 'poison' && <><path d="M39 10h22v9h-4v16c0 7 26 12 26 34 0 26-66 26-66 0 0-22 26-27 26-34V19h-4Z"/><g transform="translate(26 38) scale(.48)" fill="#321338" stroke="none"><Skull /></g><path d="M41 25h18" fill="none"/></>}
-    {kind === 'exile' && <><path d="m17 13 10-4 9 14 6-9 11 7-9 28-9 12 14 21-18 9L14 57 9 36Zm66 0-10-4-9 14-6-9-11 7 9 28 9 12-14 21 18 9 17-34 5-21Z"/><path d="m16 48 68 12m-64 0 60-12m-48 22 33-17" fill="none" stroke="#351a23" strokeWidth="5"/></>}
-    {kind === 'shot' && <><circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" strokeWidth="7"/><path d="M50 7v86M7 50h86" fill="none" stroke="currentColor" strokeWidth="5"/><path d="m15 18 12-6 58 60-8 14-23-22-10 6-12-13 9-10Z" fill="#f5dfd1"/></>}
-    {kind === 'knife' && <><path d="m22 91 9-29L70 17l18 15-46 48Z"/><path d="m67 18 9-12 18 15-8 14Z" fill="#d0ad89"/><path d="m29 66 12 9 22-35" fill="none" stroke="#e93846" strokeWidth="5"/></>}
-    {kind === 'explode' && <><path d="m50 5 10 25 23-19-7 29 20 9-24 11 15 29-28-14-11 22-9-26-28 14 15-26-23-9 25-12L14 14l26 17Z"/><path d="m35 32 12 9 16-7-2 17 13 10-17 10-17-5-7-20Z" fill="#3f1421"/></>}
-  </svg>;
-}
 export interface SeatAvatarProps {
   seat: number;
   death?: DeathDisplay | null;
@@ -49,7 +36,7 @@ export function SeatAvatar(props: SeatAvatarProps) {
   const description = `${seat}号玩家，${death ? deathNames[death] : '存活'}${self ? '，我' : ''}${identity ? `，${identity}` : ''}${sheriff ? '，警长' : ''}${mark ? `，个人标记${mark}` : ''}`;
   return <button type="button" className={`ww-seat ${gallery ? 'in-gallery' : ''} ${death ? 'dead' : ''} ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} style={{ '--row': (seat - 1) % 6, '--side': seat <= 6 ? 0 : 1 } as CSSProperties} aria-label={user ? `${user.nickname}，${description}` : description} onClick={onClick}>
     <span className="ww-avatar" style={portraitStyle(seat, user)} />
-    {death && <span className={`ww-death ${death}`}><DeathIcon kind={death}/><span>{deathNames[death]}</span></span>}
+    {death && <span className="ww-death" aria-hidden="true"><img src={`/werewolf/death/${death}.png`} alt="" draggable={false}/></span>}
     {sheriff && <span className="ww-corner top-left sheriff" title="警长">♛</span>}
     {nominated ? <span className="ww-corner top-right nomination" title="已公布上警">✋</span> : mark && <span className={`ww-corner top-right personal ${markTone}`} title={`个人标记：${mark}`}>{mark}</span>}
     {props.viewpoint && <span className="ww-corner bottom-left self" title="当前观察视角">视角</span>}

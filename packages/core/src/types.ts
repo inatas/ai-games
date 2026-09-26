@@ -21,7 +21,7 @@ export type MemoryChange =
   | { op: 'close_item'; id: string };
 export interface Prepared {
   gameVersion: string; facts: Json; instructions: string;
-  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json };
+  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json; stableGuidance?: string[] };
   subjectIds: string[]; tags: string[]; requiredMemoryIds: string[];
   visibility?: Visibility[];
   eventContext?: { userId?: string | null; modId?: string | null; roomId?: string | null; details?: Json };

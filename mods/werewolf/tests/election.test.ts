@@ -163,7 +163,7 @@ test('WW-68–71: forbidden phases, wrong role, old revision and long speech fai
   const snapshot = structuredClone(initial);
   assert.throws(() => explodeElection(initial, 0, 5), /NOT_WOLF/);
   assert.throws(() => advanceElection(initial, 0, 10, { kind: 'speak', text: '插队' }), /INELIGIBLE_ELECTION_ACTOR/);
-  assert.throws(() => advanceElection(initial, 0, 9, { kind: 'speak', text: '字'.repeat(301) }), /INVALID_SPEECH/);
+  assert.throws(() => advanceElection(initial, 0, 9, { kind: 'speak', text: '字'.repeat(201) }), /INVALID_SPEECH/);
   const first = explodeElection(initial, 0, 1);
   assert.throws(() => advanceElection(first, 0, 9, { kind: 'speak', text: '过期' }), /REVISION_CONFLICT/);
   assert.equal(explodeElection(beginElection(game(), [9, 10], 'single'), 0, 1).stage, 'finished');

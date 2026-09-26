@@ -3,6 +3,26 @@ import assert from 'node:assert/strict';
 import { DemoRooms } from '../src/demo.ts';
 import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 
+test('script speech stays on the same seat after three seconds and advances only at its deadline', () => {
+  let now = 0;
+  const rooms = new DemoRooms({ now: () => now });
+  const created = rooms.create(42, 'random');
+  now = 93_000;
+  rooms.tick();
+  const speaking = rooms.get(created.id);
+  assert.ok(speaking.speakerSeat);
+  assert.equal(speaking.timing.remainingMs, 120_000);
+  now += 3_000;
+  rooms.tick();
+  assert.equal(rooms.get(created.id).revision, speaking.revision);
+  now += 116_999;
+  rooms.tick();
+  assert.equal(rooms.get(created.id).revision, speaking.revision);
+  now += 1;
+  rooms.tick();
+  assert.ok(rooms.get(created.id).revision > speaking.revision);
+});
+
 test('V4-01/02/03: host clock runs without reads; GET is read-only; only speakers have avatars', () => {
   let now = 0;
   const rooms = new DemoRooms({ now: () => now });
@@ -28,9 +48,12 @@ test('V4-01/02/03: host clock runs without reads; GET is read-only; only speaker
   game = rooms.get(game.id);
   assert.equal(game.speakerSeat, game.actor);
   assert.ok(game.speakerSeat);
-  now += 900_000; // The user never polls during this interval.
-  rooms.tick();
-  game = rooms.get(game.id);
+  // No reads are needed to advance; keep gaps below the one-hour session expiry.
+  for (let i = 0; i < 12 && game.status === 'running'; i++) {
+    now += 900_000;
+    rooms.tick();
+    game = rooms.get(game.id);
+  }
   assert.equal(game.status, 'finished');
   assert.equal(game.speakerSeat, null);
   assert.ok(game.speeches.every(s => s.text === '我是狼人杀玩家'));

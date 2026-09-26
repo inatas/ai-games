@@ -26,4 +26,5 @@ test('script adapter returns the same speech/selected proposal envelope used by 
   assert.deepEqual(utterance, { kind: 'proposal', value: { speech: '我是狼人杀玩家' } });
   assert.deepEqual(decodeWerewolfDecision(speak, utterance), { kind: 'last-words', text: '我是狼人杀玩家' });
   assert.deepEqual(decodeWerewolfDecision(select, { kind: 'proposal', value: { selected: 'invented' } }), null);
+  assert.deepEqual(decodeWerewolfDecision(speak, { kind: 'proposal', value: { speech: '字'.repeat(201) } }), null);
 });

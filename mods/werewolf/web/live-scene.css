@@ -39,13 +39,41 @@
 .ww-cloud { width:32cqw; height:14cqw; border-radius:0; background:none; box-shadow:none; }
 .ww-raven { width:20cqw; height:20cqw; font-size:initial; }
 
-.ww-live-speech-bubble { position:absolute; z-index:5; left:21%; top:13%; width:58%; height:42%; color:#422b19; filter:drop-shadow(0 .5cqw 1cqw #110c08aa); }
-.ww-speech-paper { position:relative; height:100%; display:flex; flex-direction:column; border:1cqw solid #765032; border-radius:3cqw; box-shadow:0 0 0 .45cqw #291b11,inset 0 0 0 .5cqw #d1ad71; padding:2cqw; background-color:#eddbb3; background-image:url('/werewolf/parchment-grain.svg'),radial-gradient(ellipse at 22% 18%,#fff1ceaa,transparent 60%),radial-gradient(ellipse at 87% 80%,#aa773333,transparent 64%),repeating-linear-gradient(8deg,#9474470b 0 1px,transparent 1px 4px); background-size:160px 160px,100% 100%,100% 100%,100% 100%; }
-.ww-speech-paper::before { content:''; position:absolute; inset:-1cqw; border:1cqw solid transparent; border-radius:3cqw; pointer-events:none; background:repeating-linear-gradient(4deg,#3b231833 0 1px,transparent 1px 4px); mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0); mask-composite:exclude; }
-.ww-speech-paper header { display:flex; align-items:center; justify-content:space-between; gap:1cqw; padding:1.5cqw .6cqw 2cqw; border-bottom:.3cqw solid #9b754b; }
-.ww-speech-paper header strong { font-size:3.5cqw; }.ww-speech-paper header small { font-size:2.5cqw; color:#8b542e; white-space:nowrap; }
-.ww-speech-body { flex:1; min-height:0; padding:3cqw 1cqw; overflow:auto; overscroll-behavior:contain; white-space:pre-wrap; overflow-wrap:anywhere; font:4cqw/1.85 'KaiTi','SimSun',serif; scrollbar-width:thin; scrollbar-color:#99734c #dbc396; }
-.ww-speech-body:focus-visible { outline:.35cqw solid #856038; outline-offset:-.5cqw; }
-.ww-speech-tail { position:absolute; top:var(--tail-y); width:7cqw; height:calc(5cqw + var(--tail-drop)); overflow:visible; transform:translateY(-2.5cqw); }
-.points-left .ww-speech-tail { right:calc(100% - 1cqw); }.points-right .ww-speech-tail { left:calc(100% - 1cqw); }
-.large-text .ww-speech-body { font-size:4.6cqw; }
+/* Lightweight paper bubbles share one size and keep a short avatar pointer. */
+.ww-live-speech-bubble { position:absolute; z-index:5; left:22%; width:56%; color:#382c21; filter:drop-shadow(0 .5cqw .7cqw #110c0859); }
+.ww-live-speech-bubble[hidden] { display:none; }
+.ww-speech-paper { display:flex; flex-direction:column; min-height:40cqw; max-height:var(--speech-max-height); border:.6cqw solid #463121; border-radius:2.7cqw; padding:1.2cqw 2.8cqw 2cqw; background-color:#f4e6c5; background-image:url('/werewolf/parchment-grain.svg'),linear-gradient(125deg,#fff3d7,#ecdbb6); background-size:150px 150px,100% 100%; }
+.ww-speech-paper header { display:flex; flex:none; align-items:center; justify-content:space-between; min-height:5.4cqw; }
+.ww-speech-paper header strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:3.1cqw; font-weight:700; }
+.ww-speech-paper header button { flex:none; width:7cqw; height:7cqw; margin:-1cqw -1.7cqw -1cqw 0; border:0; background:none; font:4.7cqw/1 Arial,sans-serif; color:#65513b; }
+.ww-speech-body { min-height:0; overflow:auto; overscroll-behavior:contain; white-space:pre-wrap; overflow-wrap:anywhere; font:3.3cqw/1.8 'KaiTi','SimSun',serif; scrollbar-width:thin; scrollbar-color:#b49a72 transparent; }
+.ww-speech-text { padding:0; clip-path:var(--speech-clip,none); }
+.ww-speech-body:focus-visible { outline:.3cqw solid #856038; outline-offset:-.3cqw; }
+.ww-speech-tail { position:absolute; top:var(--tail-top); width:4cqw; height:var(--tail-height); overflow:visible; pointer-events:none; }
+.ww-speech-tail path { fill:#f4e6c5; stroke:#463121; stroke-width:.6; stroke-linejoin:round; }
+.points-left .ww-speech-tail { right:calc(100% - .55cqw); }.points-right .ww-speech-tail { left:calc(100% - .55cqw); }
+.ww-speech-reopen { position:absolute; top:56.4%; right:20.5%; height:2.8%; z-index:6; border:0; background:none; color:#ffe5a8; font-size:2.8cqw !important; text-decoration:underline; text-underline-offset:.5cqw; }
+.ww-stage:has(.ww-speech-reopen) .ww-status { padding-right:16cqw; font-size:2.8cqw; }
+.ww-speech-pending { position:absolute; top:60%; left:22%; width:56%; text-align:center; font-size:3.2cqw; color:#f7e4ba; text-shadow:0 1px 3px #000; }
+.large-text .ww-speech-body { font-size:3.8cqw; }
+.reduced-motion .ww-speech-text { clip-path:none !important; }
+@media(prefers-reduced-motion: reduce) { .ww-speech-text { clip-path:none !important; } }
+
+/* The scenery remains visible throughout the day/night dissolve. */
+.ww-transition.transition-day,.ww-transition.transition-night { background:transparent; animation:ww-scene-dissolve 2s ease-in-out both; }
+.ww-transition.transition-day::before,.ww-transition.transition-night::before { content:''; position:absolute; inset:11% 0 5%; z-index:-1; pointer-events:none; background:radial-gradient(ellipse at 60% 20%,#efd5a566,transparent 65%); }
+.ww-transition.transition-night::before { background:radial-gradient(ellipse at 55% 18%,#719caf55,transparent 65%); }
+@keyframes ww-scene-dissolve { 0% { opacity:0; } 23%,65% { opacity:1; } 100% { opacity:0; } }
+/* Reference-style celestial vignette: painted full orb, wispy clouds and black caption. */
+.transition-day .ww-sky,.transition-night .ww-sky { height:29cqw; margin-top:-5cqw; }
+.transition-day h2,.transition-night h2 { margin:0; padding:1.2cqw 0; border:0; background:#080b13dc; color:#efefeb; font:700 3.8cqw/1.35 'SimSun',serif; box-shadow:0 -.6cqw 0 #11182038,0 .6cqw 0 #11182038; }
+.ww-orb { position:relative; width:21cqw; height:21cqw; background:radial-gradient(circle at 43% 40%,#ffffef 40%,#fffddc 70%,#eddd87); box-shadow:0 0 1cqw #fffbd7,0 0 4cqw #e9d768aa,0 0 8cqw #e9d76855; }
+.ww-orb::before,.ww-orb::after { content:''; position:absolute; inset:-2cqw; border:.25cqw solid #ddd9aa66; border-radius:46% 52% 48% 50%; transform:rotate(25deg); box-shadow:0 0 .7cqw #e4e4b555; }
+.ww-orb::after { inset:-3.1cqw -1.3cqw; transform:rotate(-27deg); border-color:#d6dbc344; }
+.transition-night .ww-orb { transform:none; background:radial-gradient(ellipse at 27% 32%,#82b6b070 0 8%,transparent 12%),radial-gradient(ellipse at 65% 66%,#79aba666 0 13%,transparent 18%),radial-gradient(ellipse at 67% 27%,#9bbdad88 0 6%,transparent 12%),radial-gradient(ellipse at 36% 75%,#88b9b366 0 8%,transparent 15%),url('/werewolf/parchment-grain.svg'),radial-gradient(circle at 45% 45%,#e7f5d9,#cae9d8 65%,#91c4c1); background-size:auto,auto,auto,auto,80px 80px,auto; box-shadow:0 0 1cqw #dbf4df,0 0 4cqw #94d3d888,0 0 8cqw #75b4c344; }
+.transition-night .ww-orb::before,.transition-night .ww-orb::after { border-color:#c3e2de66; }
+.transition-day .ww-orb,.transition-night .ww-orb { width:25cqw; height:25cqw; }
+.ww-cloud { width:28cqw; height:16cqw; z-index:1; filter:drop-shadow(0 .6cqw .5cqw #264a6366); }
+.cloud-left { left:13%; top:auto; bottom:1cqw; transform:scale(.85); }
+.cloud-right { right:9%; top:auto; bottom:-1cqw; transform:scaleX(-1); animation-name:ww-cloud-pass-right; }
+@keyframes ww-cloud-pass-right { from { transform:translateX(6cqw) scaleX(-1); opacity:.2; } to { transform:translateX(0) scaleX(-1); opacity:1; } }

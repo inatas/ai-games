@@ -1,10 +1,11 @@
 import type { Json } from '@game-ai/core';
 import type { DecisionAdapter, DecisionInput, DecisionOutput } from '@game-ai/turn-based';
+import { maxSpeechChars } from './speech-policy.ts';
 
 /** Local scripted controller, using the same game task and proposal envelope as a model. */
 export class ScriptDecisionAdapter implements DecisionAdapter {
   constructor(private config: { speech: string; seed: number; strategy?: 'fixed' | 'random' }) {
-    if (!config.speech.trim() || [...config.speech].length > 300) throw new Error('INVALID_SCRIPT_SPEECH');
+    if (!config.speech.trim() || [...config.speech].length > maxSpeechChars) throw new Error('INVALID_SCRIPT_SPEECH');
   }
 
   async decide(input: DecisionInput, signal: AbortSignal): Promise<DecisionOutput> {
@@ -28,7 +29,7 @@ export function decodeWerewolfDecision(input: DecisionInput, output: DecisionOut
   if (output.kind !== 'proposal') return null;
   if (input.intent === 'SPEAK') {
     if (!('speech' in output.value) || typeof output.value.speech !== 'string' ||
-        !output.value.speech.trim() || [...output.value.speech].length > 300) return null;
+        !output.value.speech.trim() || [...output.value.speech].length > maxSpeechChars) return null;
     return { kind: input.scene === 'last-words' ? 'last-words' : 'speak', text: output.value.speech };
   }
   if (!('selected' in output.value) || typeof output.value.selected !== 'string') return null;

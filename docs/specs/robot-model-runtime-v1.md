@@ -2,6 +2,10 @@
 
 状态：待确认。本文定义Robot用户以模型身份参赛时，模型**路由、调用、上下文组装输入、结果输出**四段的接入契约。通用框架契约不在此重复：调用时序与截止见[运行时v3](turn-based-model-runtime-v3.md)，上下文装配机制见[Context Composition v1](context-composition.md)与[框架规格](framework.md)，狼人杀场景与输出契约见[MOD模型方案](../../mods/werewolf/docs/model-integration-v1.md)。本文只定义接入参数、职责边界、缺口与验收；确认前不写实现与可执行测试。
 
+## 发言命名统一 v1（2026-09-26，待审阅）
+
+当前实现的任务意图为`SPEAK | SELECT`，模型输出字段为`speech`；狼人杀内部行动还使用`kind:'speak'`。用户要求统一称为`SPEECH`。拟议当前协议改为`DecisionInput.intent`及`current_action.request_type`使用`SPEECH | SELECT`，发言结果字段保持`speech`，MOD行动改用`kind:'speech'`。下面历史 v2 示例中的`SPEAK`表示**尚未迁移的当前实现**，不能作为迁移后的第二套协议。跨层范围、旧房间处理及验收见[根需求 029](../../.agents/note/029-speech-terminology.md)；游戏接入见[狼人杀需求 008](../../mods/werewolf/.agents/note/008-public-evidence-and-terms.md)。实施确认后，正文与全部调用方收敛为唯一命名。
+
 ## v2 增量：统一决策适配与六区充足性（2026-09-23，已确认实施）
 
 用户回复“确认，继续推进”，确认本增量的一名模型Robot与脚本Robot同局、统一决策输入输出、模型经Harness和六区授权上下文接入。真实试跑费用上限人民币10元；游戏默认动作整表及预言家随机合法查验已确认。未决的候选列表编码和人格生成细节不并入本轮。
@@ -98,7 +102,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 ## 四、结果输出
 
 - **通路**：`rawText`（上限16KiB）→ `JSON.parse` → `outputSchema`严格校验（Ajv、`additionalProperties=false`、枚举为当前optionSet）→ 业务二次验证（游戏`validate`）→ 解码为引擎动作 → 单事务提交（房间状态＋有效记忆＋请求终态）。模型输出只作为数据，不作为可执行代码。
-- **SELECT**：输出`{selected, candidates?}`。引擎**只执行`selected`**；非法selected不执行、不换目标、不二次调用模型、不从候选补正，等同"该席没有合法游戏输入"，在该阶段截止点由裁判默认结算。`candidates`仅作内部日志，不参与判定、不改变状态。SPEAK输出`{speech}`（≤300字）保持不变。
+- **SELECT**：输出`{selected, candidates?}`。引擎**只执行`selected`**；非法selected不执行、不换目标、不二次调用模型、不从候选补正，等同"该席没有合法游戏输入"，在该阶段截止点由裁判默认结算。`candidates`仅作内部日志，不参与判定、不改变状态。SPEAK输出`{speech}`，长度由 MOD 的输出 Schema 与游戏裁判规则限制。
 - **失败分类**：格式/Schema错误最多一次纠正；业务非法直接拒绝；网络错误不重试；超时与非法输入走同一默认结算路径。业务拒绝不自动改选目标。数据库或规则异常`blocked`，不伪装成默认成功。
 - **审计**：记录每次尝试的profile、实际返回model、用量、耗时、错误码、纠正次数与提交终态；审计存profile与prompt/上下文/选项摘要，不把私密正文发到公共DTO。
 - **公共投影**：只消费已提交事件；生成中不广播未校验片段，不预填固定句子；夜间不因生成时长或失败暴露行动者、角色生死或人数。

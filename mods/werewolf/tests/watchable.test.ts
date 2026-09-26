@@ -59,5 +59,5 @@ test('WD-06: fixed speech configuration validates length and appears in actual h
   const game = clock.finish(clock.rooms.create(42, 'fixed').id);
   assert.equal(game.speeches[0].text, '这是一句配置发言');
   assert.throws(() => new DemoRooms({speechText:''}), /INVALID_DEMO_SPEECH/);
-  assert.throws(() => new DemoRooms({speechText:'长'.repeat(301)}), /INVALID_DEMO_SPEECH/);
+  assert.throws(() => new DemoRooms({speechText:'长'.repeat(201)}), /INVALID_DEMO_SPEECH/);
 });

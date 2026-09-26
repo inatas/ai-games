@@ -8,6 +8,7 @@ import {
 } from './rules.ts';
 import { beginElection, electionAllowsExplosion, advanceElection, explodeElection, resumeElection, type Election, type ElectionAction, type SheriffMode } from './election.ts';
 import { beginSettlement, advanceSettlement, type Settlement, type SettlementAction } from './settlement.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 export type MatchStage = 'wolves' | 'witch' | 'nominations' | 'election'
   | 'settlement' | 'direction' | 'speech' | 'vote' | 'pk' | 'finished';
@@ -37,7 +38,7 @@ type MatchAction = Medicine | ElectionAction | SettlementAction
 const ajv = new Ajv({ strict: true, allErrors: true });
 const alive = (state: Match) => state.game.players.filter(p => p.alive);
 const roleSeat = (state: Match, role: string) => alive(state).find(p => p.role === role)?.seat;
-const speechSchema = { type: 'string', maxLength: 300 };
+const speechSchema = { type: 'string', maxLength: maxSpeechChars };
 function actionSchema(kind: string, properties: Record<string, object> = {}): object {
   return { type: 'object', additionalProperties: false, required: ['kind', ...Object.keys(properties)],
     properties: { kind: { const: kind }, ...properties } };

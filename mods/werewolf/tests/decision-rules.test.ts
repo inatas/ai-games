@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { evaluateDecisionRules, type DecisionInput } from '@game-ai/turn-based';
 import { werewolfDecisionRules } from '../src/decision-rules/index.ts';
 import authorRules from '../rules/ruleset.json' with { type: 'json' };
+import { createHash } from 'node:crypto';
+import { canonical, type Json } from '@game-ai/core';
 
 const task = (role: string, round = 1): DecisionInput => ({
   actor: { roomId: 'sample-room', seat: 1, phaseInstance: 3 }, intent: 'SELECT', scene: 'nominations',
@@ -20,8 +22,10 @@ const task = (role: string, round = 1): DecisionInput => ({
 
 test('WW-R01: seer first-day strategy refers to the legal run option', () => {
   assert.equal(werewolfDecisionRules.id, 'werewolf.robot-strategy');
-  assert.equal(werewolfDecisionRules.version, 2);
+  assert.equal(werewolfDecisionRules.version, 3);
   assert.ok(werewolfDecisionRules.digest);
+  assert.equal(werewolfDecisionRules.digest,
+    createHash('sha256').update(canonical(authorRules as unknown as Json)).digest('hex'));
   assert.equal(authorRules.rules[0]?.enforcement, 'require-option');
   assert.match(authorRules.rules[0]?.instruction ?? '', /上警/);
   assert.equal(werewolfDecisionRules.rules[0]?.probability, 0.8);
@@ -29,4 +33,13 @@ test('WW-R01: seer first-day strategy refers to the legal run option', () => {
   assert.ok(evaluated.requiredOptionId === undefined || evaluated.requiredOptionId === 'option-1');
   assert.deepEqual(evaluateDecisionRules(werewolfDecisionRules, task('wolf')).allowedOptionIds, ['option-0', 'option-1']);
   assert.deepEqual(evaluateDecisionRules(werewolfDecisionRules, task('seer', 2)).allowedOptionIds, ['option-0', 'option-1']);
+});
+
+test('WW-S01: shared language guidance applies to every speech scene, never choices', () => {
+  for (const scene of ['speech', 'election-speech', 'pk', 'election-pk', 'last-words']) {
+    const evaluation = evaluateDecisionRules(werewolfDecisionRules, { ...task('wolf'), intent: 'SPEAK', scene, options: [] });
+    assert.deepEqual(evaluation.guidance.map(rule => rule.id), ['speech-language']);
+    assert.equal(evaluation.guidance[0]?.placement, 'stable');
+  }
+  assert.deepEqual(evaluateDecisionRules(werewolfDecisionRules, task('wolf')).guidance, []);
 });

@@ -10,6 +10,14 @@ import { modelRoomSnapshot } from './werewolf-model-snapshot.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
 import type { ModelProfile } from './robot-users.ts';
 
+/** Accept only the version produced by the current game definition for this seed. */
+export function modelRoomSeedFromVersion(version: string): number | null {
+  const match = /^4\.(\d+)\.double\.[a-z0-9]+$/.exec(version);
+  if (!match) return null;
+  const seed = Number(match[1]);
+  return Number.isSafeInteger(seed) && werewolfDefinition({ seed, sheriff: 'double' }).version === version ? seed : null;
+}
+
 /** Persistent trusted host for model-led Robot rooms, including twelve model seats. */
 export class WerewolfModelService {
   private users = loadRobotUsers();
@@ -49,9 +57,9 @@ export class WerewolfModelService {
     const row = (await this.store.pool.query('SELECT document FROM tb_rooms WHERE id=$1', [id])).rows[0];
     if (!row || row.document.definitionId !== 'werewolf' ||
         !String(row.document.runKey).startsWith('werewolf-model:')) throw new HarnessError('ROOM_NOT_FOUND', 404);
-    const match = /^4\.(\d+)\.double\.rules2$/.exec(row.document.definitionVersion);
-    if (!match) throw new HarnessError('DEFINITION_MISMATCH', 409);
-    return Number(match[1]);
+    const seed = modelRoomSeedFromVersion(row.document.definitionVersion);
+    if (seed === null) throw new HarnessError('DEFINITION_MISMATCH', 409);
+    return seed;
   }
 
   private schedule(runtime: RoomRuntime, id: string): void {
@@ -69,8 +77,8 @@ export class WerewolfModelService {
       const room = row.document as Room;
       if (room.definitionId !== 'werewolf' || room.status !== 'running' ||
           !room.runKey.startsWith('werewolf-model:')) continue;
-      const match = /^4\.(\d+)\.double\.rules2$/.exec(room.definitionVersion);
-      if (match) this.schedule(this.runtime(Number(match[1])), room.id);
+      const seed = modelRoomSeedFromVersion(room.definitionVersion);
+      if (seed !== null) this.schedule(this.runtime(seed), room.id);
     }
   }
 

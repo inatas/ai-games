@@ -6,6 +6,7 @@ import { prepareWerewolfDecision } from './decision-input.ts';
 import { decodeWerewolfDecision } from './decision-adapter.ts';
 import { fallbackWerewolfAction } from './fallback.ts';
 import { werewolfDecisionRules } from './decision-rules/index.ts';
+import { maxSpeechChars } from './speech-policy.ts';
 
 function transition(match: Match, eventOffset: number): Transition {
   const state = match as unknown as Json;
@@ -18,8 +19,8 @@ function transition(match: Match, eventOffset: number): Transition {
 export function werewolfDefinition(options: MatchOptions): RoomDefinition {
   const config = { ...options };
   const definition: RoomDefinition = {
-    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}.rules3`, seats: 12,
-    instructions: '你是十二人预女猎白的一名玩家。只根据授权事实和自己的身份决策，不得假设未知身份。game_state与public_history是所有平民能看到的公开事实；self与private_information是你因自身身份额外知道的事实。私密狼刀口只代表攻击目标，不代表目标已经死亡；实际夜死以公开公告和存活状态为准。你可以策略性谎报，但须先分清事实与自己的说法。按当前JSON Schema选择行动；发言最多300字。狼人屠边，好人消灭狼人，双方同时达标平局；所有出局链结束再结算。狼刀忽略空刀票，女巫不可自救且每夜单药，预言家不可连续查验同一人。警长放逐票权1.5，白痴翻牌后无投票权且不可被投。',
+    id: 'werewolf', version: `4.${config.seed}.${config.sheriff}.rules4`, seats: 12,
+    instructions: `你是十二人预女猎白的一名玩家。只根据授权事实和自己的身份决策，不得假设未知身份。game_state与public_history是所有平民能看到的公开事实；self与private_information是你因自身身份额外知道的事实。私密狼刀口只代表攻击目标，不代表目标已经死亡；实际夜死以公开公告和存活状态为准。你可以策略性谎报，但须先分清事实与自己的说法。按当前JSON Schema选择行动；发言最多${maxSpeechChars}字。狼人屠边，好人消灭狼人，双方同时达标平局；所有出局链结束再结算。狼刀忽略空刀票，女巫不可自救且每夜单药，预言家不可连续查验同一人。警长放逐票权1.5，白痴翻牌后无投票权且不可被投。`,
     initialize: () => {
       const match = createMatch(config);
       return { state: match as unknown as Json, phase: matchPhase(match)! };
@@ -44,8 +45,6 @@ export function werewolfDefinition(options: MatchOptions): RoomDefinition {
     decisionRules: werewolfDecisionRules,
     fallbackDecision: (room, seat) => fallbackWerewolfAction(room, seat, definition),
     fixedWindow: () => true,
-    completionDelayMs: room => ['speech', 'election-speech', 'pk', 'election-pk'].includes(room.phase?.key ?? '') &&
-      room.seats.find(seat => seat.seat === room.phase?.actors[0])?.controllerKind === 'robot' ? 3_000 : null,
     actionWindowMs: room => room.phase?.key === 'wolves' ? 60_000 : definition.windowMs!(room),
     windowMs: room => {
       const key = room.phase?.key;

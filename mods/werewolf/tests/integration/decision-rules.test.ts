@@ -96,3 +96,34 @@ test('DR-v2: matched instructions reach only the authorized robot and a changed 
   definition.decisionRules = { ...definition.decisionRules, digest: 'source-b' };
   await assert.rejects(() => runtime.inspect(created.id), /RULE_SET_MISMATCH/);
 });
+
+test('WW-S05: a real speech reservation keeps shared guidance out of private facts and public replay', async () => {
+  let now = 1_000;
+  const definition = werewolfDefinition({ seed: 42, sheriff: 'none' });
+  const captured: DecisionInput[] = [];
+  const adapter: DecisionAdapter = { async decide(input) {
+    captured.push(input);
+    return input.intent === 'SPEAK'
+      ? { kind: 'proposal', value: { speech: '发言' } }
+      : { kind: 'proposal', value: { selected: input.options[0]!.id } };
+  } };
+  const runtime = new RoomRuntime(db.store, definition, { script: adapter }, { harness: { clock: { now: () => now } } });
+  runtimes.push(runtime);
+  await runtime.migrate();
+  const created = await runtime.create('speech-guidance-runtime-test');
+  for (let seat = 1; seat <= 12; seat++) {
+    await runtime.seat(created.id, { seat, name: `Robot ${seat}`, modelProfile: 'script', controllerKind: 'robot' });
+  }
+  for (let step = 0; step < 35; step++) {
+    const room = await runtime.inspect(created.id);
+    if (captured.filter(input => input.intent === 'SPEAK').length >= 2) break;
+    if (eligibleActors(room).length) await runtime.tick(created.id);
+    else { now = room.phaseDeadlineAt!; await runtime.tick(created.id); }
+  }
+  const speeches = captured.filter(input => input.intent === 'SPEAK');
+  assert.ok(speeches.length >= 2);
+  assert.deepEqual(speeches[0]!.stableGuidance, speeches[1]!.stableGuidance);
+  assert.match(speeches[0]!.stableGuidance![0]!, /只用座位号/);
+  assert.equal(JSON.stringify(speeches[0]!.context.rules).includes('只用座位号'), false);
+  assert.equal(JSON.stringify(await runtime.spectate(created.id)).includes('只用座位号'), false);
+});

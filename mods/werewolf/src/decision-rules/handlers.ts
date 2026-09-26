@@ -11,4 +11,8 @@ export const werewolfRuleHandlers: RuleHandlerRegistry = {
       return value.kind === 'nominate' && value.run === true;
     })?.id ?? null,
   },
+  'speech-language': {
+    matches: input => input.intent === 'SPEAK' &&
+      ['speech', 'election-speech', 'pk', 'election-pk', 'last-words'].includes(input.scene),
+  },
 };

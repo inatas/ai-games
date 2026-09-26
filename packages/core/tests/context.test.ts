@@ -27,6 +27,23 @@ test('MC2-01: authorized public facts precede changing schema and private facts'
   assert.notDeepEqual(first.messages[3], second.messages[3]);
 });
 
+test('MC2-08: shared guidance is a stable message before public, schema and private facts', () => {
+  const sharedPublicFacts = [{ sequence: 1, type: 'announcement' }];
+  const first = buildContext({ ...emptyContext, instructions: 'rules', facts: {},
+    promptParts: { stableGuidance: ['Refer to seats by number.'], sharedPublicFacts,
+      dynamicFacts: { self: { seat: 1 }, rules: { strategy_rules: ['private one'] } } }, schema: { enum: ['a'] } });
+  const second = buildContext({ ...emptyContext, instructions: 'rules', facts: {},
+    promptParts: { stableGuidance: ['Refer to seats by number.'], sharedPublicFacts,
+      dynamicFacts: { self: { seat: 2 }, rules: { strategy_rules: ['private two'] } } }, schema: { enum: ['b'] } });
+  assert.deepEqual(first.messages.slice(0, 4), second.messages.slice(0, 4));
+  assert.equal(first.messages[2].role, 'system');
+  assert.match(first.messages[2].content, /^STABLE_GUIDANCE:/);
+  assert.match(first.messages[3].content, /^SHARED_PUBLIC_FACTS:/);
+  assert.match(first.messages[4].content, /^OUTPUT_SCHEMA:/);
+  assert.match(first.messages[5].content, /^CURRENT_FACTS:/);
+  assert.equal(first.messages.slice(0, 5).some(message => message.content.includes('private one')), false);
+});
+
 test('F-19: optional memory is ranked, deduplicated and budgeted', () => {
   const records = [1, 2, 3].map(n => ({ id: `E${n}`, kind: 'event' as const, payload: { n }, importance: n, sequence: n, sourceIds: [], visibility: 'public' as const }));
   const counter = (messages: any[]) => 7000 + JSON.parse(messages.find(m => m.content.startsWith('HISTORY:')).content.slice(8)).length * 500;

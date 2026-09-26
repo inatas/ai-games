@@ -37,7 +37,7 @@ test('night deadlines are fixed and elected sheriff alone gets 120+30 seconds of
   assert.equal(definition.actionWindowMs!(room), 60_000);
 });
 
-test('only live Robot day speeches request the three-second completion delay', () => {
+test('Robot speech no longer requests early completion, regardless of speech phase', () => {
   const definition = werewolfDefinition({ seed: 17, sheriff: 'double' });
   let room = createRoom('skip-room', 'skip-run', definition);
   for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
@@ -46,15 +46,15 @@ test('only live Robot day speeches request the three-second completion delay', (
   }, definition);
   for (const key of ['speech', 'election-speech', 'pk', 'election-pk']) {
     room.phase = { ...room.phase!, key, mode: 'sequential', actors: [1] };
-    assert.equal(definition.completionDelayMs?.(room), 3_000);
+    assert.equal(definition.completionDelayMs?.(room) ?? null, null);
   }
   for (const key of ['last-words', 'shot', 'vote', 'wolves', 'witch']) {
     room.phase = { ...room.phase!, key, mode: 'sequential', actors: [1] };
-    assert.equal(definition.completionDelayMs?.(room), null);
+    assert.equal(definition.completionDelayMs?.(room) ?? null, null);
   }
   room.phase = { ...room.phase!, key: 'speech', actors: [1] };
   room.seats[0].controllerKind = 'human';
-  assert.equal(definition.completionDelayMs?.(room), null);
+  assert.equal(definition.completionDelayMs?.(room) ?? null, null);
 });
 
 test('WW-77,78,83: one sealed ten-second window hides withdrawals until final settlement', () => {

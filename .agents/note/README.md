@@ -28,12 +28,13 @@
 | [020 Robot 用户目录](020-robot-users.md) | implemented | 用户配置与脚本控制 |
 | [021 模型调用事件日志](021-event-log.md) | implemented | 持久调用诊断；真实网页实局待用户复核 |
 | [022 AI 决策规则引擎](022-decision-rules-engine.md) | proposed | 通用规则已部分实施，剩余范围见 note |
-| [023 模型上下文缓存](023-model-context-cache.md) | implemented | 前缀与用量观测已实施；真实命中率待对比 |
+| [023 模型上下文缓存](023-model-context-cache.md) | proposed | v2/v2.1 已实施；v3 分层知识前缀与动态规则顺序待确认，真实命中率待对比 |
 | [024 模型 Token 用量记账](024-model-token-accounting.md) | implemented | 按成功响应 usage 汇总，旧预算表已清理 |
 | [025 模型房间单一调度宿主](025-model-room-single-owner.md) | proposed | 防止双服务并行推进；方案待确认 |
 | [026 Agent Note 生命周期](026-agent-note-lifecycle.md) | implemented | 四态、目录规范与唯一索引检查已落地 |
 | [027 开发任务层级归属](027-layer-ownership-routing.md) | implemented | 三个 note 目录及对应 docs 的路由规则已写入项目入口 |
 | [028 全仓三层归属重组](028-repository-layer-reorganization.md) | implemented | 根 docs 与 MOD 专属代码迁移完成；130 单测、236 隔离数据库全测通过 |
+| [029 发言意图与行动命名统一](029-speech-terminology.md) | proposed | `SPEECH` 统一协议方案 v1 待审阅；狼人杀接入见 MOD 008 |
 
 目前没有标为 `rejected` 或 `archived` 的编号 note。状态变化时同步此表；不要因暂时无人开发就把 `proposed` 猜作 `rejected`，也不要因代码已存在就把待验收范围标为 `implemented`。
 

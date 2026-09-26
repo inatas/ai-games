@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="790" viewBox="0 0 1100 790" role="img" aria-label="1号、6号、10号发言气泡静态设计对照">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#315c68"/><stop offset=".53" stop-color="#7b9b9a"/><stop offset="1" stop-color="#334443"/></linearGradient>
+    <linearGradient id="wood" x2="0" y2="1"><stop stop-color="#aa7745"/><stop offset=".23" stop-color="#4d2e1e"/><stop offset=".53" stop-color="#906039"/><stop offset="1" stop-color="#362115"/></linearGradient>
+    <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#fff2cc"/><stop offset=".56" stop-color="#ead5a7"/><stop offset="1" stop-color="#c6a678"/></linearGradient>
+    <radialGradient id="gold"><stop stop-color="#f7e2a3"/><stop offset=".7" stop-color="#b88646"/><stop offset="1" stop-color="#382515"/></radialGradient>
+    <pattern id="grain" width="14" height="18" patternUnits="userSpaceOnUse"><path d="M1 3l10 2M2 14l8-1M10 7l3 4" stroke="#6d4a2f" stroke-opacity=".12" stroke-width=".8" fill="none"/></pattern>
+    <pattern id="woodgrain" width="55" height="22" patternUnits="userSpaceOnUse"><path d="M0 5C20 1 28 10 55 4M0 16C19 13 40 22 55 16" stroke="#2c160f" stroke-opacity=".34" stroke-width="2" fill="none"/></pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0a1113" flood-opacity=".75"/></filter>
+    <g id="board">
+      <rect x="0" y="0" width="300" height="630" rx="14" fill="url(#wood)" stroke="#170f0b" stroke-width="5"/>
+      <rect x="0" y="0" width="300" height="630" rx="14" fill="url(#woodgrain)"/>
+      <rect x="18" y="60" width="264" height="510" rx="10" fill="url(#sky)" stroke="#301e14" stroke-width="7"/>
+      <path d="M20 372l29-55 24 39 21-46 32 58 36-52 32 48 24-35 29 42 34-38v72H20Z" fill="#384a4d" opacity=".7"/>
+      <path d="M20 417l36-49 45 42 45-70 34 74 45-62 55 53v135H20Z" fill="#1e3338" opacity=".7"/>
+      <path d="M62 503v-54l39-28 38 30v52M161 501v-75l41-23 50 34v64" fill="#435357" stroke="#182d30" stroke-width="4"/>
+      <path d="M77 465h14v19H77zm112-28h16v20h-16z" fill="#e0c07e" opacity=".55"/>
+      <rect x="18" y="17" width="264" height="40" rx="18" fill="url(#wood)" stroke="#1b100c" stroke-width="4"/>
+      <text x="150" y="43" text-anchor="middle" font-family="KaiTi,serif" font-size="17" font-weight="bold" fill="#f9dc9a">第 2 天 · 放逐发言</text>
+      <rect x="65" y="78" width="170" height="39" rx="8" fill="url(#paper)" stroke="#5d4229" stroke-width="4"/>
+      <text x="150" y="103" text-anchor="middle" font-family="KaiTi,serif" font-size="17" font-weight="bold" fill="#3b2a1a">公开记录</text>
+      <path d="M70 352h160" stroke="#cdbb8a" stroke-opacity=".6" stroke-width="3"/>
+      <rect x="60" y="531" width="180" height="24" rx="11" fill="#15272d" opacity=".87" stroke="#a98852" stroke-width="2"/>
+      <text x="150" y="548" text-anchor="middle" font-family="KaiTi,serif" font-size="13" fill="#f9e4a9">当前发言 · 82 秒</text>
+      <rect x="40" y="580" width="220" height="32" rx="8" fill="url(#wood)" stroke="#21140d" stroke-width="3"/>
+      <rect x="40" y="580" width="220" height="32" rx="8" fill="url(#woodgrain)"/>
+      <text x="150" y="601" text-anchor="middle" font-family="KaiTi,serif" font-size="14" fill="#fff0bd">历史　　　　旁观中</text>
+      <g fill="#263a3c" stroke="#c39a5d" stroke-width="5">
+        <circle cx="29" cy="144" r="23"/><circle cx="29" cy="222" r="23"/><circle cx="29" cy="300" r="23"/><circle cx="29" cy="378" r="23"/><circle cx="29" cy="456" r="23"/><circle cx="29" cy="506" r="23"/>
+        <circle cx="271" cy="144" r="23"/><circle cx="271" cy="222" r="23"/><circle cx="271" cy="300" r="23"/><circle cx="271" cy="378" r="23"/><circle cx="271" cy="456" r="23"/><circle cx="271" cy="506" r="23"/>
+      </g>
+      <g font-family="Georgia,serif" font-size="19" font-weight="bold" fill="#f4eacb" text-anchor="middle" dominant-baseline="central" stroke="#0f1010" stroke-width="3" paint-order="stroke fill">
+        <text x="29" y="144">1</text><text x="29" y="222">2</text><text x="29" y="300">3</text><text x="29" y="378">4</text><text x="29" y="456">5</text><text x="29" y="506">6</text>
+        <text x="271" y="144">7</text><text x="271" y="222">8</text><text x="271" y="300">9</text><text x="271" y="378">10</text><text x="271" y="456">11</text><text x="271" y="506">12</text>
+      </g>
+    </g>
+    <g id="speech-card" filter="url(#shadow)">
+      <rect width="190" height="218" rx="13" fill="url(#paper)" stroke="#211811" stroke-width="7"/>
+      <rect x="5" y="5" width="180" height="208" rx="9" fill="url(#grain)" stroke="#a87543" stroke-width="3"/>
+      <path d="M12 40h166" stroke="#9c7144" stroke-width="2"/>
+      <circle cx="169" cy="21" r="12" fill="#6c482f" stroke="#2d1b13" stroke-width="2"/>
+      <path d="m165 17 8 8m0-8-8 8" stroke="#fbe7b6" stroke-width="2"/>
+      <path d="M15 66h150M15 88h154M15 110h146M15 132h156M15 154h138M15 176h97" stroke="#8a6549" stroke-opacity=".22" stroke-width="1"/>
+    </g>
+  </defs>
+  <rect width="1100" height="790" fill="#182526"/>
+  <text x="550" y="44" text-anchor="middle" font-family="KaiTi,serif" font-size="27" font-weight="bold" fill="#f5d69d">同规格气泡 · 依头像位置调整尖角</text>
+  <g transform="translate(55 75)">
+    <use href="#board"/>
+    <circle cx="29" cy="144" r="25" fill="none" stroke="#ffe088" stroke-width="5"/>
+    <path d="M72 122L55 144l18 15Z" fill="url(#paper)" stroke="#211811" stroke-width="5"/>
+    <g transform="translate(72 96)"><use href="#speech-card"/><text x="15" y="28" font-family="KaiTi,serif" font-size="17" font-weight="bold" fill="#4a2b18">1号 · 放逐发言</text><text x="16" y="70" font-family="KaiTi,serif" font-size="14" fill="#493322">我先说一下昨夜的</text><text x="16" y="92" font-family="KaiTi,serif" font-size="14" fill="#493322">信息，再看票型。</text><text x="16" y="119" font-family="KaiTi,serif" font-size="14" fill="#493322">目前我更在意</text><text x="16" y="141" font-family="KaiTi,serif" font-size="14" fill="#493322">3号的站边……</text><text x="16" y="196" font-family="KaiTi,serif" font-size="11" fill="#886143">逐行显露　▎</text></g>
+    <text x="150" y="657" text-anchor="middle" font-family="KaiTi,serif" font-size="20" fill="#f0d39e">1号 · 左上短尖角</text>
+  </g>
+  <g transform="translate(400 75)">
+    <use href="#board"/>
+    <circle cx="29" cy="506" r="25" fill="none" stroke="#ffe088" stroke-width="5"/>
+    <path d="M72 479L55 506l18 8Z" fill="url(#paper)" stroke="#211811" stroke-width="5"/>
+    <g transform="translate(72 305)"><use href="#speech-card"/><text x="15" y="28" font-family="KaiTi,serif" font-size="17" font-weight="bold" fill="#4a2b18">6号 · 放逐发言</text><text x="16" y="70" font-family="KaiTi,serif" font-size="14" fill="#493322">我听完前面几位，</text><text x="16" y="92" font-family="KaiTi,serif" font-size="14" fill="#493322">会重新整理今天的</text><text x="16" y="119" font-family="KaiTi,serif" font-size="14" fill="#493322">放逐方向。先别急着</text><text x="16" y="141" font-family="KaiTi,serif" font-size="14" fill="#493322">把票全部归到……</text><text x="16" y="196" font-family="KaiTi,serif" font-size="11" fill="#886143">逐行显露　▎</text></g>
+    <text x="150" y="657" text-anchor="middle" font-family="KaiTi,serif" font-size="20" fill="#f0d39e">6号 · 左下短尖角</text>
+  </g>
+  <g transform="translate(745 75)">
+    <use href="#board"/>
+    <circle cx="271" cy="378" r="25" fill="none" stroke="#ffe088" stroke-width="5"/>
+    <path d="M229 359L245 378l-16 16Z" fill="url(#paper)" stroke="#211811" stroke-width="5"/>
+    <g transform="translate(39 245)"><use href="#speech-card"/><text x="15" y="28" font-family="KaiTi,serif" font-size="17" font-weight="bold" fill="#4a2b18">10号 · 放逐发言</text><text x="16" y="70" font-family="KaiTi,serif" font-size="14" fill="#493322">我和前面的判断</text><text x="16" y="92" font-family="KaiTi,serif" font-size="14" fill="#493322">有一点不一样。</text><text x="16" y="119" font-family="KaiTi,serif" font-size="14" fill="#493322">刚才的票型里，</text><text x="16" y="141" font-family="KaiTi,serif" font-size="14" fill="#493322">我会重点看……</text><text x="16" y="196" font-family="KaiTi,serif" font-size="11" fill="#886143">逐行显露　▎</text></g>
+    <text x="150" y="657" text-anchor="middle" font-family="KaiTi,serif" font-size="20" fill="#f0d39e">10号 · 右侧短尖角</text>
+  </g>
+  <text x="550" y="770" text-anchor="middle" font-family="KaiTi,serif" font-size="15" fill="#baa889">方案图 · 三张气泡本体同宽同高；真实牌桌素材与文字仍以运行页面为准</text>
+</svg>

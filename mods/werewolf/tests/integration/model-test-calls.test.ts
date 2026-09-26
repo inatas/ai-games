@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { startTestDatabase } from '../../../../tests/support/database.ts';
 import { WerewolfModelService } from '../../server/werewolf-model-service.ts';
+import { werewolfDefinition } from '../../src/definition.ts';
 
 let db: Awaited<ReturnType<typeof startTestDatabase>>;
 let service: WerewolfModelService;
@@ -28,7 +29,7 @@ test('ML-01/02/03/06: successful and failed attempts remain separate and private
   const otherRoom = randomUUID();
   for (const id of [roomId, otherRoom]) await db.store.pool.query(`INSERT INTO tb_rooms(id,run_key,document) VALUES($1,$2,$3)`,
     [id, `werewolf-model:${id}`, JSON.stringify({ definitionId: 'werewolf', runKey: `werewolf-model:${id}`,
-      definitionVersion: '4.42.double.rules2' })]);
+      definitionVersion: werewolfDefinition({ seed: 42, sheriff: 'double' }).version })]);
   const successId = randomUUID();
   const failedId = randomUUID();
   const append = async (id: string, requestId: string, eventType: string, details: object, result: string) => {
