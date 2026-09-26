@@ -332,7 +332,10 @@ export class RoomRuntime {
     if (!job) return spectatorView(room, this.definition);
     const model = this.models.get(job.modelProfile)!;
     if ('decide' in model) return this.runScript(roomId, room, job, model);
-    const harness = new Harness(this.store, model, this.options.harness).register(this.binding(room, job));
+    const harnessOptions = this.options.harness?.networkRetry
+      ? { ...this.options.harness, networkRetry: { ...this.options.harness.networkRetry, key: job.modelProfile } }
+      : this.options.harness;
+    const harness = new Harness(this.store, model, harnessOptions).register(this.binding(room, job));
     this.active.add(harness);
     try {
       await harness.recover();

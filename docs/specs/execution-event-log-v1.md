@@ -18,6 +18,8 @@
 
 裁判后续结果使用独立的 `model.call.judged.v1`，与同一 `request_id/attempt` 关联，标明接受、拒绝或因阶段失效而未生效；不可修改已追加的 finished 事件。若模型返回后进程崩溃，没有 judged 就表示裁判结果待查，不能推断为动作成功。
 
+有界网络重试额外写入 `model.retry.scheduled.v1`（前次失败已记录、下次 attempt 与退避毫秒数）、`model.retry.skipped.v1`（剩余时间不足）以及 `model.call.skipped.v1`（熔断或同 profile 重试并发已满，未进入适配器）。`skipped` 不算 HTTP 调用，不得生成虚假的 `model.call.started.v1` 或 token；本地每次实际调用仍有自己的 started 与 finished/failed。最多 3 次实际调用，网络重试与格式纠正共用额度。诊断与用量只依据实际 started/finished/failed，不把 scheduled 当成调用成功。
+
 一次重试的最终 messages 可能追加格式纠正指令，因此按 attempt **逐次**记录实际传给适配器的完整请求，不能只记六区草稿或第一次 context。密钥、HTTP Authorization 头、数据库连接串与完整服务配置对象不得进入日志；异常只记受控错误码，不能将原始异常文本直接写入。模型原始输出可能含角色私密信息，原始日志仅服务端受信任本机诊断接口/导出命令可读，不进入普通旁观、历史发言或对手 context。`rawText` 超过 64 KiB 时记 `rawText=null`、实际字节数、SHA-256 摘要及 `rawTextComplete=false`，明确表明原文未保存。日志写入失败时不得继续发起未留痕的外部调用。
 
 ## 游戏元数据：谁、哪一麦、什么身份

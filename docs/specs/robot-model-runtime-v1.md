@@ -84,7 +84,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 - **时序**：短事务登记（`requestId`、`phaseInstance`、`decisionEpoch`、`actionId`、席位profile、memoryVersion、授权facts）→ 释放全部锁 → `Harness.submit`（claim → prepare/组装 → 模型 → 校验 → 提交事务）→ 到期由裁判默认结算。模型等待期间不持行锁。
 - **期限**：阶段绝对截止点持久化，不因重启延长；单次调用上限取`min(callTimeout, 剩余时间−3s)`；剩余不足3秒不发新调用；格式纠正、校验与提交都计入原截止点。恰好到期判迟到。
 - **并发**：密封阶段按席并行登记与执行，各席独立scope；同席同scope保持串行。夜间共享窗口需同时容纳5个普通任务，**启动前**校验供应商并发限额，不足时在开局配置处拒绝或明确提示，不偷偷延长固定窗口。
-- **取消与失效**：阶段切换、合法抢占、关停、超时都会abort；旧响应不得写入状态、事件或有效记忆，也不得复活旧阶段。网络失败不自动重试。
+- **取消与失效**：阶段切换、合法抢占、关停、超时都会abort；旧响应不得写入状态、事件或有效记忆，也不得复活旧阶段。网络失败默认不重试；狼人杀模型服务显式启用[有界网络重试](framework.md)。
 - **幂等**：`requestId`+输入hash；已提交结果按原requestId重取，不重新调用模型；租约只保护执行归属，不等于游戏时间。
 - **预算**：沿用房间`maxRequests`，新增按profile的token/费用上限与整局上限；接近上限时中止并在内部审计记录原因码，公共投影不揭密。
 
@@ -103,7 +103,7 @@ type DecisionOutput = { kind: 'proposal'; value: Json } | { kind: 'no-valid-inpu
 
 - **通路**：`rawText`（上限16KiB）→ `JSON.parse` → `outputSchema`严格校验（Ajv、`additionalProperties=false`、枚举为当前optionSet）→ 业务二次验证（游戏`validate`）→ 解码为引擎动作 → 单事务提交（房间状态＋有效记忆＋请求终态）。模型输出只作为数据，不作为可执行代码。
 - **SELECT**：输出`{selected, candidates?}`。引擎**只执行`selected`**；非法selected不执行、不换目标、不二次调用模型、不从候选补正，等同"该席没有合法游戏输入"，在该阶段截止点由裁判默认结算。`candidates`仅作内部日志，不参与判定、不改变状态。SPEECH输出`{speech}`，长度由 MOD 的输出 Schema 与游戏裁判规则限制。
-- **失败分类**：格式/Schema错误最多一次纠正；业务非法直接拒绝；网络错误不重试；超时与非法输入走同一默认结算路径。业务拒绝不自动改选目标。数据库或规则异常`blocked`，不伪装成默认成功。
+- **失败分类**：格式/Schema错误最多一次纠正；业务非法直接拒绝；仅启用有界策略时对 `network` 错误重试，超时与非法输入走同一默认结算路径。业务拒绝不自动改选目标。数据库或规则异常`blocked`，不伪装成默认成功。
 - **审计**：记录每次尝试的profile、实际返回model、用量、耗时、错误码、纠正次数与提交终态；审计存profile与prompt/上下文/选项摘要，不把私密正文发到公共DTO。
 - **公共投影**：只消费已提交事件；生成中不广播未校验片段，不预填固定句子；夜间不因生成时长或失败暴露行动者、角色生死或人数。
 

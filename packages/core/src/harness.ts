@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { HarnessStore, Transaction } from './types.ts';
 import { buildContext, conservativeCounter, type TokenCounter } from './context.ts';
 import { HarnessError, type AssessmentInput, type Binding, type Clock, type Json, type ModelAdapter, type ModelRequest, type Prepared, type RequestView } from './types.ts';
+import type { NetworkRetryOptions } from './model-network-retry.ts';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const canonical = (value: any): string => {
@@ -13,6 +14,7 @@ export const canonical = (value: any): string => {
 type Options = {
   clock?: Clock; callTimeoutMs?: number; totalTimeoutMs?: number; leaseMs?: number;
   counter?: TokenCounter; inputBudget?: number; outputBudget?: number; modelWindow?: number;
+  networkRetry?: NetworkRetryOptions;
   hook?: (point: 'claimed' | 'host' | 'memory' | 'committed', input: AssessmentInput) => Promise<void>;
 };
 export class Harness {
@@ -25,6 +27,11 @@ export class Harness {
   constructor(public store: HarnessStore, private model: ModelAdapter, private options: Options = {}) {
     this.clock = options.clock ?? { now: () => Date.now() };
     this.leaseMs = options.leaseMs ?? 90000;
+    const retry = options.networkRetry;
+    if (retry && (retry.maxAttempts !== 3 || retry.delaysMs.length !== 2 ||
+        retry.delaysMs.some(value => value < 1) || !retry.key ||
+        ![...retry.delaysMs, retry.jitterMs, retry.minRemainingMs, retry.commitReserveMs]
+          .every(value => Number.isSafeInteger(value) && value >= 0))) throw new Error('INVALID_NETWORK_RETRY');
   }
   register(binding: Binding) {
     if (binding.mode === 'assessment' && !binding.outputSchema) throw new Error('Assessment requires outputSchema');
@@ -150,47 +157,91 @@ export class Harness {
           }
           throw error;
         }
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        const retry = this.options.networkRetry;
+        const maxAttempts = retry?.maxAttempts ?? 2;
+        let networkRetries = 0;
+        let repairUsed = false;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           if (this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
           const messages = [...context.messages];
-          if (attempt === 2) messages.push({ role: 'system', content: 'Your previous response did not match OUTPUT_SCHEMA. Return only a valid JSON object with exactly the required fields and allowed values.' });
+          if (repairUsed) messages.push({ role: 'system', content: 'Your previous response did not match OUTPUT_SCHEMA. Return only a valid JSON object with exactly the required fields and allowed values.' });
           if ((this.options.counter ?? conservativeCounter)(messages) > context.inputBudget) {
             await this.logModelEvent(this.store.pool, input, prepared, 'model.context_rejected.v1', 'rejected',
               { attempt, errorCode: 'CONTEXT_TOO_LARGE' });
             throw new HarnessError('CONTEXT_TOO_LARGE');
           }
           const request: ModelRequest = { requestId: input.requestId, attempt, messages, outputSchema: binding.outputSchema!, maxOutputTokens: context.outputBudget };
-          const started = this.clock.now(); let response;
-          await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
-            attempt, deadlineAt: deadline, modelRequest: request,
-            promptLayoutVersion: prepared.promptParts?.sharedKnowledge?.length ? 4 : prepared.promptParts ? 2 : 1,
-            ...(prepared.promptParts ? { sharedPublicDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedPublicFacts)).digest('hex'),
-              sharedPublicBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedPublicFacts), 'utf8') } : {}),
-            contextIds: context.contextIds, worldId: worldview?.worldId ?? null,
-            worldVersion: worldview?.version ?? null, worldDigest: worldview?.digest ?? null,
-          });
-          try { response = await this.callModel(request, controller.signal); }
-          catch (error) {
-            await this.logModelEvent(this.store.pool, input, prepared, 'model.call.failed.v1', 'failed', {
+          const release = retry?.gate.acquire(retry.key, attempt > 1, this.clock.now());
+          if (retry && !release) {
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.call.skipped.v1', 'failed',
+              { attempt, reason: 'RETRY_GATE_CLOSED' });
+            throw new HarnessError('MODEL_UNAVAILABLE', 503, 'RETRY_GATE_CLOSED');
+          }
+          const started = this.clock.now();
+          let response;
+          let callFailure: { error: unknown } | undefined;
+          let startedLogged = false;
+          try {
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
+              attempt, deadlineAt: deadline, modelRequest: request,
+              promptLayoutVersion: prepared.promptParts?.sharedKnowledge?.length ? 4 : prepared.promptParts ? 2 : 1,
+              ...(prepared.promptParts ? { sharedPublicDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedPublicFacts)).digest('hex'),
+                sharedPublicBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedPublicFacts), 'utf8') } : {}),
+              contextIds: context.contextIds, worldId: worldview?.worldId ?? null,
+              worldVersion: worldview?.version ?? null, worldDigest: worldview?.digest ?? null,
+            });
+            startedLogged = true;
+            const timeoutMs = retry && attempt > 1
+              ? Math.min(this.options.callTimeoutMs ?? 30000, deadline - this.clock.now() - retry.commitReserveMs)
+              : undefined;
+            response = await this.callModel(request, controller.signal, timeoutMs);
+            retry?.gate.success(retry.key);
+          } catch (error) {
+            callFailure = { error };
+            if (startedLogged && error instanceof HarnessError && error.code === 'MODEL_UNAVAILABLE' &&
+                error.diagnostics?.transportCategory === 'network') retry?.gate.networkFailure(retry.key, this.clock.now());
+            if (startedLogged) await this.logModelEvent(this.store.pool, input, prepared, 'model.call.failed.v1', 'failed', {
               attempt, latencyMs: Math.max(0, this.clock.now() - started),
               errorCode: error instanceof HarnessError ? error.code : 'MODEL_UNAVAILABLE',
               ...(error instanceof HarnessError && error.diagnostics ? error.diagnostics : {}),
             });
-            throw error;
+          } finally {
+            release?.();
+          }
+          if (callFailure) {
+            const error = callFailure.error;
+            const networkFailure = error instanceof HarnessError && error.code === 'MODEL_UNAVAILABLE' &&
+              error.diagnostics?.transportCategory === 'network';
+            if (!retry || !networkFailure || attempt >= maxAttempts || networkRetries >= retry.delaysMs.length) throw error;
+            const delayMs = retry.delaysMs[networkRetries] + Math.floor(Math.random() * (retry.jitterMs + 1));
+            networkRetries++;
+            if (deadline - this.clock.now() - delayMs < retry.minRemainingMs) {
+              await this.logModelEvent(this.store.pool, input, prepared, 'model.retry.skipped.v1', 'failed',
+                { attempt, reason: 'INSUFFICIENT_TIME' });
+              throw error;
+            }
+            await this.logModelEvent(this.store.pool, input, prepared, 'model.retry.scheduled.v1', 'started',
+              { attempt, nextAttempt: attempt + 1, delayMs });
+            await this.waitForRetry(delayMs, controller.signal);
+            if (deadline - this.clock.now() < retry.minRemainingMs) throw error;
+            await this.ensureRetryCurrent(binding, input, deadline);
+            continue;
           }
           let valid = false;
-          const rawTextBytes = Buffer.byteLength(response!.rawText, 'utf8');
-          try { if (rawTextBytes <= 16384) { proposal = JSON.parse(response!.rawText); valid = !!registered.output!(proposal); } } catch { /* Invalid JSON is repairable. */ }
+          const received = response!;
+          const rawTextBytes = Buffer.byteLength(received.rawText, 'utf8');
+          try { if (rawTextBytes <= 16384) { proposal = JSON.parse(received.rawText); valid = !!registered.output!(proposal); } } catch { /* Invalid JSON is repairable. */ }
           await this.logModelEvent(this.store.pool, input, prepared, 'model.call.finished.v1', 'succeeded', {
-            attempt, rawText: rawTextBytes <= 65536 ? response.rawText : null,
+            attempt, rawText: rawTextBytes <= 65536 ? received.rawText : null,
             rawTextBytes, rawTextComplete: rawTextBytes <= 65536,
-            ...(rawTextBytes > 65536 ? { rawTextDigest: createHash('sha256').update(response.rawText).digest('hex') } : {}),
-            model: response.model, usage: response.usage,
+            ...(rawTextBytes > 65536 ? { rawTextDigest: createHash('sha256').update(received.rawText).digest('hex') } : {}),
+            model: received.model, usage: received.usage,
             latencyMs: Math.max(0, this.clock.now() - started), schemaValid: valid,
           });
           returnedAttempt = attempt;
           if (valid) break;
-          if (attempt === 2) throw new HarnessError('MODEL_INVALID_OUTPUT');
+          if (repairUsed || attempt === maxAttempts) throw new HarnessError('MODEL_INVALID_OUTPUT');
+          repairUsed = true;
         }
       }
       const validation = binding.validate(proposal, prepared.facts);
@@ -223,11 +274,32 @@ export class Harness {
         'model.call.judged.v1', status, { attempt: returnedAttempt, gameCommitted: false, errorCode: e.code });
     } finally { clearTimeout(totalTimer); this.controllers.delete(controller); }
   }
-  private async callModel(request: ModelRequest, parent: AbortSignal) {
+  private async ensureRetryCurrent(binding: Binding, input: AssessmentInput, deadline: number): Promise<void> {
+    if (this.clock.now() >= deadline) throw new HarnessError('MODEL_TIMEOUT');
+    await this.store.transaction(async tx => {
+      await binding.lockResources?.(tx, input.scopeId);
+      const request = (await tx.query('SELECT status,lease_expires_at FROM fw_requests WHERE scope_id=$1 AND request_id=$2',
+        [input.scopeId, input.requestId])).rows[0];
+      if (!request || request.status !== 'processing' || Number(request.lease_expires_at) <= this.clock.now()) {
+        throw new HarnessError('PROCESSING_EXPIRED');
+      }
+    });
+  }
+
+  private async waitForRetry(delayMs: number, signal: AbortSignal): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      if (signal.aborted) { reject(new HarnessError('MODEL_TIMEOUT')); return; }
+      const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, delayMs);
+      const abort = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); reject(new HarnessError('MODEL_TIMEOUT')); };
+      signal.addEventListener('abort', abort, { once: true });
+    });
+  }
+
+  private async callModel(request: ModelRequest, parent: AbortSignal, timeoutMs = this.options.callTimeoutMs ?? 30000) {
     const child = new AbortController();
     const abort = () => child.abort(); parent.addEventListener('abort', abort, { once: true });
     if (parent.aborted) child.abort();
-    const timer = setTimeout(() => child.abort(), this.options.callTimeoutMs ?? 30000);
+    const timer = setTimeout(() => child.abort(), Math.max(0, timeoutMs));
     let listener: () => void;
     const cancelled = new Promise<never>((_, reject) => {
       listener = () => reject(new HarnessError('MODEL_TIMEOUT'));

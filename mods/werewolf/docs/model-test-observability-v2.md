@@ -14,6 +14,8 @@
 
 现有 `fw_event_log` 是模型调用权威源，复用 `started/finished/failed/orphaned/judged/context_rejected`，不另建一份成功日志。`finished` 只表示供应商返回，Schema 有效与裁判提交另列状态；`failed` 代表确实发起的调用失败。没有进入适配器的预算或上下文拒绝须作为“未发出”原因显示，不算失败 API 请求。错误后默认行动若被提交，必须与失败调用分开显示。
 
+有界网络重试启用后，原始私有事件流还包含 `model.retry.scheduled.v1`、`model.retry.skipped.v1` 和 `model.call.skipped.v1`。前者给出下一次 attempt 与等待时间，后两者解释为何未再发 HTTP 请求。网页“模型调用”列表只统计真实 started attempt；检查熔断和未发出的重试时使用同房间的原始事件接口。失败且无供应商 usage 的尝试保持未知，不把它们记为 0 token，也不能据此推断供应商不会计费。
+
 ## 接口与持久数据
 
 - `GET /api/werewolf/model/:id/model-events?after&limit` 保留受测试口令保护的诊断入口和 cursor 分页，用于完整原文检查；前端日常列表新增分页摘要投影 `GET /api/werewolf/model/:id/model-calls?after&limit&seat&result`，按 `requestId + attempt` 关联事件，返回 `sequence/occurredAt/userId/seatNo/role/phase/micNo/profile/attempt/status/latencyMs/errorCode/httpStatus/inputTokens/outputTokens/cacheHitTokens/cacheMissTokens/schemaValid/gameCommitted`，未知量为 `null`，不把完整 messages 和 rawText 放进列表。

@@ -19,6 +19,6 @@
 - [007 发言输出规则配置](007-speech-output-rules.md)：implemented；200 字上限与共用座位号称呼规则已接入，稳定指导前置；真实 KV 命中率待新局观察。
 - [008 公开证据链与狼人杀术语](008-public-evidence-and-terms.md)：proposed；四层人工知识库 v1.3 已实施，公开证据链另待后续实施方案。
 - [009 JEV 与现有模型的 SELECT 旁路对比](009-jev-select-shadow-comparison.md)：proposed；v1 获得 000015 实局对照，v1.1 已关闭本机旁路并验证服务健康，后续真实 SELECT 零旁路调用待自然对局复核。
-- [010 狼人杀模型网络失败恢复](010-model-network-retry.md)：proposed；v1.1 待确认，原截止内最多两次有间隔网络重试，沿用默认动作。
+- [010 狼人杀模型网络失败恢复](010-model-network-retry.md)：proposed；v1.1 已部署本地服务，真实模型断网对局与供应商账单待复核。
 
 当前没有 `rejected` 或 `archived` 的狼人杀 note；状态变化时同步本索引。

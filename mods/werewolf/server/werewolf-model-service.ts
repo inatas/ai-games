@@ -1,4 +1,4 @@
-import { HarnessError, type RobotUser } from '@game-ai/core';
+import { HarnessError, NetworkRetryGate, type RobotUser } from '@game-ai/core';
 import { PostgresStore } from '@game-ai/storage';
 import { RoomRuntime, type Room } from '@game-ai/turn-based';
 import { werewolfDefinition } from '../src/definition.ts';
@@ -28,6 +28,9 @@ export class WerewolfModelService {
   private running = new Set<string>();
   private closed = false;
   private jevShadow: JevShadowWorker | undefined;
+  private networkRetryGate = new NetworkRetryGate({
+    maxConcurrentRetries: 2, failureWindowMs: 10000, failureThreshold: 3, openMs: 15000,
+  });
 
   constructor(private store: PostgresStore) {
     this.modelProfiles = loadModelProfiles();
@@ -48,7 +51,11 @@ export class WerewolfModelService {
     let runtime = this.runtimes.get(seed);
     if (!runtime) {
       runtime = new RoomRuntime(this.store, werewolfDefinition({ seed, sheriff: 'double' }), this.adapters,
-        { harness: { inputBudget: 100_000, modelWindow: 128_000, outputBudget: 500, callTimeoutMs: 45000, totalTimeoutMs: 75000 } });
+        { harness: { inputBudget: 100_000, modelWindow: 128_000, outputBudget: 500,
+          callTimeoutMs: 45000, totalTimeoutMs: 75000,
+          networkRetry: { maxAttempts: 3, delaysMs: [1000, 3000], jitterMs: 500,
+            minRemainingMs: 10000, commitReserveMs: 5000, key: 'werewolf', gate: this.networkRetryGate },
+        } });
       this.runtimes.set(seed, runtime);
     }
     return runtime;

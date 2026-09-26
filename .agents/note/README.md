@@ -35,7 +35,7 @@
 | [027 开发任务层级归属](027-layer-ownership-routing.md) | implemented | 三个 note 目录及对应 docs 的路由规则已写入项目入口 |
 | [028 全仓三层归属重组](028-repository-layer-reorganization.md) | implemented | 根 docs 与 MOD 专属代码迁移完成；130 单测、236 隔离数据库全测通过 |
 | [029 发言意图与行动命名统一](029-speech-terminology.md) | implemented | `SPEECH` 统一协议 v1 已实施；狼人杀接入见 MOD 008 |
-| [030 有界模型网络重试](030-bounded-model-network-retry.md) | proposed | v1.1 待确认；每决策首次调用加最多两次有间隔重试，共不超过三次 HTTP 调用 |
+| [030 有界模型网络重试](030-bounded-model-network-retry.md) | proposed | v1.1 已实施并通过隔离回归；真实模型断网与组合恢复故障待复核 |
 
 目前没有标为 `rejected` 或 `archived` 的编号 note。状态变化时同步此表；不要因暂时无人开发就把 `proposed` 猜作 `rejected`，也不要因代码已存在就把待验收范围标为 `implemented`。
 
