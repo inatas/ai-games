@@ -30,7 +30,7 @@
 | [022 AI 决策规则引擎](022-decision-rules-engine.md) | proposed | 通用规则已部分实施，剩余范围见 note |
 | [023 模型上下文缓存](023-model-context-cache.md) | implemented | v3 分层知识前缀与动态规则顺序已实施；真实命中率待对比 |
 | [024 模型 Token 用量记账](024-model-token-accounting.md) | implemented | 按成功响应 usage 汇总，旧预算表已清理 |
-| [025 模型房间单一调度宿主](025-model-room-single-owner.md) | proposed | 防止双服务并行推进；方案待确认 |
+| [025 模型房间单一调度宿主](025-model-room-single-owner.md) | implemented | 同库模型房间由单一持锁宿主调度，失锁后停止服务 |
 | [026 Agent Note 生命周期](026-agent-note-lifecycle.md) | implemented | 四态、目录规范与唯一索引检查已落地 |
 | [027 开发任务层级归属](027-layer-ownership-routing.md) | implemented | 三个 note 目录及对应 docs 的路由规则已写入项目入口 |
 | [028 全仓三层归属重组](028-repository-layer-reorganization.md) | implemented | 根 docs 与 MOD 专属代码迁移完成；130 单测、236 隔离数据库全测通过 |

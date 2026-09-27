@@ -89,10 +89,11 @@ test('model history contains settled public speech and ballots, not pending priv
   const task = prepareWerewolfDecision(room, wolf, definition);
   const publicHistory = task.context.public_history as { type: string; record_kind: string; data: { ballots?: unknown[] } }[];
   const privateHistory = (task.context.private_information as { events: { type: string }[] }).events;
-  assert.deepEqual(publicHistory.map(event => event.type), ['speech', 'exile-votes']);
+  assert.deepEqual(publicHistory.filter(event => event.type).map(event => event.type), ['speech', 'exile-votes']);
   assert.equal(publicHistory[0].record_kind, 'player-statement');
-  assert.equal(publicHistory[1].record_kind, 'referee-result');
-  assert.deepEqual(publicHistory[1].data.ballots, [
+  const votes = publicHistory.find(event => event.type === 'exile-votes')!;
+  assert.equal(votes.record_kind, 'referee-result');
+  assert.deepEqual(votes.data.ballots, [
     { seat: 2, target: 5, kind: 'vote' }, { seat: 3, target: null, kind: 'abstain' },
   ]);
   assert.deepEqual(privateHistory, []);
@@ -183,7 +184,8 @@ test('every live Werewolf phase exposes a decodable SPEECH or SELECT task', () =
     if (task.intent === 'SPEECH') assert.ok(Number.isInteger(task.audit?.micNo) && task.audit!.micNo! > 0,
       `${task.scene} must record its speaking order`);
     else assert.equal(task.audit?.micNo, null);
-    const publicEvents = task.context.public_history as { sequence: number }[];
+    const publicEvents = (task.context.public_history as { sequence?: number }[])
+      .filter((event): event is { sequence: number } => typeof event.sequence === 'number');
     assert.ok(publicEvents.every((event, index) => index === 0 || event.sequence > publicEvents[index - 1].sequence));
     seen.add(task.scene);
     const output = task.intent === 'SPEECH'

@@ -10,10 +10,13 @@ import { modelRoomSnapshot } from './werewolf-model-snapshot.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
 import type { ModelProfile } from './robot-users.ts';
 import { JevShadowWorker } from './jev-shadow.ts';
+import type { PoolClient } from 'pg';
+
+const OWNER_LOCK = [0x57455245, 0x574F4C46] as const; // WERE/WOLF, scoped to one PostgreSQL database.
 
 /** Accept only the version produced by the current game definition for this seed. */
 export function modelRoomSeedFromVersion(version: string): number | null {
-  const match = /^5\.(\d+)\.double\.12p-seer-witch-hunter-idiot\.[a-f0-9]{64}$/.exec(version);
+  const match = /^5\.(\d+)\.double\.12p-seer-witch-hunter-idiot\.[a-f0-9]{64}\.e2$/.exec(version);
   if (!match) return null;
   const seed = Number(match[1]);
   return Number.isSafeInteger(seed) && werewolfDefinition({ seed, sheriff: 'double' }).version === version ? seed : null;
@@ -27,12 +30,15 @@ export class WerewolfModelService {
   private runtimes = new Map<number, RoomRuntime>();
   private running = new Set<string>();
   private closed = false;
+  private owner: PoolClient | undefined;
+  private ownerHeld = false;
+  private closeTask: Promise<void> | undefined;
   private jevShadow: JevShadowWorker | undefined;
   private networkRetryGate = new NetworkRetryGate({
     maxConcurrentRetries: 2, failureWindowMs: 10000, failureThreshold: 3, openMs: 15000,
   });
 
-  constructor(private store: PostgresStore) {
+  constructor(private store: PostgresStore, private onOwnerLost?: () => void) {
     this.modelProfiles = loadModelProfiles();
     this.adapters = buildRobotAdapters(this.users, this.modelProfiles);
     if (process.env.JEV_SHADOW_ENABLED === 'true') {
@@ -40,6 +46,36 @@ export class WerewolfModelService {
       this.jevShadow = new JevShadowWorker(store, { apiKey: process.env.JEV_API_KEY });
     }
   }
+
+  hasOwnership(): boolean { return this.ownerHeld && !this.closed; }
+
+  private assertOwner(): void {
+    if (!this.hasOwnership()) throw new HarnessError('MODEL_ROOM_OWNER_LOST', 503);
+  }
+
+  private async acquireOwnership(): Promise<void> {
+    if (this.ownerHeld) return;
+    if (this.closed) throw new HarnessError('MODEL_ROOM_OWNER_LOST', 503);
+    const client = await this.store.pool.connect();
+    try {
+      const result = await client.query('SELECT pg_try_advisory_lock($1::int,$2::int) AS acquired', [...OWNER_LOCK]);
+      if (!result.rows[0]?.acquired) throw new HarnessError('MODEL_ROOM_OWNER_EXISTS', 409);
+      this.owner = client;
+      this.ownerHeld = true;
+      client.on('error', this.ownerConnectionLost);
+      client.on('end', this.ownerConnectionLost);
+    } catch (error) {
+      client.release(true);
+      throw error;
+    }
+  }
+
+  private ownerConnectionLost = () => {
+    if (!this.ownerHeld || this.closed) return;
+    this.ownerHeld = false;
+    void this.close();
+    this.onOwnerLost?.();
+  };
 
   profiles() {
     return this.modelProfiles.filter(profile => !!this.adapters[profile.id]).map(profile => ({
@@ -62,8 +98,10 @@ export class WerewolfModelService {
   }
 
   async migrate(): Promise<void> {
+    await this.acquireOwnership();
     await this.store.migrate();
     await this.runtime(0).migrate();
+    this.assertOwner();
     if (this.jevShadow) {
       await this.jevShadow.activate();
       this.jevShadow.start();
@@ -80,7 +118,7 @@ export class WerewolfModelService {
   }
 
   private schedule(runtime: RoomRuntime, id: string): void {
-    if (this.running.has(id) || this.closed) return;
+    if (this.running.has(id) || !this.hasOwnership()) return;
     this.running.add(id);
     void runtime.run(id).catch(error => {
       // The room remains persisted; a later host can resume it without fabricating an action.
@@ -89,6 +127,7 @@ export class WerewolfModelService {
   }
 
   async recover(): Promise<void> {
+    this.assertOwner();
     const rows = (await this.store.pool.query('SELECT id, document FROM tb_rooms')).rows;
     for (const row of rows) {
       const room = row.document as Room;
@@ -100,6 +139,7 @@ export class WerewolfModelService {
   }
 
   async start(requestId: string, seed: number, userIds: string[], profileIds?: (string | null)[]): Promise<DemoSnapshot> {
+    this.assertOwner();
     if (!/^[\w-]{8,80}$/.test(requestId) || !Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff ||
         userIds.length !== 12) throw new HarnessError('INVALID_INPUT');
     const roster = userIds.map(id => this.users.find(user => user.userId === id));
@@ -232,8 +272,18 @@ export class WerewolfModelService {
   }
 
   async close(): Promise<void> {
-    this.closed = true;
-    await this.jevShadow?.close();
-    await Promise.all([...this.runtimes.values()].map(runtime => runtime.close()));
+    if (!this.closeTask) this.closeTask = (async () => {
+      this.closed = true;
+      this.ownerHeld = false;
+      await this.jevShadow?.close();
+      await Promise.all([...this.runtimes.values()].map(runtime => runtime.close()));
+      if (this.owner) {
+        this.owner.off('error', this.ownerConnectionLost);
+        this.owner.off('end', this.ownerConnectionLost);
+        this.owner.release(true);
+        this.owner = undefined;
+      }
+    })();
+    await this.closeTask;
   }
 }

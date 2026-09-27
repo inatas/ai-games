@@ -2,6 +2,7 @@ import type { RobotPublicUser } from '@game-ai/core';
 import { useRobotUser } from './robot-context.tsx';
 import type { CSSProperties } from 'react';
 import type { DeathDisplay } from './seat-state.ts';
+import { SheriffIcon } from './sheriff-icon.tsx';
 import './seat-avatar.css';
 
 export const deathNames: Record<DeathDisplay, string> = { night: '夜亡', exile: '放逐', shot: '枪杀', explode: '自爆', knife: '狼刀', poison: '毒杀' };
@@ -37,7 +38,7 @@ export function SeatAvatar(props: SeatAvatarProps) {
   return <button type="button" className={`ww-seat ${gallery ? 'in-gallery' : ''} ${death ? 'dead' : ''} ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} style={{ '--row': (seat - 1) % 6, '--side': seat <= 6 ? 0 : 1 } as CSSProperties} aria-label={user ? `${user.nickname}，${description}` : description} onClick={onClick}>
     <span className="ww-avatar" style={portraitStyle(seat, user)} />
     {death && <span className="ww-death" aria-hidden="true"><img src={`/werewolf/death/${death}.png`} alt="" draggable={false}/></span>}
-    {sheriff && <span className="ww-corner top-left sheriff" title="警长">♛</span>}
+    {sheriff && <span className="ww-corner top-left sheriff" title="警长"><SheriffIcon/></span>}
     {nominated ? <span className="ww-corner top-right nomination" title="已公布上警">✋</span> : mark && <span className={`ww-corner top-right personal ${markTone}`} title={`个人标记：${mark}`}>{mark}</span>}
     {props.viewpoint && <span className="ww-corner bottom-left self" title="当前观察视角">视角</span>}
     {self && <span className="ww-corner bottom-left self">我</span>}

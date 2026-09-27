@@ -47,7 +47,10 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
     return reply.code(err.statusCode && err.statusCode < 500 ? err.statusCode : 500).send({ code: 'INTERNAL_ERROR' });
   });
   registerIdentityRoutes(app, identity, process.env.COOKIE_SECURE === 'true');
-  app.get('/api/health', async () => ({ status: 'ok', modelMode: mode }));
+  let modelRooms: WerewolfModelService | undefined;
+  app.get('/api/health', async (_request, reply) => modelRooms && !modelRooms.hasOwnership()
+    ? reply.code(503).send({ status: 'unavailable', code: 'MODEL_ROOM_OWNER_LOST' })
+    : { status: 'ok', modelMode: mode });
   async function authorize(tx: Transaction, request: any) {
     const { currentScopeId: id } = await identity.session(sessionToken(request), tx);
     await identity.authorizeCurrent(tx, sessionToken(request), id);
@@ -93,10 +96,14 @@ export async function buildApp(store: PostgresStore, model: ModelAdapter, mode =
   app.post('/api/mud/social/party', { schema: { body: { type: 'object', additionalProperties: false, required: ['requestId','action'], properties: {
     requestId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, action: { type: 'string', enum: ['invite','accept','leave'] }, targetScopeId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' }, inviteId: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
   } } } }, async request => store.transaction(async tx => { const row = await authorize(tx, request); return mutateParty(tx, row.scope_id, request.body as any, host.socialPolicy); }));
-  const modelRooms = process.env.WEREWOLF_MODEL_ENABLED === 'true' ? new WerewolfModelService(store) : undefined;
-  if (modelRooms) { await modelRooms.migrate(); await modelRooms.recover(); }
+  modelRooms = process.env.WEREWOLF_MODEL_ENABLED === 'true'
+    ? new WerewolfModelService(store, () => { void app.close(); }) : undefined;
+  if (modelRooms) {
+    app.addHook('onClose', async () => { await modelRooms?.close(); });
+    try { await modelRooms.migrate(); await modelRooms.recover(); }
+    catch (error) { await app.close(); throw error; }
+  }
   await app.register(werewolfDemoRoutes, { modelService: modelRooms });
-  if (modelRooms) app.addHook('onClose', async () => { await modelRooms.close(); });
   const root = resolve('dist');
   if (existsSync(root)) {
     await app.register(fastifyStatic, { root });

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { speechKey, speechLayout, revealDuration, revealClip } from './speech-presentation.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
 import { portraitStyle } from './seat-avatar.tsx';
+import { SheriffIcon } from './sheriff-icon.tsx';
 import { boardVoteCopy, nextPresentation, summarizeVotes, type PresentationCursor, type PresentationItem, type VoteData } from './presentation.ts';
 import './live-scene.css';
 
@@ -34,10 +35,10 @@ export function VoteSummary({ event }: { event: DemoSnapshot['events'][number] }
     {summarizeVotes(data).map(row => <div className="ww-vote-row" key={row.target}>
       <div className="ww-vote-target"><b>{typeof row.target === 'number' ? row.target : row.target === 'abstain' ? '弃票' : '未投'}</b>{typeof row.target === 'number' && <small>{row.total}票</small>}</div>
       <span className="ww-vote-arrow" aria-label="投给">←</span>
-      <div className="ww-vote-voters">{row.voters.map(seat => <span key={seat} title={seat === data.sheriff ? '警长 · 1.5票' : '1票'}>{seat}{seat === data.sheriff && <sup>♛</sup>}</span>)}</div>
+      <div className="ww-vote-voters">{row.voters.map(seat => <span key={seat} title={seat === data.sheriff ? '警长 · 1.5票' : '1票'}>{seat}{seat === data.sheriff && <sup><SheriffIcon/></sup>}</span>)}</div>
     </div>)}
     <p>{copy.outcome}</p>
-    {data.sheriff !== null && <small>♛ 警长{data.sheriff}号 · 1.5票</small>}
+    {data.sheriff !== null && <small><SheriffIcon/> 警长{data.sheriff}号 · 1.5票</small>}
   </section>;
 }
 

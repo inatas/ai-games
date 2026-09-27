@@ -12,6 +12,8 @@ function Fixture() {
     const failures: string[] = [];
     for (const seat of document.querySelectorAll<HTMLElement>('.ww-seat')) {
       const label = seat.getAttribute('aria-label') ?? '';
+      const sheriff = seat.querySelector<HTMLElement>('.sheriff');
+      if (sheriff && (!sheriff.querySelector('svg') || sheriff.textContent?.includes('♛') || getComputedStyle(sheriff).backgroundColor !== 'rgba(0, 0, 0, 0)')) failures.push(`${label}: 警长未替换为无圆底六角星`);
       const cover = seat.querySelector<HTMLElement>('.ww-death');
       if (!dead) {
         if (cover) failures.push(`${label}: 存活仍有死亡覆盖`);

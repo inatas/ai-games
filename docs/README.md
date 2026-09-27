@@ -29,7 +29,7 @@
 | [Robot 阵容验收 v5](../mods/werewolf/docs/robot-roster-deepseek-testing-v5.md) | 配置、路由、预算和恢复用例 |
 | [模型对局 Token 用量记账 v1](specs/model-token-accounting-v1.md) | 已确认的按房间实际 Token 汇总与旧预留停用方案 |
 | [模型 Token 记账测试设计 v1](testing/model-token-accounting-v1.md) | 成功、失败、重启和本机权限用例 |
-| [模型房间单一宿主 v1](../mods/werewolf/docs/model-room-single-owner-v1.md) | 待确认的同库调度所有权与恢复协议 |
+| [模型房间单一宿主 v1](../mods/werewolf/docs/model-room-single-owner-v1.md) | 已实施的同库调度所有权与恢复协议 |
 | [模型房间单一宿主测试设计 v1](../mods/werewolf/docs/model-room-single-owner-testing-v1.md) | 双宿主、退出接管与启动边界 |
 | [通用Context Composition设计 v1](specs/context-composition.md) | 待确认的多游戏背景与NPC状态组装协议 |
 | [Context Composition测试设计 v1](testing/context-composition.md) | 待确认的CTX中性验收场景 |

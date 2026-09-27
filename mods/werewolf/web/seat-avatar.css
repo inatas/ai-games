@@ -10,7 +10,8 @@
 .ww-corner { position:absolute; min-width:32%; height:32%; padding:0 3%; display:flex; justify-content:center; align-items:center; border-radius:50%; border:2px solid #d1aa69; background:#564321; color:#fff4cd; font:bold 18cqw/1 'KaiTi','SimSun',serif; text-shadow:1px 1px #221423; white-space:nowrap; z-index:5; }
 .ww-corner.top-left { left:-9%; top:-9%; }.ww-corner.top-right { right:0; top:-9%; }
 .ww-corner.bottom-left { left:-9%; bottom:0; }.ww-corner.bottom-right { right:-9%; bottom:0; }
-.ww-corner.sheriff { color:#ffdd5b; border-color:#dab745; font:26cqw Georgia,serif; background:#332b0e; }
+.ww-corner.sheriff { width:32%; padding:0; border:0; border-radius:0; background:transparent; text-shadow:none; }
+.ww-corner.sheriff svg { display:block; width:100%; height:100%; }
 .ww-corner.self { background:#246d27; border-color:#99d47a; }.ww-corner.identity { background:#712d7d; border-color:#d997e2; }
 .ww-corner.wolf { background:#8b2432; border-color:#db6677; }.ww-corner.good { background:#215c92; border-color:#73bdf3; }
 .ww-corner.personal { background:#514a3d; border:2px dashed #c6b796; color:#fff1d5; }

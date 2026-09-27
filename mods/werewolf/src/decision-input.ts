@@ -5,6 +5,7 @@ import type { GameView } from './views.ts';
 import { maxSpeechChars } from './speech-policy.ts';
 import { currentBoardId, selectWerewolfKnowledge, werewolfKnowledge } from './knowledge.ts';
 import type { Role } from './rules.ts';
+import { buildPublicHistory } from './public-evidence.ts';
 
 interface ChoiceSchema {
   const?: Json;
@@ -17,19 +18,9 @@ interface ChoiceSchema {
 type RoomEvent = Room['events'][number];
 
 const privateActionTypes = new Set(['wolf-knife', 'wolf-choices', 'medicine', 'inspection']);
-const speechTypes = new Set(['speech', 'sheriff-speech', 'last-words']);
 
 function eventRound(room: Room, event: RoomEvent): number | null {
   return room.phaseHistory?.find(phase => phase.instance === event.phaseInstance)?.round ?? null;
-}
-
-function publicFact(event: RoomEvent) {
-  return {
-    sequence: event.sequence,
-    type: event.type,
-    record_kind: speechTypes.has(event.type) ? 'player-statement' : 'referee-result',
-    data: event.data,
-  };
 }
 
 function privateActionFact(room: Room, event: RoomEvent, publicEvents: RoomEvent[]): Json | null {
@@ -142,7 +133,7 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
       private_information: { ...roleFacts, events: privateEvents,
         ...(pendingKnife ? { current_intel: { kind: 'wolf-knife-target',
           ...(pendingKnife.data as { night: number; target: number | null }), outcome: 'pending' } } : {}) },
-      public_history: events.map(publicFact),
+      public_history: buildPublicHistory(room),
       current_action: currentAction,
     },
   };
