@@ -7,7 +7,7 @@ export function demoClock(speechText?: string) {
     rooms,
     advance(id: string) {
       const game = rooms.get(id);
-      now += game.period === 'night' ? game.nightSegment === 'shared' ? 60_000 : 30_000
+      now += game.period === 'night' ? game.phaseLabel === '夜间准备' ? 45_000 : game.nightSegment === 'shared' ? 60_000 : 30_000
         : game.speakerSeat !== null || game.phaseLabel === '警长退水' ? game.timing.remainingMs : 3_000;
       rooms.tick();
       return rooms.get(id);

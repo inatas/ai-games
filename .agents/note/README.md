@@ -37,7 +37,7 @@
 | [029 发言意图与行动命名统一](029-speech-terminology.md) | implemented | `SPEECH` 统一协议 v1 已实施；狼人杀接入见 MOD 008 |
 | [030 有界模型网络重试](030-bounded-model-network-retry.md) | proposed | v1.1 已实施并通过隔离回归；真实模型断网与组合恢复故障待复核 |
 | [031 关键交互中的私有判断与记忆传递](031-decision-private-memory-update.md) | implemented | v1.1 已实施；附加输出独立校验，同 scope 私有 fact 原子提交 |
-| [032 连续阶段共用截止与失败续接](032-shared-stage-deadline-and-failure-continuation.md) | proposed | v1 待确认；同组截止、失败续接、模型准入、动作来源与终局私有过滤 |
+| [032 连续阶段共用截止与失败续接](032-shared-stage-deadline-and-failure-continuation.md) | implemented | v1已实施；共用截止、失败续接、模型准入、可信来源与终局过滤通过隔离验证 |
 
 目前没有标为 `rejected` 或 `archived` 的编号 note。状态变化时同步此表；不要因暂时无人开发就把 `proposed` 猜作 `rejected`，也不要因代码已存在就把待验收范围标为 `implemented`。
 

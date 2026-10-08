@@ -19,6 +19,7 @@ export interface Phase {
   mode: 'sequential' | 'sealed';
   actors: number[];
   schema: object;
+  windowGroup?: string;
   interrupt?: { key: string; actors: number[]; schema: object };
 }
 export interface GameEvent {
@@ -30,7 +31,8 @@ export interface RecordedEvent extends GameEvent {
   sequence: number;
   phaseInstance: number;
 }
-export interface Decision { seat: number; value: Json }
+export type DecisionOrigin = 'model' | 'script' | 'rule' | 'default' | 'external';
+export interface Decision { seat: number; value: Json; origin: DecisionOrigin }
 export type Transition = { state: Json; events?: GameEvent[] } & (
   | { phase: Phase; result?: never }
   | { result: Json; phase?: never }
@@ -54,7 +56,10 @@ export interface RoomDefinition {
   actionWindowMs?(room: Room): number;
   fixedWindow?(room: Room): boolean;
   completionDelayMs?(room: Room): number | null;
-  fallbackDecision?(room: Room, seat: number): Json;
+  fallbackDecision?(room: Room, seat: number, reason?: string): Json;
+  fallbackOnFailure?(room: Room): boolean;
+  minDecisionTimeMs?(room: Room): number;
+  revealEvent?(event: RecordedEvent): boolean;
   validateInterrupt?(state: Json, phase: Phase, seat: number, value: Json): boolean;
   resolveInterrupt?(state: Json, phase: Phase, seat: number, value: Json): { pass: true } | Transition;
   reveal?(state: Json): Json;
@@ -99,6 +104,7 @@ export interface Room {
   phaseDeadlineAt?: number;
   phaseActionDeadlineAt?: number;
   phaseEarlyFinishAt?: number;
+  windowGroup?: { key: string; startedAt: number; deadlineAt: number; durationMs: number };
   pendingJobs: Partial<Record<Lane, PendingDecision>>;
   ruleSet?: { id: string; version: number; digest?: string };
   ruleDecisions?: Array<{ phaseInstance: number; seat: number; evaluation: RuleEvaluation; forced: boolean }>;

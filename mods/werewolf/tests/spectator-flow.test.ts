@@ -25,7 +25,7 @@ test('script speech stays on the same seat after three seconds and advances only
   let now = 0;
   const rooms = new DemoRooms({ now: () => now });
   const created = rooms.create(42, 'random');
-  now = 93_000;
+  now = 138_000;
   rooms.tick();
   const speaking = rooms.get(created.id);
   assert.ok(speaking.speakerSeat);
@@ -47,7 +47,7 @@ test('V4-01/02/03: host clock runs without reads; GET is read-only; only speaker
   let game = rooms.create(42, 'random');
   assert.equal(game.speakerSeat, null);
   assert.equal(game.nightSegment, 'shared');
-  now = 60_000;
+  now = 105_000;
   assert.equal(rooms.get(game.id).revision, 0);
   rooms.tick();
   game = rooms.get(game.id);
@@ -55,7 +55,7 @@ test('V4-01/02/03: host clock runs without reads; GET is read-only; only speaker
   assert.equal(game.timing.remainingMs, 30_000);
   rooms.tick();
   assert.equal(rooms.get(game.id).revision, game.revision);
-  now = 90_000;
+  now = 135_000;
   rooms.tick();
   game = rooms.get(game.id);
   assert.equal(game.phaseLabel, '上警报名');

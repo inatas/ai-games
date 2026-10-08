@@ -6,6 +6,6 @@
 
 实现目录为 `../src`（规则与状态）、`../server`（房间 HTTP 与模型服务）、`../shared`（旁观 DTO）、`../web`（页面及 public 素材）、`../robot-users`（本 MOD 测试阵容）与 `../tests`。本机运行见[模型Robot说明](model-robot-run.md)，服务与诊断见[本机测试运维](local-werewolf-test-ops-v1.md)和[模型测试日志](model-test-observability-v2.md)。
 
-机器人战术优化路线维护在[现有模型接入主题](model-integration-v1.md#全职业战术优化路线)，验收维护在[现有游戏测试主题](mvp-testing.md#全职业战术知识与连续性验收)。014 v1.2 已实施并发布本机网页，真实模型效果待新局验证；[015 v1.2＋016 v1.1 联合方案 J2](model-integration-v1.md#015016-联合原则j2已确认联合实施中)MOD 已确认，部分工程完成，根 032 新增范围待确认，个人计划与队内沟通一起验收／发布，之后才细化 002 战术权重。
+机器人战术优化路线维护在[现有模型接入主题](model-integration-v1.md#全职业战术优化路线)，验收维护在[现有游戏测试主题](mvp-testing.md#全职业战术知识与连续性验收)。014 v1.2 已实施并发布本机网页，真实模型效果待新局验证；[015 v1.2＋016 v1.1 联合方案 J2](model-integration-v1.md#015016-联合原则j2工程已实施真实模型待验收)MOD 已确认，部分工程完成，根 032 新增范围待确认，个人计划与队内沟通一起验收／发布，之后才细化 002 战术权重。
 
 014 的知识编辑入口与资料取舍见[KB014-v1.1 职业知识](model-integration-v1.md#014-职业知识-kb014-v11已实施)。实际正文已写入六篇 `knowledge/guides` 与公开 `knowledge/roles/seer.md`，各文件随知识摘要固定版本。

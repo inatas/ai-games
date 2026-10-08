@@ -51,7 +51,10 @@ test('WW-01–03,42,46: actual public RoomDefinition engine runs a full seeded g
   while (room.status === 'running' && steps++ < 500) {
     assert.equal('replay' in spectatorView(room, definition), false);
     const actor = eligibleActors(room)[0];
-    room = acceptDecision(room, room.phaseInstance, actor, choice(room.state as unknown as Match, actor), definition);
+    const preparation = room.phase!.key.startsWith('wolf-team-');
+    room = acceptDecision(room, room.phaseInstance, actor, preparation
+      ? definition.fallbackDecision!(room, actor, 'GAME_DEADLINE') : choice(room.state as unknown as Match, actor),
+      definition, preparation ? 'default' : 'external');
   }
   assert.equal(room.status, 'finished');
   const view = spectatorView(room, definition);

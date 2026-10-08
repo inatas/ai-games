@@ -42,15 +42,19 @@ export function teamActor(team: WolfTeam): number | null {
 }
 
 export function parseTeamProposal(raw: unknown, game: GameState, team: WolfTeam, actor: number): TeamProposal | null {
+  return parseTeamProposalFields(raw, game.players.filter(p => p.alive).map(p => p.seat), team.participants, team.normalOnly, actor);
+}
+
+export function parseTeamProposalFields(raw: unknown, aliveSeats: number[], participants: number[], normalOnly: boolean, actor: number): TeamProposal | null {
   if (!isRecord(raw) || !exactKeys(raw, ['knifeTarget', 'assignments', 'conditions', 'selfKnifeConsent']) ||
-      !(raw.knifeTarget === null || (seatNumber(raw.knifeTarget) && game.players.some(p => p.seat === raw.knifeTarget && p.alive))) ||
+      !(raw.knifeTarget === null || (seatNumber(raw.knifeTarget) && aliveSeats.includes(raw.knifeTarget))) ||
       !Array.isArray(raw.assignments) || raw.assignments.length > 4 || !shortText(raw.conditions, 120) ||
       typeof raw.selfKnifeConsent !== 'boolean' || (raw.selfKnifeConsent && raw.knifeTarget !== actor) ||
-      (team.normalOnly && team.participants.includes(raw.knifeTarget as number))) return null;
+      (normalOnly && participants.includes(raw.knifeTarget as number))) return null;
   const seen = new Set<number>();
   for (const item of raw.assignments) {
     if (!isRecord(item) || !exactKeys(item, ['seat', 'tactic', 'claimedRole', 'instruction']) ||
-        !seatNumber(item.seat) || !team.participants.includes(item.seat) || seen.has(item.seat) ||
+        !seatNumber(item.seat) || !participants.includes(item.seat) || seen.has(item.seat) ||
         !shortText(item.tactic, 24, true) || !roleId(item.claimedRole) || !shortText(item.instruction, 80, true)) return null;
     seen.add(item.seat);
   }

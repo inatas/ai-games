@@ -12,6 +12,11 @@ test('night deadlines stay fixed while nomination, votes, speeches and last word
   for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
     seat, name: `${seat}`, modelProfile: 'script', scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
   }, definition);
+  assert.equal(room.phase!.key, 'wolf-team-proposal');
+  assert.equal(definition.windowMs!(room), 45_000);
+  assert.equal(definition.fixedWindow!(room), false);
+  assert.equal(definition.actionWindowMs!(room), 45_000);
+  room.phase = { ...room.phase!, key: 'wolves' };
   assert.equal(definition.windowMs!(room), 60_000);
   assert.equal(definition.fixedWindow!(room), true);
   assert.equal(definition.actionWindowMs!(room), 60_000);

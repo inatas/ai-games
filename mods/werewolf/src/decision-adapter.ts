@@ -1,6 +1,7 @@
 import type { Json } from '@game-ai/core';
 import type { DecisionAdapter, DecisionInput, DecisionOutput } from '@game-ai/turn-based';
 import { maxSpeechChars } from './speech-policy.ts';
+import { parseTeamProposalFields, parseTeamResponse, type TeamPlan } from './wolf-team.ts';
 
 /** Local scripted controller, using the same game task and proposal envelope as a model. */
 export class ScriptDecisionAdapter implements DecisionAdapter {
@@ -30,9 +31,24 @@ export function decodeWerewolfDecision(input: DecisionInput, output: DecisionOut
   if (input.intent === 'SPEECH') {
     if (!('speech' in output.value) || typeof output.value.speech !== 'string' ||
         !output.value.speech.trim() || [...output.value.speech].length > maxSpeechChars) return null;
+    if (input.scene === 'wolf-team-proposal') {
+      const task = input.context.current_action as unknown as { team_organization: { participants: number[]; normalOnly: boolean } };
+      const game = input.context.game_state as unknown as { players: { seat: number; alive: boolean }[] };
+      const proposal = parseTeamProposalFields((output.value as Record<string, unknown>).team_proposal,
+        game.players.filter(p => p.alive).map(p => p.seat), task.team_organization.participants,
+        task.team_organization.normalOnly, input.actor.seat);
+      return { kind: 'team-proposal', text: output.value.speech, proposal: proposal as unknown as Json,
+        reason: proposal ? null : 'INVALID_OR_ABSENT_PROPOSAL' };
+    }
     return { kind: input.scene === 'last-words' ? 'last-words' : 'speech', text: output.value.speech };
   }
   if (!('selected' in output.value) || typeof output.value.selected !== 'string') return null;
   const selected = output.value.selected;
-  return input.options.find(option => option.id === selected)?.value ?? null;
+  const action = input.options.find(option => option.id === selected)?.value ?? null;
+  if (action && input.scene === 'wolves' && input.context.self.role === 'wolf') {
+    const privateFacts = input.context.private_information as unknown as { team_plan?: TeamPlan | null };
+    const response = parseTeamResponse((output.value as Record<string, unknown>).team_response, privateFacts.team_plan ?? null, input.actor.seat);
+    if (response) return { ...(action as Record<string, Json>), teamResponse: response as unknown as Json };
+  }
+  return action;
 }

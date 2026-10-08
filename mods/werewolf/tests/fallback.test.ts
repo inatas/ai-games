@@ -20,8 +20,8 @@ test('confirmed deadline defaults are legal for every ordinary Werewolf scene an
   let speechChecked = false;
   for (let step = 0; step < 800 && room.status === 'running'; step++) {
     const seat = room.phase!.actors.find(actor => !room.decisions.some(decision => decision.seat === actor))!;
-    const action = fallbackWerewolfAction(room, seat, definition);
-    assert.deepEqual(action, fallbackWerewolfAction(structuredClone(room), seat, definition));
+    const action = definition.fallbackDecision!(room, seat, 'GAME_DEADLINE');
+    assert.deepEqual(action, definition.fallbackDecision!(structuredClone(room), seat, 'GAME_DEADLINE'));
     const role = (room.state as unknown as Match).game.players.find(player => player.seat === seat)!.role;
     if (room.phase!.key === 'wolves' && role === 'seer') {
       assert.equal((action as { kind: string }).kind, 'inspect');
@@ -34,7 +34,7 @@ test('confirmed deadline defaults are legal for every ordinary Werewolf scene an
       assert.equal((action as { text: string }).text, '');
       speechChecked = true;
     }
-    room = acceptDecision(room, room.phaseInstance, seat, action, definition);
+    room = acceptDecision(room, room.phaseInstance, seat, action, definition, 'default');
   }
   assert.ok(['running', 'finished', 'aborted'].includes(room.status));
   assert.ok(seerChecked);

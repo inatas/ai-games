@@ -11,6 +11,7 @@ import { migrateTurnBased } from './schema.ts';
 import type { Lane, PendingDecision, Room, RoomDefinition, RoomLimits, Seat, SpectatorView } from './types.ts';
 import type { DecisionAdapter, DecisionInput, DecisionOutput } from './decision.ts';
 import { evaluateDecisionRules } from './decision-rules.ts';
+import { startPhaseWindow } from './windows.ts';
 
 type Options = { harness?: ConstructorParameters<typeof Harness>[2] };
 const inputSchema = {
@@ -27,15 +28,7 @@ export class RoomRuntime {
   private closed = false;
   private now(): number { return this.options.harness?.clock?.now() ?? Date.now(); }
   private startWindow(room: Room, previousInstance: number): void {
-    if (room.status !== 'running' || room.phaseInstance === previousInstance || !this.definition.windowMs) return;
-    const duration = this.definition.windowMs(room);
-    if (!Number.isSafeInteger(duration) || duration < 1) throw new HarnessError('INVALID_WINDOW');
-    const actionDuration = this.definition.actionWindowMs?.(room) ?? duration;
-    if (!Number.isSafeInteger(actionDuration) || actionDuration < 1 || actionDuration > duration) throw new HarnessError('INVALID_WINDOW');
-    room.phaseStartedAt = this.now();
-    room.phaseDeadlineAt = room.phaseStartedAt + duration;
-    room.phaseActionDeadlineAt = room.phaseStartedAt + actionDuration;
-    delete room.phaseEarlyFinishAt;
+    startPhaseWindow(room, this.definition, this.now(), previousInstance);
   }
   private scheduleEarlyFinish(room: Room): void {
     if (room.status !== 'running' || room.phaseDeadlineAt === undefined ||
@@ -138,8 +131,8 @@ export class RoomRuntime {
       if (!outstanding.length && now < phaseDeadline && !earlyDue) return false;
       const pending = Object.values(room.pendingJobs);
       for (const seat of outstanding) {
-        const action = this.definition.fallbackDecision!(room, seat);
-        room = acceptDecision(room, instance, seat, action, this.definition);
+        const action = this.definition.fallbackDecision!(room, seat, 'GAME_DEADLINE');
+        room = acceptDecision(room, instance, seat, action, this.definition, 'default');
       }
       if ((now >= phaseDeadline || earlyDue) && room.status === 'running' && room.phaseInstance === instance &&
           room.phase?.actors.length === room.decisions.length && this.definition.fixedWindow?.(room)) {
@@ -193,7 +186,7 @@ export class RoomRuntime {
             kind: 'proposal', value: { selected: evaluation.requiredOptionId },
           });
           if (action === null) throw new HarnessError('RULE_OPTION_INVALID');
-          const next = acceptDecision(room, room.phaseInstance, actor, action, this.definition);
+          const next = acceptDecision(room, room.phaseInstance, actor, action, this.definition, 'rule');
           if (next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
           if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
           this.startWindow(next, room.phaseInstance);
@@ -203,6 +196,18 @@ export class RoomRuntime {
         if (evaluation.guidance.length) {
           ordinaryInput = { ...input, matchedGuidance: evaluation.guidance.map(rule => rule.instruction) };
         }
+      }
+      const minimum = interruptSeat === undefined ? this.definition.minDecisionTimeMs?.(room) ?? 0 : 0;
+      if (!Number.isSafeInteger(minimum) || minimum < 0) throw new HarnessError('INVALID_WINDOW');
+      if (minimum > 0 && (room.phaseActionDeadlineAt ?? room.phaseDeadlineAt ?? Infinity) - this.now() < minimum) {
+        if (!this.definition.fallbackDecision) throw new HarnessError('INVALID_DEFINITION');
+        room.events.push({ sequence: room.events.length + 1, phaseInstance: room.phaseInstance,
+          type: 'decision-skipped', audience: [actor], data: { seat: actor, reason: 'INSUFFICIENT_TIME' } });
+        const next = acceptDecision(room, room.phaseInstance, actor, this.definition.fallbackDecision(room, actor, 'INSUFFICIENT_TIME'), this.definition, 'default');
+        if (next.phaseInstance !== room.phaseInstance) next.pendingJobs = {};
+        this.startWindow(next, room.phaseInstance);
+        await this.save(tx, next);
+        return { room: next };
       }
       const scopeId = interruptSeat === undefined ? seat.scopeId : seat.interruptScopeId;
       const scope = (await tx.query('SELECT memory_version FROM fw_scopes WHERE id=$1 FOR UPDATE', [scopeId])).rows[0];
@@ -284,10 +289,10 @@ export class RoomRuntime {
         requirePending(room);
         if (context.requestId !== job.requestId || context.scopeId !== job.scopeId ||
             context.gameVersion !== `${job.phaseInstance}:${job.decisionEpoch}`) throw new HarnessError('PHASE_CONFLICT', 409);
-        const accept = interrupt ? acceptInterrupt : acceptDecision;
         const action = this.decode(job, proposal);
         if (action === null) throw new HarnessError('INVALID_DECISION');
-        const next = accept(room, job.phaseInstance, job.seat, action, this.definition);
+        const next = interrupt ? acceptInterrupt(room, job.phaseInstance, job.seat, action, this.definition)
+          : acceptDecision(room, job.phaseInstance, job.seat, action, this.definition, 'model');
         if (!interrupt && next.phaseInstance === room.phaseInstance) this.scheduleEarlyFinish(next);
         delete next.pendingJobs[job.lane];
         if (next.phaseInstance !== room.phaseInstance || next.status !== 'running') next.pendingJobs = {};
@@ -362,6 +367,18 @@ export class RoomRuntime {
           if (this.current(current, job)) {
             if (this.definition.fallbackDecision && current.phaseDeadlineAt !== undefined) {
               current.pendingJobs[job.lane]!.failedReason = result.error?.code ?? 'DECISION_FAILED';
+              if (!job.lane.startsWith('interrupt:') && this.definition.fallbackOnFailure?.(current)) {
+                const code = result.error?.code ?? 'INTERNAL_ERROR';
+                const controllerFailure = code.startsWith('MODEL_') || code === 'CONTEXT_TOO_LARGE' ||
+                  (code === 'RULE_REJECTED' && result.error?.detail !== 'RULE_FAILED');
+                if (controllerFailure) await this.save(tx, this.continueFailure(current, job));
+                else {
+                  // Host, authorization and storage failures must remain visible; do not invent an action.
+                  current.status = 'blocked'; current.error = code; current.revision++;
+                  await this.save(tx, current);
+                }
+                return;
+              }
             } else {
               current.status = 'blocked'; current.error = result.error?.code ?? 'DECISION_FAILED';
             }
@@ -391,6 +408,10 @@ export class RoomRuntime {
       if (action === null) {
         if (this.definition.fallbackDecision && room.phaseDeadlineAt !== undefined) {
           room.pendingJobs[job.lane]!.failedReason = reason;
+          if (this.definition.fallbackOnFailure?.(room)) {
+            await this.save(tx, this.continueFailure(room, job));
+            return;
+          }
           room.revision++;
           await this.save(tx, room);
           return;
@@ -398,10 +419,20 @@ export class RoomRuntime {
         throw new HarnessError(reason);
       }
       let next: Room;
-      try { next = acceptDecision(room, job.phaseInstance, job.seat, action, this.definition); }
+      try { next = acceptDecision(room, job.phaseInstance, job.seat, action, this.definition, 'script'); }
       catch (error) {
         if (!this.definition.fallbackDecision || room.phaseDeadlineAt === undefined) throw error;
-        room.pendingJobs[job.lane]!.failedReason = error instanceof HarnessError ? error.code : 'RULE_REJECTED';
+        const code = error instanceof HarnessError ? error.code : 'INTERNAL_ERROR';
+        room.pendingJobs[job.lane]!.failedReason = code;
+        if (this.definition.fallbackOnFailure?.(room)) {
+          if (error instanceof HarnessError && ['INVALID_DECISION', 'RULE_REJECTED'].includes(code)) {
+            await this.save(tx, this.continueFailure(room, job));
+          } else {
+            room.status = 'blocked'; room.error = code; room.revision++;
+            await this.save(tx, room);
+          }
+          return;
+        }
         room.revision++;
         await this.save(tx, room);
         return;
@@ -413,6 +444,15 @@ export class RoomRuntime {
       await this.save(tx, next);
     });
     return this.spectate(snapshot.id);
+  }
+
+  private continueFailure(room: Room, job: PendingDecision): Room {
+    const reason = room.pendingJobs[job.lane]?.failedReason ?? 'DECISION_FAILED';
+    const next = acceptDecision(room, job.phaseInstance, job.seat, this.definition.fallbackDecision!(room, job.seat, reason), this.definition, 'default');
+    delete next.pendingJobs[job.lane];
+    if (next.phaseInstance !== room.phaseInstance) next.pendingJobs = {};
+    this.startWindow(next, room.phaseInstance);
+    return next;
   }
 
   /** Opt-in trusted host scheduler; no automatic application startup or network retry. */

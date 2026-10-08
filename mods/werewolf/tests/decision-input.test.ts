@@ -5,6 +5,7 @@ import { werewolfDefinition } from '../src/definition.ts';
 import { prepareWerewolfDecision } from '../src/decision-input.ts';
 import { decodeWerewolfDecision } from '../src/decision-adapter.ts';
 import type { Match } from '../src/match.ts';
+import { endPreparation } from './team-fixture.ts';
 
 test('script and model seats receive the same six-part authorized SPEECH/SELECT contract', () => {
   const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
@@ -14,6 +15,7 @@ test('script and model seats receive the same six-part authorized SPEECH/SELECT 
     ...(seat === 1 ? { userId: 'robot-1', persona: '谨慎但敢于质疑。' } : {}),
     scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
   }, definition);
+  room = endPreparation(room, definition);
   const one = prepareWerewolfDecision(room, 1, definition);
   const two = prepareWerewolfDecision(room, 2, definition);
   assert.equal(one.intent, 'SELECT');
@@ -48,6 +50,7 @@ test('WW-C4-01/03: game_state is an explicit public allowlist, with seat-specifi
     return { ...projected, futurePrivateField: { secret: 'DO_NOT_SHARE' },
       players: projected.players.map(player => ({ ...player, privateDiagnosis: 'DO_NOT_SHARE' })) };
   } };
+  room = endPreparation(room, definition);
   const one = prepareWerewolfDecision(room, 1, injectedDefinition);
   const two = prepareWerewolfDecision(room, 2, injectedDefinition);
   assert.deepEqual(one.context.game_state, two.context.game_state);
@@ -66,6 +69,7 @@ test('model facts separate the peaceful public night from a wolf private knife t
     seat, name: `${seat}号`, modelProfile: 'script-random',
     scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
   }, definition);
+  room = endPreparation(room, definition);
   const players = (room.state as unknown as Match).game.players;
   const wolf = players.find(player => player.role === 'wolf')!.seat;
   const villager = players.find(player => player.role === 'villager')!.seat;

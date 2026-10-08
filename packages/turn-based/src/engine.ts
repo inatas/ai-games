@@ -1,6 +1,6 @@
 import { Ajv } from 'ajv';
 import { HarnessError, canonical, type Json } from '@game-ai/core';
-import type { GameEvent, Phase, Room, RoomDefinition, RoomLimits, Seat, SpectatorView, VisibleEvent, Transition } from './types.ts';
+import type { DecisionOrigin, GameEvent, Phase, Room, RoomDefinition, RoomLimits, Seat, SpectatorView, VisibleEvent, Transition } from './types.ts';
 import { assertDecisionRuleSet } from './decision-rules.ts';
 
 const ajv = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false });
@@ -32,7 +32,8 @@ export function assertPhase(room: Room, phase: Phase): void {
       !['sequential', 'sealed'].includes(phase.mode) || !Array.isArray(phase.actors) || !phase.actors.length ||
       new Set(phase.actors).size !== phase.actors.length ||
       phase.actors.some(seat => !room.seats.some(s => s.seat === seat)) ||
-      !phase.schema || typeof phase.schema !== 'object') fail('INVALID_PHASE');
+      !phase.schema || typeof phase.schema !== 'object' ||
+      (phase.windowGroup !== undefined && !text(phase.windowGroup))) fail('INVALID_PHASE');
   if (phase.interrupt && (!text(phase.interrupt.key) || !Array.isArray(phase.interrupt.actors) ||
       !phase.interrupt.actors.length || new Set(phase.interrupt.actors).size !== phase.interrupt.actors.length ||
       phase.interrupt.actors.some(actor => !room.seats.some(s => s.seat === actor)))) fail('INVALID_PHASE');
@@ -113,13 +114,15 @@ export function validateDecision(room: Room, instance: number, seat: number, val
   if (def.validate(structuredClone(room.state), structuredClone(room.phase!), seat, structuredClone(value)) !== true) fail('RULE_REJECTED');
 }
 
-export function acceptDecision(source: Room, instance: number, seat: number, value: Json, def: RoomDefinition): Room {
+export function acceptDecision(source: Room, instance: number, seat: number, value: Json, def: RoomDefinition,
+  origin: DecisionOrigin = 'external'): Room {
+  if (!['model', 'script', 'rule', 'default', 'external'].includes(origin)) fail('INVALID_ORIGIN');
   validateDecision(source, instance, seat, value, def);
   const room = structuredClone(source);
   const phase = room.phase!;
-  room.decisions.push({ seat, value: structuredClone(value) });
+  room.decisions.push({ seat, value: structuredClone(value), origin });
   // The mandatory audit is private to its owner until a normal finish.
-  appendEvents(room, [{ type: 'decision', audience: [seat], data: { seat, value } }]);
+  appendEvents(room, [{ type: 'decision', audience: [seat], data: { seat, value, origin } }]);
   if (phase.mode === 'sequential') {
     appendEvents(room, def.onDecision?.(structuredClone(room.state), structuredClone(phase), seat, structuredClone(value)) ?? []);
   }
@@ -197,8 +200,9 @@ export function acceptInterrupt(source: Room, instance: number, seat: number, va
   return room;
 }
 
-function visibleEvents(room: Room, viewer: number | null, reveal: boolean): VisibleEvent[] {
-  return room.events.filter(event => reveal || event.audience === 'public' ||
+function visibleEvents(room: Room, viewer: number | null, reveal: boolean, def: RoomDefinition): VisibleEvent[] {
+  return room.events.filter(event => event.audience === 'public' ||
+    (reveal && (def.revealEvent?.(structuredClone(event)) ?? true)) ||
     (viewer !== null && Array.isArray(event.audience) && event.audience.includes(viewer)))
     .map(({ sequence, phaseInstance, type, data }) => ({ sequence, phaseInstance, type, data: structuredClone(data) }));
 }
@@ -213,7 +217,7 @@ export function actorView(room: Room, viewer: number, def: RoomDefinition): Json
     seats: room.seats.map(s => ({ seat: s.seat, name: s.name })),
     phase: room.phase ? { key: room.phase.key, round: room.phase.round, instance: room.phaseInstance } : null,
     state: room.status === 'waiting' ? null : def.project(structuredClone(room.state), viewer),
-    events: visibleEvents(room, viewer, false) as unknown as Json,
+    events: visibleEvents(room, viewer, false, def) as unknown as Json,
   };
 }
 
@@ -225,7 +229,7 @@ export function spectatorView(room: Room, def: RoomDefinition): SpectatorView {
     seats: room.seats.map(s => ({ seat: s.seat, name: s.name })),
     phase: room.phase ? { label: room.phase.label, round: room.phase.round } : null,
     state: room.status === 'waiting' ? null : def.project(structuredClone(room.state), null),
-    events: visibleEvents(room, null, reveal), result: reveal ? structuredClone(room.result) : null,
+    events: visibleEvents(room, null, reveal, def), result: reveal ? structuredClone(room.result) : null,
     ...(reveal && def.reveal ? { replay: def.reveal(structuredClone(room.state)) } : {}),
   };
 }

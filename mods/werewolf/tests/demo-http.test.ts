@@ -26,7 +26,7 @@ test('V4-02: host timer advances without GET and is disposed when Fastify closes
   const app = await buildWerewolfDemo({rooms});
   try {
     const game = (await app.inject({method:'POST',url:'/api/werewolf/demo',payload:{seed:42,strategy:'random'}})).json();
-    now = 90_000;
+    now = 135_000;
     await setTimeout(200);
     assert.equal(rooms.get(game.id).phaseLabel, '上警报名');
     await app.close();

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { endPreparation } from './team-fixture.ts';
 import { createRoom, occupySeat } from '@game-ai/turn-based';
 import { parsePersonalEvidenceUpdate } from '../src/personal-evidence.ts';
 import { werewolfDefinition } from '../src/definition.ts';
@@ -41,6 +42,7 @@ test('WW-PM01: the optional sidecar is available in both action schemas without 
   for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
     seat, name: `${seat}号`, modelProfile: 'model', scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
   }, definition);
+  room = endPreparation(room, definition);
   const select = prepareWerewolfDecision(room, 10, definition);
   assert.equal(select.intent, 'SELECT');
   assert.deepEqual((select.outputSchema as { required: string[] }).required, ['selected']);

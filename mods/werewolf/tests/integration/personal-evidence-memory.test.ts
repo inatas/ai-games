@@ -6,12 +6,14 @@ import { RoomRuntime, eligibleActors } from '@game-ai/turn-based';
 import { startTestDatabase } from '../../../../tests/support/database.ts';
 import { ScriptDecisionAdapter } from '../../src/decision-adapter.ts';
 import { werewolfDefinition } from '../../src/definition.ts';
+import { createGame } from '../../src/rules.ts';
 
 test('WW-PM01/02/03: one model seat keeps a private judgment across real room decisions', async () => {
   const db = await startTestDatabase();
   let now = 1_000;
   let sawPrevious = false;
   let emitted = false;
+  const modelSeat = createGame(42).players.find(player => player.role === 'wolf')!.seat;
   const model = new ScriptedModel(request => {
     const shared = request.messages.find(message => message.content.startsWith('SHARED_PUBLIC_FACTS:'))!;
     const history = JSON.parse(shared.content.slice('SHARED_PUBLIC_FACTS:'.length)) as { sequence?: number }[];
@@ -24,8 +26,12 @@ test('WW-PM01/02/03: one model seat keeps a private judgment across real room de
     } : 'bad-shape';
     if (source && !emitted) emitted = true;
     const properties = (request.outputSchema as { properties: { selected?: { enum: string[] }; speech?: object } }).properties;
+    const facts = JSON.parse(request.messages.find(message => message.content.startsWith('CURRENT_FACTS:'))!.content.slice('CURRENT_FACTS:'.length));
+    // This memory fixture must keep the model alive for a later read; do not accidentally self-knife.
+    const pass = facts.current_action.options.find((option: { value: { kind: string; target?: number | null } }) =>
+      option.value.kind === 'knife' && option.value.target === null);
     return JSON.stringify({ ...(properties.speech ? { speech: '我继续观察公开信息。' }
-      : { selected: properties.selected!.enum[0] }), personal_evidence_update: sidecar });
+      : { selected: pass?.id ?? properties.selected!.enum[0] }), personal_evidence_update: sidecar });
   });
   const runtime = new RoomRuntime(db.store, werewolfDefinition({ seed: 42, sheriff: 'double' }), {
     model, script: new ScriptDecisionAdapter({ speech: '我继续观察。', strategy: 'fixed', seed: 1 }),
@@ -34,7 +40,7 @@ test('WW-PM01/02/03: one model seat keeps a private judgment across real room de
     await db.store.migrate(); await runtime.migrate();
     const created = await runtime.create(randomUUID());
     for (let seat = 1; seat <= 12; seat++) await runtime.seat(created.id, {
-      seat, name: `${seat}号`, modelProfile: seat === 3 ? 'model' : 'script',
+      seat, name: `${seat}号`, modelProfile: seat === modelSeat ? 'model' : 'script',
     });
     for (let step = 0; step < 1500 && !sawPrevious; step++) {
       const room = await runtime.inspect(created.id);
@@ -49,12 +55,12 @@ test('WW-PM01/02/03: one model seat keeps a private judgment across real room de
       }
     }
     assert.equal(emitted, true, 'model seat should see a public source');
-    assert.equal(sawPrevious, true, 'later model request should read its own committed judgment');
     const room = await runtime.inspect(created.id);
-    const ownScope = room.seats.find(seat => seat.seat === 3)!.scopeId;
+    const ownScope = room.seats.find(seat => seat.seat === modelSeat)!.scopeId;
     const fact = await db.store.internalFact(ownScope, 'werewolf.decision-memory.v2');
+    assert.equal(sawPrevious, true, 'later model request should read its own committed judgment');
     assert.equal((fact?.payload as { entries: { judgment: string }[] }).entries[0]?.judgment, '3号暂时关注夜间结果');
-    for (const seat of room.seats.filter(seat => seat.seat !== 3)) {
+    for (const seat of room.seats.filter(seat => seat.seat !== modelSeat)) {
       assert.equal(await db.store.internalFact(seat.scopeId, 'werewolf.decision-memory.v2'), null);
     }
     assert.equal(JSON.stringify(await runtime.spectate(room.id)).includes('3号暂时关注夜间结果'), false);

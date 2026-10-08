@@ -13,6 +13,6 @@ export const werewolfRuleHandlers: RuleHandlerRegistry = {
   },
   'speech-language': {
     matches: input => input.intent === 'SPEECH' &&
-      ['speech', 'election-speech', 'pk', 'election-pk', 'last-words'].includes(input.scene),
+      ['speech', 'election-speech', 'pk', 'election-pk', 'last-words', 'wolf-team-proposal'].includes(input.scene),
   },
 };

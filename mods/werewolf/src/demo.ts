@@ -6,6 +6,7 @@ import { werewolfDefinition } from './definition.ts';
 import type { GameView } from './views.ts';
 import { nightActionSchema, type Match } from './match.ts';
 import { maxSpeechChars } from './speech-policy.ts';
+import { isTeamPhase } from './team-phase.ts';
 
 interface Session {
   roster?: ScriptRobotUser[];
@@ -40,6 +41,7 @@ export class DemoRooms {
   }
 
   private waitTime(session: Session): number {
+    if (isTeamPhase(session.room.phase?.key)) return this.budget(session);
     return ['wolves', 'witch', 'election-withdrawal', 'speech', 'election-speech', 'pk', 'election-pk', 'last-words'].includes(session.room.phase?.key ?? '') ? this.budget(session) : 3_000;
   }
 
@@ -59,7 +61,7 @@ export class DemoRooms {
       seat, name: roster?.[seat - 1].nickname ?? `${seat}号玩家`, modelProfile: 'fixed-text-demo', scopeId: `seat-${seat}`, interruptScopeId: `interrupt-${seat}`,
     }, definition);
     const session: Session = { roster: scriptRoster ? structuredClone(scriptRoster) : undefined, room, definition, random: (seed ^ 20260963) >>> 0, strategy,
-      revision: 0, dueAt: this.now() + 60_000, nightTail: false, touched: this.now(), phases: new Map() };
+      revision: 0, dueAt: this.now() + definition.windowMs!(room), nightTail: false, touched: this.now(), phases: new Map() };
     session.phases.set(room.phaseInstance, { day: 1, period: 'night' });
     this.sessions.set(id, session);
     return this.snapshot(session);
@@ -101,7 +103,7 @@ export class DemoRooms {
     if (room.status !== 'running' || !room.phase) return;
     const match = room.state as unknown as Match;
     // Preserve the same public night duration even when the witch is dead.
-    if (match.stage === 'wolves' && !session.nightTail && !match.game.players.some(p => p.alive && p.role === 'witch')) {
+    if (room.phase.key === 'wolves' && !session.nightTail && !match.game.players.some(p => p.alive && p.role === 'witch')) {
       session.nightTail = true;
       session.dueAt += 30_000;
       session.revision++;
@@ -126,8 +128,12 @@ export class DemoRooms {
     const actors = room.phase.mode === 'sealed' ? eligibleActors(room) : eligibleActors(room).slice(0, 1);
     for (const actor of actors) {
       activeRobot = session.roster?.[actor - 1];
-      const schema = match.stage === 'wolves' ? nightActionSchema(match, actor) : room.phase.schema;
-      next = acceptDecision(next, room.phaseInstance, actor, sample(schema as Schema), session.definition);
+      const schema = room.phase.key === 'wolves' ? nightActionSchema(match, actor) : room.phase.schema;
+      // The fixed-text offline demo cannot author a structured team plan. End preparation at its cutoff.
+      const teamPhase = isTeamPhase(room.phase.key);
+      next = acceptDecision(next, room.phaseInstance, actor, teamPhase
+        ? session.definition.fallbackDecision!(next, actor, 'GAME_DEADLINE') : sample(schema as Schema),
+        session.definition, teamPhase ? 'default' : 'script');
     }
     session.room = next;
     session.random = random;
@@ -157,7 +163,8 @@ export class DemoRooms {
         seat: data.seat, text: data.text };
     });
     const nightExtra = room.phase?.key === 'wolves' && !session.nightTail ? 30_000 : 0;
-    const nightSegment: 'shared' | 'medicine' | null = !running || view.period !== 'night' ? null : nightExtra ? 'shared' : 'medicine';
+    const nightSegment: 'shared' | 'medicine' | null = !running || view.period !== 'night' ? null
+      : isTeamPhase(room.phase?.key) || nightExtra ? 'shared' : 'medicine';
     const speakerSeat = running && view.period === 'day' && ['speech', 'pk', 'election-speech', 'election-pk', 'last-words'].includes(room.phase?.key ?? '') ? eligibleActors(room)[0] ?? null : null;
     const revealed = publicView.replay as unknown as { players: { seat: number; role: string }[] } | undefined;
     return {

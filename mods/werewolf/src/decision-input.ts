@@ -6,6 +6,8 @@ import { maxSpeechChars } from './speech-policy.ts';
 import { currentBoardId, selectWerewolfKnowledge, werewolfKnowledge } from './knowledge.ts';
 import type { Role } from './rules.ts';
 import { buildPublicHistory } from './public-evidence.ts';
+import { isTeamPhase } from './team-phase.ts';
+import { permittedWolfTargets } from './wolf-team.ts';
 
 interface ChoiceSchema {
   const?: Json;
@@ -13,6 +15,7 @@ interface ChoiceSchema {
   oneOf?: ChoiceSchema[];
   type?: string;
   properties?: Record<string, ChoiceSchema>;
+  required?: string[];
 }
 
 type RoomEvent = Room['events'][number];
@@ -65,6 +68,7 @@ function choices(schema: ChoiceSchema): Json[] {
   if (schema.type === 'object' && schema.properties) {
     let combinations: Record<string, Json>[] = [{}];
     for (const [key, property] of Object.entries(schema.properties)) {
+      if (schema.required && !schema.required.includes(key)) continue;
       combinations = combinations.flatMap(partial => choices(property).map(value => ({ ...partial, [key]: value })));
     }
     return combinations;
@@ -98,11 +102,30 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
   if (!roleFacts) throw new Error('MISSING_ACTOR_FACTS');
   if ((room.state as unknown as Match).boardId !== currentBoardId) throw new Error('UNKNOWN_BOARD');
   const knowledge = selectWerewolfKnowledge(werewolfKnowledge, roleFacts.role as Role);
+  const match = room.state as unknown as Match;
+  const team = match.wolfTeam;
+  const teamHistory = roleFacts.role === 'wolf' ? room.events.filter(event => event.type.startsWith('wolf-team-') &&
+    Array.isArray(event.audience) && event.audience.includes(seat)) : [];
+  const planEvents = team?.plan ? teamHistory.filter(event => {
+    const data = event.data as { planId?: string; version?: number };
+    return data.planId === team.plan!.planId && data.version === team.plan!.version;
+  }) : [];
+  const teamPlan = team?.plan ? { ...team.plan,
+    knifeStatus: match.stage === 'wolves' ? team.step === 'done' ? 'open' : 'organization' : 'settled',
+    sourceSequences: planEvents.map(event => event.sequence),
+    adoptions: planEvents.filter(event => event.type === 'wolf-team-response').map(event => event.data),
+  } : null;
+  const teamScene = isTeamPhase(room.phase.key);
   const schema = room.phase.key === 'wolves'
     ? nightActionSchema(room.state as unknown as Match, seat) as ChoiceSchema
     : room.phase.schema as ChoiceSchema;
   const speech = schema.properties?.text?.type === 'string';
-  const options: DecisionOption[] = speech ? [] : choices(schema).map((value, index) => ({ id: `option-${index}`, value }));
+  const values = speech ? [] : choices(schema).filter(value => {
+    if (room.phase!.key !== 'wolves' || roleFacts.role !== 'wolf' || !team) return true;
+    const action = value as { target: number | null };
+    return action.target === null || permittedWolfTargets(match.game, team, seat).includes(action.target);
+  });
+  const options: DecisionOption[] = values.map((value, index) => ({ id: `option-${index}`, value }));
   const intent: DecisionInput['intent'] = speech ? 'SPEECH' : 'SELECT';
   const scene = room.phase.key;
   const spokenPhases = (room.phaseHistory ?? []).filter(phase =>
@@ -114,6 +137,12 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
     phaseInstance: room.phaseInstance,
     ...(room.phaseActionDeadlineAt === undefined ? {} : { deadlineAt: room.phaseActionDeadlineAt }),
     publicEventWatermark: events.length,
+    ...(teamScene ? { team_organization: { participants: team!.participants, slot: team!.step,
+      normalOnly: team!.normalOnly,
+      task: team!.step === 'consent' ? '对当前版本是否愿意被自刀作明确接受或拒绝，不代替队友同意。'
+        : team!.step === 'wait' ? '等待共同准备期限，不继续组织调用。'
+        : '提出本夜刀口、白天分工及调整条件；用speech表达，并以team_proposal提交可供队友参考的结构化建议。',
+    } } : {}),
   };
   return {
     actor: { roomId: room.id, seat, phaseInstance: room.phaseInstance }, intent, scene, options,
@@ -123,9 +152,11 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
     outputSchema: speech
       ? { type: 'object', additionalProperties: false, required: ['speech'], properties: {
         speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars }, personal_evidence_update: {}, strategy_update: {},
+        ...(teamScene ? { team_proposal: {} } : {}),
       } }
       : { type: 'object', additionalProperties: false, required: ['selected'], properties: {
         selected: { enum: options.map(option => option.id) }, personal_evidence_update: {}, strategy_update: {},
+        ...(room.phase.key === 'wolves' && roleFacts.role === 'wolf' ? { team_response: {} } : {}),
       } },
     context: {
       rules: {
@@ -146,6 +177,11 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
       },
       self: { ...envelope.self, role: roleFacts.role, ...(persona ? { persona } : {}) },
       private_information: { ...roleFacts, events: privateEvents,
+        ...(roleFacts.role === 'wolf' && team ? {
+          team_plan: teamPlan as unknown as Json,
+          team_history: teamHistory
+            .map(({ sequence, type, data }) => ({ sequence, type, data })),
+        } : {}),
         ...(pendingKnife ? { current_intel: { kind: 'wolf-knife-target',
           ...(pendingKnife.data as { night: number; target: number | null }), outcome: 'pending' } } : {}) },
       public_history: buildPublicHistory(room),

@@ -15,6 +15,7 @@ export type MatchStage = 'wolves' | 'witch' | 'nominations' | 'election'
   | 'settlement' | 'direction' | 'speech' | 'vote' | 'pk' | 'finished';
 export interface MatchOptions { seed: number; sheriff: SheriffMode; boardId?: string }
 export interface Match {
+  wolfTeam?: import('./wolf-team.ts').WolfTeam;
   boardId: string;
   game: GameState;
   mode: SheriffMode;

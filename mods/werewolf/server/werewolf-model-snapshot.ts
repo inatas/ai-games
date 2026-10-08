@@ -11,7 +11,7 @@ export function modelRoomSnapshot(room: Room, definition: RoomDefinition, users:
   const publicView = spectatorView(room, definition);
   const state = publicView.state as unknown as GameView;
   const meta = new Map((room.phaseHistory ?? []).map(phase => [phase.instance, {
-    day: phase.round, period: ['wolves', 'witch'].includes(phase.key) ? 'night' as const : 'day' as const,
+    day: phase.round, period: ['wolves', 'witch'].includes(phase.key) || phase.key.startsWith('wolf-team-') ? 'night' as const : 'day' as const,
   }]));
   const publicEvents = room.events.filter(event => event.audience === 'public');
   const events = publicEvents.map((event, index) => ({
@@ -60,7 +60,7 @@ export function modelRoomSnapshot(room: Room, definition: RoomDefinition, users:
     events, result: publicView.result,
     ...(room.status === 'finished' ? {
       roles: replay?.players?.map(({ seat, role }) => ({ seat, role })) ?? [],
-      replay: room.events.map(event => ({
+      replay: publicView.events.map(event => ({
         sequence: event.sequence, ...(meta.get(event.phaseInstance) ?? { day: state.night, period: state.period }),
         type: event.type, data: structuredClone(event.data),
       })).reduce<NonNullable<DemoSnapshot['replay']>>((frames, event) => {

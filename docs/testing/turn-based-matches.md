@@ -1,8 +1,8 @@
 # 房间制回合框架验收 v1
 
-## 连续阶段窗口与失败续接（v1，待确认）
+## 连续阶段窗口与失败续接（v1，已实施）
 
-需求 [032](../../.agents/note/032-shared-stage-deadline-and-failure-continuation.md)，当前仅说明用例，未生成可执行测试。
+需求 [032](../../.agents/note/032-shared-stage-deadline-and-failure-continuation.md)。新增 packages/turn-based/tests/windows.test.ts（2 项）与 tests/integration/shared-stage-window.test.ts（5 项），覆盖同组截止、长度不变、离组计时、固定等待、失败续接、准入、来源、隔离 PostgreSQL 重启及终局私有事件。新增行为先失败后通过。并发、事务回滚及旧 epoch 边界同时沿用现有中性 turn-based／interrupt 集成回归。2026-10-09全仓隔离回归322/322通过，类型、仓库及前端构建通过；无付费模型调用。
 
 - TB-WG01～02：同组两步各提前完成仍用原截止，不能延时；离组正常启用新窗口，同组长度变化拒绝。
 - TB-WG03～04：显式启用时终止失败立即默认续接，未启用仍等原截止；最终固定等待不提前结束。
