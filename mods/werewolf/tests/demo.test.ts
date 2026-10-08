@@ -59,6 +59,20 @@ test('UI-02/04: fixed/random runs finish; night segments and deaths cannot revea
   }
 });
 
+test('demo displays the authoritative twenty-second budget for nominations and exile votes', () => {
+  const clock = demoClock();
+  let game = clock.rooms.create(42, 'random');
+  const seen = new Set<string>();
+  for (let i = 0; game.status === 'running' && i < 200 && seen.size < 2; i++) {
+    if (game.phaseTransition?.kind === 'campaign' || game.phaseTransition?.kind === 'exile-vote') {
+      seen.add(game.phaseTransition.kind);
+      assert.equal(game.timing.remainingMs, 20_000);
+    }
+    game = clock.advance(game.id);
+  }
+  assert.deepEqual([...seen].sort(), ['campaign', 'exile-vote']);
+});
+
 test('current speech belongs to the live speaker and disappears outside speech', () => {
   const clock = demoClock('第一行\n第二行');
   let game = clock.rooms.create(22, 'random');

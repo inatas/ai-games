@@ -12,6 +12,8 @@
 
 ## 快速启动
 
+快速启动脚本会读取可选的 `.local/compose.active.yaml` 覆盖文件，固定最近一次已验证的本机发布镜像；没有该文件时仍按主 Compose 配置启动。覆盖文件不含模型凭据，属于本机部署状态。014 发布前的基线是 `diagnostics-select`，本轮发布结果见下方记录。
+
 新增 PowerShell 脚本 `scripts/start-werewolf-local.ps1`，并提供 `npm run werewolf:web` 快捷指令。脚本从 `$PSScriptRoot` 定位项目根目录，验证 `.env` 指向的 `AI_GAMES_MODEL_ENV_FILE` 存在、Docker Compose 可用且现有模型镜像可启动，再在项目目录执行 `docker compose up -d --no-build app`。等待健康接口成功后输出 `http://127.0.0.1:<APP_PORT>/werewolf`。脚本可重复运行；不接收或打印供应商 Key，不对旧库执行清理，不自动创建付费房间，不起第二个宿主机进程。若镜像缺失，给出需要构建的提示。Compose 宿主端口继续只绑定回环地址。
 
 当前已运行的服务不依赖新增脚本；清理时先停 app，脚本完成并验证后由新脚本启动同一服务，供用户从网页亲自开新局。
@@ -33,3 +35,17 @@
 执行顺序：停旧 app 冻结写入；对整个 `harness` 开发库作新备份并校验归档；单事务按上述四个 UUID 与数量断言，检查没有新增狼人杀房间、非终态房间或跨 MOD scope 引用；显式删除关联请求、记忆、座位、scope、房间与全部狼人杀日志，不使用 `CASCADE`；提交后复查范围。然后以已通过类型、仓库和前端构建的新 app 镜像启动同一服务，核对 Compose 容器健康、网页、模型 profile 和空白狼人杀记录。不开付费新局、不动其他 MOD、账号、数据库卷或供应商账单。旧备份只配合旧代码恢复；浏览器中旧房间 ID 将返回未找到。
 
 实施结果：旧 app 停止后生成并以 `pg_restore -l` 验证完整备份 `.local/ai-games-before-knowledge-release-20260926.dump`，大小 1,703,817 字节，SHA-256 为 `2BDA70FD814D8DC89575898A67C4E1D4311C82398C473471A197F2B69A912FE4`。忽略目录中的 `.local/werewolf-knowledge-release-20260926.sql` 对库名、房间状态、精确行数和外部引用设断言；单事务实际删除 424 请求、416 记忆、48 座位、96 scope、4 房间、1,317 条狼人杀日志。复查狼人杀房间/日志均为 0，其他日志仍为 6。新镜像 `sha256:dc72da7e7cf4165edf2784a0f4eb5ff6943b5d753060d9c5ad3ec47a9ac78423` 已由同一 Compose app 重建并健康，容器内知识 Markdown 20 篇；`/api/health`、`/werewolf` 均返回 200，模型 profile 接口可用，旧房间接口返回 404。未创建新付费局；真实 KV 命中率待用户新局观测。
+
+## v4 旧房间清理（2026-09-27）
+
+用户在 v4 部署后再次确认旧房间及数据可删除。只读盘点确认本机 `game-ai-harness` 的开发库 `harness` 仅有旧定义 `blocked` 房间 `0d328f1c-082a-4ca2-893f-e4c39c70b000`，关联 12 座位、24 专属 scope、49 请求、41 记忆；狼人杀日志共 200 条，其中 199 条属于该房间，1 条是无房间的旧 shadow activation。其他 MOD 日志 6 条；目标 scope 未被账号、其他房间、NPC 或武侠表引用，旧 `fw_model_calls` 也未引用。
+
+先停止 app 冻结写入，完整备份开发库到 Git 忽略的 `.local/ai-games-before-context-v4-cleanup-20260927.dump`，以 `pg_restore -l` 校验；大小 159,865 字节，SHA-256 为 `DDD12008C5D882488E3141701D945DB79CCB20045D3DB351B4F966E03AB0FC92`。忽略目录中的 `.local/werewolf-context-v4-cleanup-20260927.sql` 对数据库、房间身份/状态/版本、精确行数、其他 MOD 日志和跨表引用设断言，在单事务中显式删除 49 请求、41 记忆、12 座位、24 scope、1 房间与 200 条狼人杀日志，不使用 `CASCADE`。提交后复查房间、座位及狼人杀日志均为 0，其他 MOD 日志仍为 6。恢复同一 Compose app 后，`/api/health` 与 `/werewolf` 均为 HTTP 200；未创建新局或发起模型调用。旧房间 URL 不再可回放，需从备份及对应旧代码恢复。
+
+## 014 职业知识发布（2026-10-08，已发布）
+
+用户授权继续发布 [014 v1.2](../.agents/note/014-wolf-tactical-knowledge.md)。已核实原本 Docker Desktop 停止，后台启动后本项目开发库只有 2 个 finished 狼人杀房间，没有非终态房间；不清历史。只在现有诊断镜像上叠加七个知识文件与固定提示，保留基线游戏计时，定义使用新的知识摘要及当前部署版本后缀；不发布工作区额外 t2 计时调整。旧镜像保留以便恢复部署，旧局记录保持，但新版不保证按旧知识版本继续读取其游戏接口。
+
+发布使用 Git 忽略的 `.local/kb014-release` 最小上下文，不含密钥、日志、数据库备份。临时容器验证禁用网络且不连接数据库；切换后沿用 `npm run werewolf:web`，检查网页与模型配置接口，用户自行开新局。真实模型策略效果和 KV 命中率不由容器健康检查代替。
+
+已构建 `game-ai-harness-app:kb014-v12`，镜像 manifest list 为 `sha256:2ec7c35d8cf0776b81850593824bde8e788db94762e6d58ffe092fa71286a996`。无网络临时容器定向 14/14 通过，知识摘要与七份已审阅文件一致，定义恢复拒绝旧摘要；覆盖文件固定新镜像，旧覆盖保留在 `.local/compose.before-kb014.yaml`。启动脚本成功，Compose app running/healthy，健康和网页为 HTTP 200，13 Robot 中 12 模型＋1 脚本可用。在线库仍只有 2 个 finished 房间，未创建付费局或删除记录。网页为 `http://127.0.0.1:4318/werewolf`；普通启动命令已复用本次镜像。

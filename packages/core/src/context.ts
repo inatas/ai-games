@@ -5,7 +5,7 @@ export type TokenCounter = (messages: Message[]) => number;
 export const conservativeCounter: TokenCounter = messages => messages.reduce((n, m) => n + Buffer.byteLength(m.content, 'utf8') + 16, 32);
 export function buildContext(args: {
   facts: Json; instructions: string; input: Json; schema: object;
-  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json;
+  promptParts?: { sharedPublicFacts: Json; sharedCurrentState?: Json; dynamicFacts: Json;
     sharedKnowledge?: { id: string; content: string }[];
     privateKnowledge?: { id: string; content: string };
     matchedGuidance?: string[] };
@@ -26,6 +26,8 @@ export function buildContext(args: {
     ...(args.promptParts?.sharedKnowledge?.map(entry => ({ role: 'system' as const,
       content: `KNOWLEDGE:${entry.id}:${entry.content}` })) ?? []),
     ...(args.promptParts ? [{ role: 'user' as const, content: 'SHARED_PUBLIC_FACTS:' + JSON.stringify(args.promptParts.sharedPublicFacts) }] : []),
+    ...(args.promptParts?.sharedCurrentState !== undefined ? [{ role: 'user' as const,
+      content: 'SHARED_CURRENT_STATE:' + JSON.stringify(args.promptParts.sharedCurrentState) }] : []),
     ...(args.promptParts?.privateKnowledge ? [{ role: 'system' as const,
       content: `PRIVATE_KNOWLEDGE:${args.promptParts.privateKnowledge.id}:${args.promptParts.privateKnowledge.content}` }] : []),
     ...(args.promptParts?.matchedGuidance?.length ? [{ role: 'system' as const,

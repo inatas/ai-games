@@ -42,3 +42,35 @@ test('WW-E12: editing one term changes the frozen room knowledge digest', () => 
     assert.notEqual(loadWerewolfKnowledge(root).digest, before);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('WW-WK02/06: all six roles share the public badge-flow convention and only their own guide', () => {
+  const knowledge = loadWerewolfKnowledge();
+  const publicSeer = knowledge.sharedKnowledge.find(entry => entry.id === 'role:seer')!;
+  assert.match(publicSeer.content, /警徽流/);
+  assert.match(publicSeer.content, /验人顺序/);
+  assert.match(publicSeer.content, /撕掉警徽/);
+  for (const role of ['wolf', 'seer', 'witch', 'hunter', 'idiot', 'villager'] as const) {
+    const selected = selectWerewolfKnowledge(knowledge, role);
+    assert.equal(selected.sharedKnowledge.find(entry => entry.id === 'role:seer'), publicSeer);
+    assert.equal(selected.privateKnowledge, knowledge.guides[role]);
+    assert.equal(selected.sharedKnowledge.some(entry => entry.id.startsWith('guide:')), false);
+  }
+});
+
+test('WW-WK03: each role guide and the public seer convention participate in the frozen digest', () => {
+  const source = fileURLToPath(new URL('../knowledge/', import.meta.url));
+  for (const relative of [
+    ...['wolf', 'seer', 'witch', 'hunter', 'idiot', 'villager'].map(role => `guides/${role}.md`),
+    'roles/seer.md',
+  ]) {
+    const root = mkdtempSync(join(tmpdir(), 'werewolf-tactics-version-'));
+    try {
+      cpSync(source, root, { recursive: true });
+      const frozen = loadWerewolfKnowledge(root);
+      const before = JSON.stringify(frozen);
+      writeFileSync(join(root, relative), '# 人工修订\n\n用于验证知识版本冻结。\n');
+      assert.notEqual(loadWerewolfKnowledge(root).digest, frozen.digest, relative);
+      assert.equal(JSON.stringify(frozen), before, 'editing a file must not hot-replace a loaded catalog');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+});

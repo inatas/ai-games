@@ -20,6 +20,7 @@
 
 - `GET /api/werewolf/model/:id/model-events?after&limit` 保留受测试口令保护的诊断入口和 cursor 分页，用于完整原文检查；前端日常列表新增分页摘要投影 `GET /api/werewolf/model/:id/model-calls?after&limit&seat&result`，按 `requestId + attempt` 关联事件，返回 `sequence/occurredAt/userId/seatNo/role/phase/micNo/profile/attempt/status/latencyMs/errorCode/httpStatus/inputTokens/outputTokens/cacheHitTokens/cacheMissTokens/schemaValid/gameCommitted`，未知量为 `null`，不把完整 messages 和 rawText 放进列表。
 - `GET /api/werewolf/model/:id/model-calls/:requestId/:attempt` 受测试口令保护，返回该尝试的开始、完成/失败、裁判事件及原始请求/响应。详情必须保留 `modelRequest.messages` 的实际顺序、Schema、token 上限和模型原文截断状态；密钥、Authorization、连接串和原始异常消息禁止入库或出接口。
+- 已确认的 JEV 对照入口修正：调用摘要增加由 `modelRequest.outputSchema.properties` 判定的 `interaction`（`SELECT`、`SPEECH` 或 `null`），查询可加 `interaction=SELECT|SPEECH`，过滤在服务端游标分页之前完成；不得由阶段名推测类型。网页显式展示类型和私密详情入口；详情位于记录列表之前，原模型/JEV `comparison` 先于原始事件显示。该投影只供本机模型诊断，不进入公开旁观。
 - `GET /api/werewolf/model/:id/usage` 扩充现有实际用量汇总，加入 reported cache hit/miss tokens、可计算的调用数、未报告缓存用量调用数、各结果计数。统计每次供应商返回的实际 usage；纠正重试单独计算。`cacheRate = sum(hit) / sum(hit+miss)`，仅对 hit/miss 完整且分母大于 0 的调用计算；缺失不是零。input/output 仍按真实供应商报告计账，不计算人民币。
 - 适配器在现有受控 `MODEL_UNAVAILABLE` 等错误码外，增加脱敏诊断元数据：HTTP 非 2xx 时保存安全的状态码和 provider request id（如有，长度限制且不直接信任）、网络异常类别、超时/取消类别；不保存错误响应原文。成功但 JSON 或输出 Schema 不合法由 `finished.schemaValid=false` 和后续纠正/裁判事件说明，不能记作 HTTP 失败。若供应商返回 usage 缺失或调用在响应前失败，token 字段为 null。
 - 保留 started 先持久化、网络调用不持有数据库事务、终态幂等及崩溃孤儿标记。模型调用日志与房间记录共用持久库；重启后可按房间查回，禁止后台测试清理抹除尚需复盘的日志。旧日志缺少新增诊断字段时显示“未记录”，不伪造状态。
@@ -39,3 +40,9 @@
 本机网页开新局后，在“模型调用”列表选一条 SELECT，点开“私密调用详情”：`model.call.finished.v1.details.rawText` 是原模型输出，`model.call.judged.v1` 是实际动作是否提交；同一详情中的 `model.shadow.jev.finished.v1.details.choice` 是 JEV 建议，`probabilities`、`confidence`、`usage` 和 `latencyMs` 可用于比较。JEV 报错则查 `model.shadow.jev.failed.v1.details.errorCode`；正在进行时可能只有 started，进程失联后标记 unknown。规则强制选项、SPEECH 和脚本动作没有这组旁路事件。网页刷新后按同一房间 ID 可继续查询这些私有日志。
 
 2026-09-26 本机 JEV 旁路已关闭。上述查询仍适用于停用前的历史事件；新模型决策只生成原模型的调用日志，不再生成 JEV 旁路事件。旧记录未清理。
+
+### v1.2 原始响应、抽样与对照（已确认，工程实施）
+
+继续使用现有私有 `fw_event_log` 和“模型调用”详情，不建旁路专表。新的 `model.shadow.jev.finished.v1` 在原字段旁保留 `providerResponse`（供应商完整 JSON，响应上限 64 KiB）、`selectorVersion`、固定的 `draw`、归一化 `normalizedProbabilities`、置信度混合后的 `samplingProbabilities` 与 `sampledSelected`。`choice` 仍表示 JEV 报出的最高概率项；**模拟最终选择只看 `sampledSelected`**，不能把 `choice` 当成抽样结果。原始分布保持供应商返回值，不覆盖为混合后的分布。成功事件的 `schemaVersion=2`；历史 v1 事件没有抽样结果，原样保留。
+
+私密调用详情按同一 `request_id` 读取全部原模型尝试与旁路事件，增加 `comparison`：原模型确已提交的 `selected`、JEV 最高概率项、JEV 抽样项、原模型所选项在 JEV 原始概率表中的值及两种一致性。原模型修复后在较晚 attempt 提交时仍取最终有效结果；没有提交时显示待定或未提交，不把默认动作当模型输出。完整事件继续显示，便于审计抽样和原始数据；公开旁观与普通回放不读取这些私密字段。2026-09-29 用户已要求本机启用，当前开关为 true；旧请求由新启用水位排除。

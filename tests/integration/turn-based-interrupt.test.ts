@@ -140,6 +140,7 @@ test('TB-14: superseded reservation cannot claim a scope after a newer request s
   const store = {
     pool: db.store.pool,
     applyMemory: db.store.applyMemory.bind(db.store), contextMemory: db.store.contextMemory.bind(db.store),
+    internalFact: db.store.internalFact.bind(db.store),
     transaction: async <T>(fn: Parameters<typeof db.store.transaction<T>>[0]) => {
       const value = await db.store.transaction(fn);
       if (pause) { pause = false; await reserved.wait(); }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { startTestDatabase } from '../../../../tests/support/database.ts';
 import { JevShadowWorker } from '../../server/jev-shadow.ts';
+import { jevDraw, sampleJevChoice } from '../../server/jev-choice-selector.ts';
 
 const selectRequest = {
   messages: [
@@ -20,13 +21,14 @@ const selectRequest = {
 test('JS-02/03/04: shadow SELECT is logged once and never affects the source request', async () => {
   const db = await startTestDatabase();
   const calls: unknown[] = [];
+  const providerResponse = { model: 'jev-1.13.0', answers: { selected: {
+    type: 'choice', choice: 'option-1', confidence: 0.81,
+    probabilities: { 'option-0': 0.2, 'option-1': 0.8 },
+  } }, usage: { input_tokens: 250, output_tokens: 8 } };
   const fetchFn = async (_url: string | URL | Request, init?: RequestInit) => {
     assert.equal(init?.headers && (init.headers as Record<string, string>).Authorization, 'Bearer test-only');
     calls.push(JSON.parse(String(init?.body)));
-    return new Response(JSON.stringify({ model: 'jev-1.13.0', answers: { selected: {
-      type: 'choice', choice: 'option-1', confidence: 0.81,
-      probabilities: { 'option-0': 0.2, 'option-1': 0.8 },
-    } }, usage: { input_tokens: 250, output_tokens: 8 } }), { status: 200 });
+    return new Response(JSON.stringify(providerResponse), { status: 200 });
   };
   const worker = new JevShadowWorker(db.store, { apiKey: 'test-only', fetchFn });
   try {
@@ -60,6 +62,13 @@ test('JS-02/03/04: shadow SELECT is logged once and never affects the source req
     assert.equal(events[1].details.choice, 'option-1');
     assert.equal(events[1].details.usage.inputTokens, 250);
     assert.equal(events[1].details.probabilities['option-0'], 0.2);
+    assert.deepEqual(events[1].details.providerResponse, providerResponse);
+    assert.equal(events[1].details.selectorVersion, 'confidence-mix-v1');
+    assert.equal(events[1].details.draw, jevDraw(sourceId));
+    assert.deepEqual(events[1].details.samplingProbabilities,
+      sampleJevChoice(['option-0', 'option-1'], providerResponse.answers.selected, jevDraw(sourceId))?.samplingProbabilities);
+    assert.equal(events[1].details.sampledSelected,
+      sampleJevChoice(['option-0', 'option-1'], providerResponse.answers.selected, jevDraw(sourceId))?.sampledSelected);
     assert.equal(JSON.stringify(events).includes('test-only'), false);
     assert.equal((await db.store.pool.query(`SELECT count(*)::int AS n FROM fw_requests WHERE request_id=$1`,
       [sourceId])).rows[0].n, 0);

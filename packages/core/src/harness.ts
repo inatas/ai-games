@@ -35,6 +35,10 @@ export class Harness {
   }
   register(binding: Binding) {
     if (binding.mode === 'assessment' && !binding.outputSchema) throw new Error('Assessment requires outputSchema');
+    if (binding.privateMemoryUpdate && (binding.mode !== 'assessment' ||
+        !binding.privateMemoryUpdate.factKey || binding.privateMemoryUpdate.factKey.length > 100)) {
+      throw new Error('Invalid privateMemoryUpdate');
+    }
     this.bindings.set(binding.id, { binding, input: this.ajv.compile(binding.inputSchema), output: binding.outputSchema ? this.ajv.compile(binding.outputSchema) : undefined });
     return this;
   }
@@ -145,6 +149,10 @@ export class Harness {
       if (binding.mode === 'assessment') {
         const worldview = await this.store.worldview?.(input.scopeId);
         const memories = await this.store.contextMemory(input.scopeId, prepared.visibility ?? ['public'], prepared.requiredMemoryIds, prepared.subjectIds, prepared.tags);
+        if (binding.privateMemoryUpdate) {
+          const previous = await this.store.internalFact(input.scopeId, binding.privateMemoryUpdate.factKey);
+          if (previous) memories.required.push(previous);
+        }
         let context: ReturnType<typeof buildContext>;
         try {
           context = buildContext({ worldview, facts: prepared.facts, promptParts: prepared.promptParts,
@@ -184,9 +192,14 @@ export class Harness {
           try {
             await this.logModelEvent(this.store.pool, input, prepared, 'model.call.started.v1', 'started', {
               attempt, deadlineAt: deadline, modelRequest: request,
-              promptLayoutVersion: prepared.promptParts?.sharedKnowledge?.length ? 4 : prepared.promptParts ? 2 : 1,
+              promptLayoutVersion: prepared.promptParts?.sharedCurrentState !== undefined ? 5
+                : prepared.promptParts?.sharedKnowledge?.length ? 4 : prepared.promptParts ? 2 : 1,
               ...(prepared.promptParts ? { sharedPublicDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedPublicFacts)).digest('hex'),
                 sharedPublicBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedPublicFacts), 'utf8') } : {}),
+              ...(prepared.promptParts?.sharedCurrentState !== undefined ? {
+                sharedCurrentDigest: createHash('sha256').update(JSON.stringify(prepared.promptParts.sharedCurrentState)).digest('hex'),
+                sharedCurrentBytes: Buffer.byteLength(JSON.stringify(prepared.promptParts.sharedCurrentState), 'utf8'),
+              } : {}),
               contextIds: context.contextIds, worldId: worldview?.worldId ?? null,
               worldVersion: worldview?.version ?? null, worldDigest: worldview?.digest ?? null,
             });
@@ -255,7 +268,14 @@ export class Harness {
         if (scope.memory_version !== input.expectedMemoryVersion) throw new HarnessError('STATE_CONFLICT');
         const result = await binding.apply(tx, proposal, { scopeId: input.scopeId, requestId: input.requestId, input: input.input, gameVersion: prepared!.gameVersion });
         await this.options.hook?.('host', input);
-        await this.store.applyMemory(tx, input.scopeId, result.memoryChanges);
+        const changes = [...result.memoryChanges];
+        if (binding.mode === 'assessment' && binding.privateMemoryUpdate) {
+          const previous = await this.store.internalFact(input.scopeId, binding.privateMemoryUpdate.factKey, tx);
+          const payload = binding.privateMemoryUpdate.parseUpdate(proposal, prepared!.facts, previous?.payload ?? null);
+          if (payload !== null) changes.push({ op: 'replace_fact', key: binding.privateMemoryUpdate.factKey,
+            payload, sourceVersion: binding.version, visibility: 'internal' });
+        }
+        await this.store.applyMemory(tx, input.scopeId, changes);
         await this.options.hook?.('memory', input);
         if (controller.signal.aborted || this.clock.now() >= deadline || Number(request.lease_expires_at) <= this.clock.now()) throw new HarnessError('PROCESSING_EXPIRED');
         await tx.query('UPDATE fw_scopes SET memory_version=memory_version+1 WHERE id=$1', [input.scopeId]);

@@ -261,6 +261,7 @@ test('TB-06: shutdown during reservation waits for tick and never starts a late 
     pool: db.store.pool,
     applyMemory: db.store.applyMemory.bind(db.store),
     contextMemory: db.store.contextMemory.bind(db.store),
+    internalFact: db.store.internalFact.bind(db.store),
     transaction: async <T>(fn: Parameters<typeof db.store.transaction<T>>[0]) => {
       const result = await db.store.transaction(fn);
       if (holdReservation) { holdReservation = false; await gate.wait(); }

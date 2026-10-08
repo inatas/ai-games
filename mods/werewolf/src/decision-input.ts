@@ -93,7 +93,7 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
     deaths: (lastDeaths.data as { seats: number[] }).seats,
     peaceful: (lastDeaths.data as { seats: number[] }).seats.length === 0,
   } : null;
-  const { self: roleFacts, ...publicState } = envelope.state;
+  const { self: roleFacts } = envelope.state;
   const persona = room.seats.find(candidate => candidate.seat === seat)?.persona;
   if (!roleFacts) throw new Error('MISSING_ACTOR_FACTS');
   if ((room.state as unknown as Match).boardId !== currentBoardId) throw new Error('UNKNOWN_BOARD');
@@ -121,14 +121,29 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
     audit: { seatNo: seat, micNo, role: roleFacts.role, phaseInstance: room.phaseInstance,
       publicEventWatermark: events.length },
     outputSchema: speech
-      ? { type: 'object', additionalProperties: false, required: ['speech'], properties: { speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars } } }
-      : { type: 'object', additionalProperties: false, required: ['selected'], properties: { selected: { enum: options.map(option => option.id) } } },
+      ? { type: 'object', additionalProperties: false, required: ['speech'], properties: {
+        speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars }, personal_evidence_update: {},
+      } }
+      : { type: 'object', additionalProperties: false, required: ['selected'], properties: {
+        selected: { enum: options.map(option => option.id) }, personal_evidence_update: {},
+      } },
     context: {
       rules: {
         version: definition.version,
         fact_boundaries: 'game_state是当前公开状态；public_history中的发言只证明该玩家说过这些话，不证明发言内容属实。已公布的逐人投票目标是裁判事实；private_information只包含本人或本方获授权的已执行操作与结果，current_intel是尚待结算的当前情报，不是历史结果。动作与当前结算状态冲突时以当前状态为准，不能把刀口当作实际死亡。',
       },
-      game_state: { ...publicState, seats: envelope.seats, phase: { key: scene, round: room.phase.round }, last_announced_night: lastAnnouncedNight },
+      game_state: {
+        day: room.phase.round,
+        night: envelope.state.night,
+        period: envelope.state.period,
+        sheriff: envelope.state.sheriff,
+        players: envelope.state.players.map(player => ({
+          seat: player.seat, alive: player.alive,
+          ...(player.revealedRole ? { revealedRole: player.revealedRole } : {}),
+        })),
+        seats: envelope.seats.map(player => ({ seat: player.seat, name: player.name })),
+        last_announced_night: lastAnnouncedNight,
+      },
       self: { ...envelope.self, role: roleFacts.role, ...(persona ? { persona } : {}) },
       private_information: { ...roleFacts, events: privateEvents,
         ...(pendingKnife ? { current_intel: { kind: 'wolf-knife-target',

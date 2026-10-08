@@ -60,6 +60,22 @@ test('EL-M10: a no-network model Robot leaves exact per-attempt context through 
       assert.equal(row.details.role, role);
       assert.equal(row.details.simulated, true);
       assert.deepEqual(row.details.modelRequest, model.calls[index]);
+      assert.equal(row.details.promptLayoutVersion, 5);
+      const messages = row.details.modelRequest.messages as { content: string }[];
+      const historyIndex = messages.findIndex(message => message.content.startsWith('SHARED_PUBLIC_FACTS:'));
+      const stateIndex = messages.findIndex(message => message.content.startsWith('SHARED_CURRENT_STATE:'));
+      const guideIndex = messages.findIndex(message => message.content.startsWith('PRIVATE_KNOWLEDGE:'));
+      const factsIndex = messages.findIndex(message => message.content.startsWith('CURRENT_FACTS:'));
+      assert.ok(historyIndex >= 0 && historyIndex < stateIndex && stateIndex < guideIndex && guideIndex < factsIndex);
+      const publicState = JSON.parse(messages[stateIndex]!.content.slice('SHARED_CURRENT_STATE:'.length));
+      const privateFacts = JSON.parse(messages[factsIndex]!.content.slice('CURRENT_FACTS:'.length));
+      assert.deepEqual(Object.keys(publicState).sort(),
+        ['day', 'last_announced_night', 'night', 'period', 'players', 'seats', 'sheriff']);
+      assert.equal(privateFacts.game_state, undefined);
+      assert.equal(privateFacts.public_history, undefined);
+      assert.equal(privateFacts.self.seat, 1);
+      assert.ok(row.details.sharedCurrentDigest);
+      assert.ok(row.details.sharedCurrentBytes > 0);
       assert.equal(row.details.micNo === null, row.details.modelRequest.outputSchema.properties.selected !== undefined);
       if (row.details.micNo !== null) {
         const phase = finalRoom.phaseHistory!.find(item => item.instance === row.details.phaseInstance)!;

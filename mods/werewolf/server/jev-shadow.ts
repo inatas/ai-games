@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ModelRequest } from '@game-ai/core';
 import type { PostgresStore } from '@game-ai/storage';
+import { jevChoiceSelectorVersion, jevDraw, sampleJevChoice } from './jev-choice-selector.ts';
 
 const endpoint = 'https://api.typesafe.ai/v1/systemone';
 const activationType = 'model.shadow.jev.activated.v1';
@@ -137,26 +138,36 @@ export class JevShadowWorker {
       }
       const raw = await response.text();
       if (Buffer.byteLength(raw, 'utf8') > 65536) throw new Error('JEV_INVALID_RESPONSE');
-      const data = JSON.parse(raw) as { model?: unknown; answers?: { selected?: {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('JEV_INVALID_RESPONSE');
+      const data = parsed as { model?: unknown; answers?: { selected?: {
         type?: unknown; choice?: unknown; confidence?: unknown; probabilities?: unknown;
       } }; usage?: { input_tokens?: unknown; output_tokens?: unknown } };
       const answer = data.answers?.selected;
       const ids = Object.keys(request.questions.selected.criteria);
       const probabilities = answer?.probabilities;
       const validProbability = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+      const draw = jevDraw(source.request_id);
+      const selection = sampleJevChoice(ids, answer, draw);
       if (typeof data.model !== 'string' || !data.model || answer?.type !== 'choice' ||
           typeof answer.choice !== 'string' || !ids.includes(answer.choice) ||
           !validProbability(answer.confidence) || !probabilities || typeof probabilities !== 'object' ||
           Array.isArray(probabilities) || Object.keys(probabilities).length !== ids.length ||
           ids.some(id => !validProbability((probabilities as Record<string, unknown>)[id])) ||
+          !selection ||
           !data.usage || !Number.isSafeInteger(data.usage.input_tokens) || Number(data.usage.input_tokens) < 0 ||
           !Number.isSafeInteger(data.usage.output_tokens) || Number(data.usage.output_tokens) < 0) {
         throw new Error('JEV_INVALID_RESPONSE');
       }
       const usage = data.usage!;
       await this.finish(source, 'finished', {
+        schemaVersion: 2, providerResponse: data,
         model: data.model, choice: answer.choice, confidence: answer.confidence,
         probabilities, usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens },
+        selectorVersion: jevChoiceSelectorVersion, draw,
+        normalizedProbabilities: selection.normalizedProbabilities,
+        samplingProbabilities: selection.samplingProbabilities,
+        sampledSelected: selection.sampledSelected,
         latencyMs: Date.now() - begun,
       });
     } catch (error) {

@@ -45,6 +45,15 @@
 | F-29/P1/I | 成功/纠正/超时/usage缺失分别运行 | 次数、模型、耗时、context IDs正确；缺失unknown，日志无Key |
 | F-30/P0/I,E | 非法UUID/输入Schema/版本及未授权scope | 输入400、未授权由宿主403；无新请求或调用 |
 
+## 关键交互私有记忆 v1.1（已实施）
+
+对应[需求 031](../../.agents/note/031-decision-private-memory-update.md)。中性行为测试见 `tests/integration/private-memory-update.test.ts`；PM-01～04 在隔离 PostgreSQL 中通过。
+
+- PM-01：中性 Binding 的响应含合法主结果与格式错误、缺失或空附加字段时，主结果照常提交、旧内部 fact 不变且无格式纠正；合法附加字段与主结果一同提交。
+- PM-02：同 scope 下一次交互在后部必需记忆中看到最新 fact；另一 scope 与共享上下文段不可见。没有旧 fact 时请求照常运行。
+- PM-03：整份 JSON 无法解析、主结果 Schema/业务校验失败、超时或状态冲突时均无有效私有更新；原错误分类与调用次数不变。
+- PM-04：真实 PostgreSQL 中主结果、内部 fact 和请求终态原子提交；故障回滚三者，重复 requestId 不重复更新，恢复后只见当前 fact；未配置扩展的 Binding 行为不变。
+
 ## 3. TDD 与验收
 
 U先写上下文、结构、引用测试；I先写幂等、冲突、事务和恢复测试。先失败测试再最小实现，不逐功能另写TDD文档。

@@ -84,6 +84,10 @@ export class PostgresStore {
     return { id: r.id, kind: r.kind, payload: r.payload, key: r.key, sourceVersion: r.source_version,
       sourceIds: sources, visibility: r.visibility, importance: r.importance, sequence: r.sequence, status: r.status };
   }
+  async internalFact(scopeId: string, key: string, tx: Transaction = this.pool): Promise<MemoryRecord | null> {
+    const row = (await tx.query("SELECT * FROM fw_memory WHERE scope_id=$1 AND key=$2 AND kind='fact' AND visibility='internal'", [scopeId, key])).rows[0];
+    return row ? this.mapRecord(row) : null;
+  }
   async contextMemory(scopeId: string, visibility: Visibility[], requiredIds: string[], subjects: string[], tags: string[]) {
     const required: MemoryRecord[] = [];
     const visited = new Set<string>();

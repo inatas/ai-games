@@ -28,7 +28,7 @@
 | [020 Robot 用户目录](020-robot-users.md) | implemented | 用户配置与脚本控制 |
 | [021 模型调用事件日志](021-event-log.md) | implemented | 持久调用诊断；真实网页实局待用户复核 |
 | [022 AI 决策规则引擎](022-decision-rules-engine.md) | proposed | 通用规则已部分实施，剩余范围见 note |
-| [023 模型上下文缓存](023-model-context-cache.md) | implemented | v3 分层知识前缀与动态规则顺序已实施；真实命中率待对比 |
+| [023 模型上下文缓存](023-model-context-cache.md) | proposed | v4 公开状态段已在本机发布；真实命中率待新局核验 |
 | [024 模型 Token 用量记账](024-model-token-accounting.md) | implemented | 按成功响应 usage 汇总，旧预算表已清理 |
 | [025 模型房间单一调度宿主](025-model-room-single-owner.md) | implemented | 同库模型房间由单一持锁宿主调度，失锁后停止服务 |
 | [026 Agent Note 生命周期](026-agent-note-lifecycle.md) | implemented | 四态、目录规范与唯一索引检查已落地 |
@@ -36,6 +36,7 @@
 | [028 全仓三层归属重组](028-repository-layer-reorganization.md) | implemented | 根 docs 与 MOD 专属代码迁移完成；130 单测、236 隔离数据库全测通过 |
 | [029 发言意图与行动命名统一](029-speech-terminology.md) | implemented | `SPEECH` 统一协议 v1 已实施；狼人杀接入见 MOD 008 |
 | [030 有界模型网络重试](030-bounded-model-network-retry.md) | proposed | v1.1 已实施并通过隔离回归；真实模型断网与组合恢复故障待复核 |
+| [031 关键交互中的私有判断与记忆传递](031-decision-private-memory-update.md) | implemented | v1.1 已实施；附加输出独立校验，同 scope 私有 fact 原子提交 |
 
 目前没有标为 `rejected` 或 `archived` 的编号 note。状态变化时同步此表；不要因暂时无人开发就把 `proposed` 猜作 `rejected`，也不要因代码已存在就把待验收范围标为 `implemented`。
 

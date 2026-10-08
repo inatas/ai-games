@@ -47,6 +47,8 @@ export function modelRoomSnapshot(room: Room, definition: RoomDefinition, users:
       room.phaseDeadlineAt ?? now) - now) : 0 },
     speeches, day: state.night, period: state.period,
     phaseLabel: running ? room.phase!.label : room.status === 'finished' ? '对局结束' : '对局异常停止',
+    phaseTransition: running && state.period === 'day' && ['nominations', 'vote'].includes(room.phase?.key ?? '')
+      ? { kind: room.phase!.key === 'nominations' ? 'campaign' : 'exile-vote', id: String(room.phaseInstance) } : null,
     actor: running && !night && room.phase?.mode === 'sequential' ? room.phase.actors[0] : null,
     progress: room.phase?.key === 'vote' ? { submitted: room.decisions.length, eligible: room.phase.actors.length } : null,
     sheriff: state.sheriff,

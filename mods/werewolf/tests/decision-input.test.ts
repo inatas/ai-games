@@ -36,6 +36,29 @@ test('script and model seats receive the same six-part authorized SPEECH/SELECT 
   assert.equal(prepareWerewolfDecision(room, 1, definition).context.current_action.deadlineAt, 65_000);
 });
 
+test('WW-C4-01/03: game_state is an explicit public allowlist, with seat-specific phase kept in current_action', () => {
+  const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
+  let room = createRoom('public-state', 'public-state', definition);
+  for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
+    seat, name: `${seat}号`, modelProfile: 'script-random',
+    scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
+  }, definition);
+  const injectedDefinition = { ...definition, project: (state: Parameters<typeof definition.project>[0], viewer: number | null) => {
+    const projected = definition.project(state, viewer) as { players: { seat: number; alive: boolean }[] };
+    return { ...projected, futurePrivateField: { secret: 'DO_NOT_SHARE' },
+      players: projected.players.map(player => ({ ...player, privateDiagnosis: 'DO_NOT_SHARE' })) };
+  } };
+  const one = prepareWerewolfDecision(room, 1, injectedDefinition);
+  const two = prepareWerewolfDecision(room, 2, injectedDefinition);
+  assert.deepEqual(one.context.game_state, two.context.game_state);
+  assert.deepEqual(Object.keys(one.context.game_state as object).sort(),
+    ['day', 'last_announced_night', 'night', 'period', 'players', 'seats', 'sheriff']);
+  assert.equal(JSON.stringify(one.context.game_state).includes('DO_NOT_SHARE'), false);
+  assert.equal(JSON.stringify(one.context.game_state).includes('phaseInstance'), false);
+  assert.equal(one.context.current_action.scene, room.phase?.key);
+  assert.equal(one.context.current_action.phaseInstance, room.phaseInstance);
+});
+
 test('model facts separate the peaceful public night from a wolf private knife target', () => {
   const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
   let room = createRoom('peaceful-room', 'peaceful-run', definition);
@@ -166,6 +189,35 @@ test('the witch sees the target and settled survival of her own antidote', () =>
   const actions = (task.context.private_information as { events: { type: string; data: unknown; result: unknown }[] }).events;
   assert.deepEqual(actions[0].data, { seat: witch, action: { kind: 'save' }, target });
   assert.deepEqual(actions[0].result, { status: 'settled', effect: 'antidote-applied', target_alive_after_night: true });
+});
+
+test('WW-WK02/04/06: public role claims do not replace real roles, private guides or skill facts', () => {
+  const definition = werewolfDefinition({ seed: 42, sheriff: 'double' });
+  let room = createRoom('tactical-claims', 'tactical-claims', definition);
+  for (let seat = 1; seat <= 12; seat++) room = occupySeat(room, {
+    seat, name: `${seat}号`, modelProfile: 'script-random',
+    scopeId: `scope-${seat}`, interruptScopeId: `interrupt-${seat}`,
+  }, definition);
+  const players = (room.state as unknown as Match).game.players;
+  const wolf = players.find(player => player.role === 'wolf')!.seat;
+  const target = players.find(player => player.role === 'villager')!.seat;
+  const speech = `我是预言家，${target}号是我查验的金水。`;
+  room.phase = { ...room.phase!, key: 'speech', actors: players.map(player => player.seat), schema: {
+    type: 'object', properties: { text: { type: 'string' } },
+  } };
+  room.events = [{ sequence: 1, phaseInstance: 1, type: 'speech', audience: 'public',
+    data: { seat: wolf, text: speech } }];
+  for (const player of players) {
+    const task = prepareWerewolfDecision(room, player.seat, definition);
+    assert.equal(task.context.self.role, player.role);
+    assert.equal(task.privateKnowledge?.id, `guide:${player.role}`);
+    assert.match(task.sharedKnowledge!.find(entry => entry.id === 'role:seer')!.content, /警徽流/);
+  }
+  const task = prepareWerewolfDecision(room, wolf, definition);
+  const privateFacts = task.context.private_information as { events: { type: string }[] };
+  assert.equal(privateFacts.events.some(event => event.type === 'inspection'), false);
+  assert.deepEqual(decodeWerewolfDecision(task, { kind: 'proposal', value: { speech } }),
+    { kind: 'speech', text: speech });
 });
 
 test('every live Werewolf phase exposes a decodable SPEECH or SELECT task', () => {

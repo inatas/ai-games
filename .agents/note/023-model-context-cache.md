@@ -10,13 +10,17 @@
 
 不改规则判定、私密授权、token 实付记账、API Key 配置或旧局上下文。已按行为测试先失败 → 中性组装与 MOD 公共事件投影 → 日志聚合/网页展示实施；实际供应商命中率仍待网页新局验证。
 
-Status: proposed；v2、v2.1 与 v3 已实施；v4 公开状态共享段待方案确认，真实模型 KV 命中率待新局对比。
+Status: proposed；v2、v2.1、v3 与 v4 已实施并在本机发布；真实模型 KV 命中率待新局对比。
 
-## v4 公开状态共享段（2026-09-27，方案待确认）
+## v4 公开状态共享段（2026-09-27，已实施）
 
-用户已确认方向：`game_state` 中各席位同一公开时点可见的当前状态，应排在公共知识和 `public_history` 之后、个人上下文之前；`public_history` 记录公开过程，`game_state` 给出裁判确认的当前快照。此确认只裁定分层方向，**不等于下列接口和实施方案已获批准**。框架拟在现有 `promptParts` 中增加可选、题材中性的 `sharedCurrentState`，由受信任宿主提供并按固定消息顺序组装；`dynamicFacts` 继续承载个人与本次行动信息。具体字段、接口、非范围及 MC4 验收见[缓存设计 v4 提案](../../docs/specs/model-context-cache-v2.md#v4-公开状态共享段待确认)和[缓存测试 v4 提案](../../docs/testing/model-context-cache-v2.md#v4-公开状态共享段待确认)，狼人杀投影见[MOD 003](../../mods/werewolf/.agents/note/003-model-context-cache.md)。
+实施确认：用户审阅本 v4 的根/MOD note、设计与验收说明后明确回复“实施”，范围包含把个人私有信息从 `game_state` 剥离。实施前 Git 检查点为 `main/b481897`（`checkpoint: before shared public game state context`），保存当时所有代码、文档、测试及其他已有工作区修改；暂存差异检查通过，未对该检查点运行完整测试，不能称为稳定基线。
 
-本轮仅更新 note/docs；未修改实现、可执行测试、部署或旧局记录。待用户审阅 v4 范围并明确确认后，先写失败行为测试，再接入与验证。真实供应商 KV 命中率仍须以实际 usage 为准，不以消息顺序推断已命中。
+确认范围：`game_state` 中各席位同一公开时点可见的当前状态，排在公共知识和 `public_history` 之后、个人上下文之前；`public_history` 记录公开过程，`game_state` 给出裁判确认的当前快照。框架在 `promptParts` 中加入可选、题材中性的 `sharedCurrentState`，由受信任宿主提供并按固定消息顺序组装；`dynamicFacts` 继续承载个人与本次行动信息。具体字段、接口、非范围及 MC4 验收见[缓存设计 v4](../../docs/specs/model-context-cache-v2.md#v4-公开状态共享段已实施)和[缓存测试 v4](../../docs/testing/model-context-cache-v2.md#v4-公开状态共享段已实施)，狼人杀投影见[MOD 003](../../mods/werewolf/.agents/note/003-model-context-cache.md)。
+
+实施记录：框架 `promptParts` 新增可选 `sharedCurrentState`，消息位于公开历史之后、私人指南之前；未提供者保留原顺序。狼人杀任务按公开字段白名单构造 `game_state`，运行时只把其放入共享状态段，个人动态事实不再重复；模型日志布局版本为 5，记录公开状态段摘要和字节数。测试先在旧实现观察到 MC4/WW-C4 失败；首次全量回归 272/273 揭示首日预言家规则仍读旧 `phase.round`，改读公开 `day` 后隔离 PostgreSQL 全量 273/273 通过。随后为防旧布局房间静默按新版恢复，定义版本追加 `.c4`、模型房间只接受新版；对应单元先失败后通过，隔离 PostgreSQL 相关集成 9/9 通过。最终单元 152/152、TypeScript、仓库检查、构建和差异检查通过。2026-09-27 按用户“部署”指令，以现有镜像离线覆盖 v4 相关源码构建 `game-ai-harness-app:context-v4` 并重建 app；`127.0.0.1:4318/api/health` 为 200，容器 healthy，实际定义后缀 `.e2.c4`。发布前后均只有 1 个旧版 `blocked` 房间，无运行中房间，旧记录保留；未付费调用供应商，真实 KV 命中率待新局。设计与验收正文见链接文档。
+
+后续清理（2026-09-27）：用户确认旧房间和数据可删除。按[狼人杀本机运维](../../mods/werewolf/docs/local-werewolf-test-ops-v1.md#v4-旧房间清理2026-09-27)停写、备份、事务断言与核验，移除唯一旧版 `blocked` 房间及其关联数据、全部旧狼人杀日志；其他 MOD 日志保持 6 条。服务恢复，健康与页面均返回 200，未新开局。
 
 ## v3 已实施（2026-09-26）：共享知识、私有职业指南与动态规则分段
 

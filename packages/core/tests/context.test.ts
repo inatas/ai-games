@@ -69,6 +69,28 @@ test('MC3-01: shared knowledge and public facts precede private guide and matche
   assert.equal(seer.messages.some(message => message.content.includes('女巫指南')), false);
 });
 
+test('MC4-01/04: shared current state extends the common prefix without changing callers that omit it', () => {
+  const sharedPublicFacts = [{ sequence: 1, type: 'announcement' }];
+  const sharedCurrentState = { day: 2, alive: [1, 2, 3], sheriff: 3 };
+  const make = (seat: number) => buildContext({ ...emptyContext, instructions: 'rules',
+    promptParts: { sharedPublicFacts, sharedCurrentState,
+      privateKnowledge: { id: `guide:${seat}`, content: `seat ${seat}` },
+      dynamicFacts: { self: { seat }, current_action: { target: seat } } },
+    schema: { enum: [seat] } });
+  const one = make(1);
+  const two = make(2);
+  assert.deepEqual(one.messages.slice(0, 4), two.messages.slice(0, 4));
+  assert.match(one.messages[2].content, /^SHARED_PUBLIC_FACTS:/);
+  assert.equal(one.messages[3].content, 'SHARED_CURRENT_STATE:' + JSON.stringify(sharedCurrentState));
+  assert.match(one.messages[4].content, /^PRIVATE_KNOWLEDGE:/);
+  assert.notDeepEqual(one.messages[4], two.messages[4]);
+  assert.equal(one.messages.find(message => message.content.startsWith('CURRENT_FACTS:'))?.content.includes('sharedCurrentState'), false);
+
+  const old = buildContext({ ...emptyContext, promptParts: { sharedPublicFacts, dynamicFacts: { self: { seat: 1 } } } });
+  assert.match(old.messages[3].content, /^OUTPUT_SCHEMA:/);
+  assert.equal(old.messages.some(message => message.content.startsWith('SHARED_CURRENT_STATE:')), false);
+});
+
 test('F-19: optional memory is ranked, deduplicated and budgeted', () => {
   const records = [1, 2, 3].map(n => ({ id: `E${n}`, kind: 'event' as const, payload: { n }, importance: n, sequence: n, sourceIds: [], visibility: 'public' as const }));
   const counter = (messages: any[]) => 7000 + JSON.parse(messages.find(m => m.content.startsWith('HISTORY:')).content.slice(8)).length * 500;

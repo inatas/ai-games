@@ -1,4 +1,4 @@
-import type { Json } from '@game-ai/core';
+import type { Binding, Json } from '@game-ai/core';
 import type { DecisionInput, DecisionOutput } from './decision.ts';
 import type { DecisionRuleSet, RuleEvaluation } from './decision-rules.ts';
 
@@ -48,6 +48,7 @@ export interface RoomDefinition {
   resolve(state: Json, phase: Phase, decisions: readonly Decision[]): Transition;
   decisionSpec?(room: Room, seat: number): DecisionInput;
   decodeDecision?(input: DecisionInput, output: DecisionOutput): Json | null;
+  privateMemoryUpdate?: Binding['privateMemoryUpdate'];
   decisionRules?: DecisionRuleSet;
   windowMs?(room: Room): number;
   actionWindowMs?(room: Room): number;

@@ -5,7 +5,7 @@ export const werewolfRuleHandlers: RuleHandlerRegistry = {
   'seer-first-day-run': {
     matches: input => input.intent === 'SELECT' && input.scene === 'nominations' &&
       input.context.self.role === 'seer' &&
-      (input.context.game_state as { phase?: { round?: number } }).phase?.round === 1,
+      (input.context.game_state as { day?: number }).day === 1,
     selectOption: input => input.options.find(option => {
       const value = option.value as { kind?: string; run?: boolean };
       return value.kind === 'nominate' && value.run === true;

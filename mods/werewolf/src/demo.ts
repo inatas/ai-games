@@ -36,12 +36,7 @@ export class DemoRooms {
   private budget(session: Session): number {
     const key = session.room.phase?.key;
     if (key === 'wolves') return session.nightTail ? 30_000 : 60_000;
-    if (key === 'witch') return 30_000;
-    if (key === 'speech' || key === 'election-speech') return session.definition.windowMs!(session.room);
-    if (key === 'pk' || key === 'election-pk' || key === 'last-words') return 90_000;
-    if (key === 'election-withdrawal') return 10_000;
-    if (key === 'direction' || key === 'badge-transfer') return 20_000;
-    return 30_000;
+    return session.definition.windowMs!(session.room);
   }
 
   private waitTime(session: Session): number {
@@ -169,6 +164,8 @@ export class DemoRooms {
       perspective: projectPerspective(room.state as unknown as Match, viewer), id: room.id, revision: session.revision, status: room.status, speeches, speakerSeat, nightSegment, currentSpeech: speakerSeat === null ? null : { seat: speakerSeat, text: session.roster?.[speakerSeat - 1].control.speech ?? this.speechText, revision: session.revision },
       timing: { remainingMs: running ? Math.max(0, session.dueAt - this.now()) + this.budget(session) - this.waitTime(session) + nightExtra : 0 },
       day: view.night, period: view.period, phaseLabel: !running ? (finished ? '对局结束' : '对局异常停止') : room.phase!.label,
+      phaseTransition: running && view.period === 'day' && ['nominations', 'vote'].includes(room.phase?.key ?? '')
+        ? { kind: room.phase!.key === 'nominations' ? 'campaign' as const : 'exile-vote' as const, id: String(room.phaseInstance) } : null,
       actor: running && view.period === 'day' && room.phase?.mode === 'sequential' ? eligibleActors(room)[0] ?? null : null,
       progress: vote ? { submitted: room.decisions.length, eligible: room.phase!.actors.length } : null,
       sheriff: view.sheriff, players: view.players.map(player => {

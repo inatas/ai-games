@@ -52,9 +52,14 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 
 Push-Location $projectRoot
 try {
-  & docker compose config --quiet
+  $composeFiles = @('-f', 'compose.yaml')
+  $activeCompose = Join-Path $projectRoot '.local/compose.active.yaml'
+  if (Test-Path -LiteralPath $activeCompose -PathType Leaf) {
+    $composeFiles += @('-f', $activeCompose)
+  }
+  & docker compose @composeFiles config --quiet
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose 配置无效' }
-  & docker compose up -d --no-build app
+  & docker compose @composeFiles up -d --no-build app
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose 启动失败；请确认本机已有应用镜像' }
 
   $healthUrl = "http://127.0.0.1:$port/api/health"

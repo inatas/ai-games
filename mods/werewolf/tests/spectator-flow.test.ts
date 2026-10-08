@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import { DemoRooms } from '../src/demo.ts';
 import { buildWerewolfDemo } from '../server/werewolf-demo.ts';
 
+test('compact phase transitions use public phase identity once and skip stale or hidden starts', async () => {
+  const { nextPresentation } = await import('../web/presentation.ts');
+  const base = new DemoRooms({ now: () => 0 }).create(42, 'fixed');
+  const start = { ...base, revision: 1, period: 'day' as const, phaseTransition: null };
+  const election = { ...start, revision: 2, phaseTransition: { kind: 'campaign' as const, id: 'campaign-1' } };
+  const previous = nextPresentation(null, start, false).cursor;
+  const shown = nextPresentation(previous, election, false);
+  assert.deepEqual(shown.items.map(item => item.kind), ['campaign']);
+  assert.equal(nextPresentation(shown.cursor, election, false).items.length, 0);
+  assert.equal(nextPresentation(null, election, false).items.length, 0);
+  assert.equal(nextPresentation(previous, { ...election, revision: 10 }, false).items.length, 0);
+  const hidden = nextPresentation(previous, election, true);
+  assert.equal(nextPresentation(hidden.cursor, election, false).items.length, 0);
+  const vote = { ...election, revision: 3, phaseTransition: { kind: 'exile-vote' as const, id: 'vote-1' } };
+  assert.deepEqual(nextPresentation(shown.cursor, vote, false).items.map(item => item.kind), ['exile-vote']);
+  assert.equal(nextPresentation(shown.cursor, { ...vote, timing: { remainingMs: 0 } }, false).items.length, 0);
+});
+
 test('script speech stays on the same seat after three seconds and advances only at its deadline', () => {
   let now = 0;
   const rooms = new DemoRooms({ now: () => now });
@@ -11,11 +29,11 @@ test('script speech stays on the same seat after three seconds and advances only
   rooms.tick();
   const speaking = rooms.get(created.id);
   assert.ok(speaking.speakerSeat);
-  assert.equal(speaking.timing.remainingMs, 120_000);
+  assert.equal(speaking.timing.remainingMs, 90_000);
   now += 3_000;
   rooms.tick();
   assert.equal(rooms.get(created.id).revision, speaking.revision);
-  now += 116_999;
+  now += 86_999;
   rooms.tick();
   assert.equal(rooms.get(created.id).revision, speaking.revision);
   now += 1;
@@ -105,16 +123,16 @@ test('first-day peaceful-night announcement survives batched revisions and an op
   ]};
   const initial = nextPresentation(null, before, false);
   const batched = nextPresentation(initial.cursor, announced, false);
-  assert.deepEqual(batched.items.map(item => [item.kind, item.seats]), [['deaths', []]]);
+  assert.deepEqual(batched.items.map(item => [item.kind, item.seats]), [['result', [5]], ['deaths', []]]);
   const hidden = nextPresentation(initial.cursor, announced, true);
   assert.equal(hidden.items.length, 0);
   const resumed = nextPresentation(hidden.cursor, announced, false);
-  assert.deepEqual(resumed.items.map(item => [item.kind, item.seats]), [['deaths', []]]);
+  assert.deepEqual(resumed.items.map(item => [item.kind, item.seats]), [['result', [5]], ['deaths', []]]);
   assert.equal(nextPresentation(resumed.cursor, announced, false).items.length, 0);
   assert.equal(nextPresentation(null, announced, false).items.length, 0);
   const tomorrow = {...announced, day:2, revision:13, events:announced.events.map(event => ({...event, day:1}))};
   assert.equal(nextPresentation(hidden.cursor, tomorrow, false).items.some(item => item.kind === 'deaths'), false);
-  assert.equal(nextPresentation(hidden.cursor, {...announced, status:'finished' as const}, false).items.length, 0);
+  assert.deepEqual(nextPresentation(hidden.cursor, {...announced, status:'finished' as const}, false).items.map(item => item.result), ['sheriff', 'peaceful']);
 });
 
 test('V4-05: vote summary groups voters without losing abstentions or sheriff weight', async () => {

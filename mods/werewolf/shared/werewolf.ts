@@ -16,6 +16,7 @@ export interface DemoSnapshot {
   day: number;
   period: 'day' | 'night';
   phaseLabel: string;
+  phaseTransition?: { kind: 'campaign' | 'exile-vote'; id: string } | null;
   actor: number | null;
   progress: { submitted: number; eligible: number } | null;
   sheriff: number | null;

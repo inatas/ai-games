@@ -14,7 +14,7 @@ const task = (role: string, round = 1): DecisionInput => ({
   ],
   outputSchema: {},
   context: {
-    rules: {}, game_state: { phase: { key: 'nominations', round } },
+    rules: {}, game_state: { day: round },
     self: { seat: 1, name: 'Player', role }, private_information: {}, public_history: {},
     current_action: { request_type: 'SELECT', scene: 'nominations', options: [], phaseInstance: 3 },
   },
@@ -29,6 +29,8 @@ test('WW-R01: seer first-day strategy refers to the legal run option', () => {
   assert.equal(authorRules.rules[0]?.enforcement, 'require-option');
   assert.match(authorRules.rules[0]?.instruction ?? '', /上警/);
   assert.equal(werewolfDecisionRules.rules[0]?.probability, 0.8);
+  assert.equal(werewolfDecisionRules.rules[0]?.matches(task('seer')), true);
+  assert.equal(werewolfDecisionRules.rules[0]?.matches(task('seer', 2)), false);
   const evaluated = evaluateDecisionRules(werewolfDecisionRules, task('seer'));
   assert.ok(evaluated.requiredOptionId === undefined || evaluated.requiredOptionId === 'option-1');
   assert.deepEqual(evaluateDecisionRules(werewolfDecisionRules, task('wolf')).allowedOptionIds, ['option-0', 'option-1']);

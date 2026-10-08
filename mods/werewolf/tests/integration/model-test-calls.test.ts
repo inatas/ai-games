@@ -39,12 +39,13 @@ test('ML-01/02/03/06: successful and failed attempts remain separate and private
       JSON.stringify({ attempt: 1, simulated: false, ...details })]);
   };
   await append(roomId, successId, 'model.call.started.v1', { seatNo: 2, scene: 'speech', modelProfile: 'environment-default',
-    modelRequest: { messages: [{ role: 'system', content: 'rules' }] } }, 'started');
+    modelRequest: { messages: [{ role: 'system', content: 'rules' }], outputSchema: { properties: { speech: {} } } } }, 'started');
   await append(roomId, successId, 'model.call.finished.v1', { seatNo: 2, scene: 'speech', latencyMs: 100, schemaValid: true,
     usage: { inputTokens: 20, outputTokens: 3, promptCacheHitTokens: 12, promptCacheMissTokens: 8 },
     rawText: '{"speech":"hello"}' }, 'succeeded');
   await append(roomId, successId, 'model.call.judged.v1', { gameCommitted: false, errorCode: 'PHASE_CONFLICT' }, 'failed');
-  await append(roomId, failedId, 'model.call.started.v1', { seatNo: 5, scene: 'witch', modelProfile: 'environment-default' }, 'started');
+  await append(roomId, failedId, 'model.call.started.v1', { seatNo: 5, scene: 'witch', modelProfile: 'environment-default',
+    modelRequest: { outputSchema: { properties: { selected: {} } } } }, 'started');
   await append(roomId, failedId, 'model.call.failed.v1', { errorCode: 'MODEL_UNAVAILABLE', httpStatus: 503,
     transportCategory: 'http', latencyMs: 30 }, 'failed');
   await append(otherRoom, randomUUID(), 'model.call.started.v1', { seatNo: 1 }, 'started');
@@ -52,9 +53,11 @@ test('ML-01/02/03/06: successful and failed attempts remain separate and private
     const calls = await service.calls(roomId);
     assert.equal(calls.length, 2);
     assert.equal(calls[0].status, 'succeeded');
+    assert.equal(calls[0].interaction, 'SPEECH');
     assert.equal(calls[0].gameCommitted, false);
     assert.equal(calls[0].cacheHitTokens, 12);
     assert.equal(calls[1].status, 'failed');
+    assert.equal(calls[1].interaction, 'SELECT');
     assert.equal(calls[1].httpStatus, 503);
     assert.equal(calls[1].inputTokens, null);
     const usage = await service.usage(roomId);
@@ -62,9 +65,39 @@ test('ML-01/02/03/06: successful and failed attempts remain separate and private
     assert.deepEqual(usage.cacheBySeat, [{ key: '2', hitTokens: 12, missTokens: 8, rate: 0.6, calls: 1 }]);
     assert.deepEqual(usage.cacheByPhase, [{ key: 'speech', hitTokens: 12, missTokens: 8, rate: 0.6, calls: 1 }]);
     assert.equal((await service.calls(roomId, 0, 50, 5, 'failed')).length, 1);
+    assert.deepEqual((await service.calls(roomId, 0, 1, undefined, undefined, 'SELECT')).map(call => call.requestId), [failedId]);
+    assert.deepEqual((await service.calls(roomId, 0, 1, undefined, undefined, 'SPEECH')).map(call => call.requestId), [successId]);
+    await assert.rejects(() => service.calls(roomId, 0, 50, undefined, undefined, 'OTHER'), /INVALID_INPUT/);
     const detail = await service.call(roomId, successId, 1);
     assert.equal(detail.events.length, 3);
     assert.equal(detail.events[0].details.modelRequest.messages[0].content, 'rules');
     await assert.rejects(() => service.call(otherRoom, successId, 1), /NOT_FOUND/);
   }
+});
+
+test('JS-09: private model-call detail compares the committed SELECT and JEV distribution', async () => {
+  const roomId = randomUUID();
+  const requestId = randomUUID();
+  await db.store.pool.query('INSERT INTO tb_rooms(id,run_key,document) VALUES($1,$2,$3)', [
+    roomId, `werewolf-model:${roomId}`, JSON.stringify({ definitionId: 'werewolf', runKey: `werewolf-model:${roomId}`,
+      definitionVersion: werewolfDefinition({ seed: 42, sheriff: 'double' }).version }),
+  ]);
+  for (const [eventType, attempt, details] of [
+    ['model.call.started.v1', 1, { scene: 'vote', seatNo: 3 }],
+    ['model.call.finished.v1', 2, { rawText: '{"selected":"option-0"}', schemaValid: true }],
+    ['model.call.judged.v1', 2, { gameCommitted: true }],
+    ['model.shadow.jev.finished.v1', 1, { choice: 'option-1', sampledSelected: 'option-0',
+      confidence: 0.7, probabilities: { 'option-0': 0.2, 'option-1': 0.8 } }],
+  ] as const) await db.store.pool.query(`INSERT INTO fw_event_log
+    (event_id,event_type,occurred_at,mod_id,room_id,request_id,result,details)
+    VALUES($1,$2,now(),'werewolf',$3,$4,'succeeded',$5)`, [
+      randomUUID(), eventType, roomId, requestId, JSON.stringify({ attempt, ...details }),
+    ]);
+  const detail = await service.call(roomId, requestId, 1);
+  assert.equal(detail.events.length, 2);
+  assert.deepEqual(detail.comparison, {
+    modelStatus: 'committed', modelSelected: 'option-0',
+    jevChoice: 'option-1', jevSampledSelected: 'option-0',
+    modelChoiceProbability: 0.2, matchesJevChoice: false, matchesJevSample: true,
+  });
 });

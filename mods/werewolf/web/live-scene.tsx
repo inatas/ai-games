@@ -1,10 +1,10 @@
-import { useRobotUser, useRobotUsers } from './robot-context.tsx';
+import { useRobotUser } from './robot-context.tsx';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { speechKey, speechLayout, revealDuration, revealClip } from './speech-presentation.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
-import { portraitStyle } from './seat-avatar.tsx';
+import { ResultOverlay } from './result-overlay.tsx';
 import { SheriffIcon } from './sheriff-icon.tsx';
-import { boardVoteCopy, nextPresentation, summarizeVotes, type PresentationCursor, type PresentationItem, type VoteData } from './presentation.ts';
+import { boardVoteCopy, motionTiming, presentationMotion, nextPresentation, summarizeVotes, type PresentationCursor, type PresentationItem, type VoteData } from './presentation.ts';
 import './live-scene.css';
 
 const avatars = ['brown', 'pink', 'blue'] as const;
@@ -42,38 +42,85 @@ export function VoteSummary({ event }: { event: DemoSnapshot['events'][number] }
   </section>;
 }
 
-export function LiveTransition({ game, suppressed, reduced = false }: { game: DemoSnapshot; suppressed: boolean; reduced?: boolean }) {
-  const users = useRobotUsers();
+export function PhaseTransitionArt({ kind }: { kind: 'campaign' | 'exile-vote' }) {
+  return <><img className="ww-phase-art" src={`/werewolf/transitions/${kind}.png`} alt=""/><h2>{kind === 'campaign' ? '开始警长竞选' : '开始放逐投票'}</h2></>;
+}
+
+export function LiveTransition({ game, suppressed, reduced = false, respectSystemMotion = true, onAnnouncement }: { game: DemoSnapshot; suppressed: boolean; reduced?: boolean; respectSystemMotion?: boolean; onAnnouncement?: (id: string, kind: string) => void }) {
   const cursor = useRef<PresentationCursor | null>(null);
   const [queue, setQueue] = useState<PresentationItem[]>([]);
   useEffect(() => {
     const result = nextPresentation(cursor.current, game, suppressed);
     cursor.current = result.cursor;
-    if (game.status !== 'running') setQueue([]);
-    else if (suppressed) setQueue(current => current.filter(item => item.kind === 'deaths' && item.day === game.day && item.id.startsWith(`${game.id}:`)));
-    else setQueue(current => [...current.filter(item => item.day === game.day && item.id.startsWith(`${game.id}:`) && (item.kind === 'deaths' || item.kind === game.period)), ...result.items]);
+    if (!['running', 'finished'].includes(game.status)) { setQueue([]); return; }
+    setQueue(current => {
+      const retained = current.filter(item => item.id.startsWith(`${game.id}:`) && (
+        item.result || (!suppressed && game.status === 'running' && item.day === game.day &&
+          (item.phaseId ? item.phaseId === game.phaseTransition?.id && game.timing.remainingMs > 0 : item.kind === game.period))
+      ));
+      const combined = [...retained, ...result.items];
+      return [...combined.filter(item => item.result), ...combined.filter(item => !item.result)];
+    });
   }, [game, suppressed]);
   const item = queue[0];
-  useEffect(() => {
-    if (!item || suppressed) return;
-    const timeout = window.setTimeout(() => setQueue(current => current.slice(1)), item.kind === 'deaths' ? 3000 : reduced ? 300 : 2000);
-    return () => window.clearTimeout(timeout);
-  }, [item?.id, suppressed, reduced]);
-  if (!item || suppressed) return null;
-  const deaths = item.kind === 'deaths';
-  return <div key={item.id} className={`ww-transition transition-${item.kind}`} role="status" aria-label={deaths ? '昨夜出局公告' : '昼夜过场'}>
-    {deaths ? <>
-      <h2>出局公告</h2>
-      <p>{item.seats.length ? <>昨夜 <strong>{item.seats.map(seat => `${seat}号`).join('、')}</strong> 玩家出局</> : '昨夜平安夜，无人出局'}</p>
-      <div className="ww-grave-scene" aria-hidden="true"><svg className="ww-raven" viewBox="0 0 100 100"><path d="M20 93 39 55C22 38 38 20 57 27 63 7 82 14 85 26L99 32 83 37C82 57 66 66 53 67L42 89 40 67Z" fill="#20282c" stroke="#677176" strokeWidth="2"/><path d="m40 48 24-9-12 24M57 66l6 14m5-18 8 16" fill="none" stroke="#879095" strokeWidth="2"/><circle cx="77" cy="26" r="2" fill="#e2d491"/></svg><div className="ww-grave-sign">{item.seats.length ? '出局' : '平安'}</div><i/><div className="ww-grass">❧ ❧ ❧</div></div>
-      <div className="ww-departed">{item.seats.map(seat => <div key={seat}><span style={portraitStyle(seat, users.find(player => player.seat === seat)?.user)}/><b>{seat}号</b></div>)}</div>
-      <small>具体遗言与技能按规则继续结算</small>
-      <button onClick={() => setQueue(current => current.slice(1))} aria-label="关闭出局公告">知道了</button>
-    </> : <><div className="ww-sky"><Cloud side="left"/><div className="ww-orb"/><Cloud side="right"/></div><h2>{item.kind === 'night' ? '天黑了，请闭眼' : '天亮了，请睁眼'}</h2></>}
-  </div>;
+  if (!item) return null;
+  return <PlayingPresentation key={item.id} item={item} suppressed={suppressed} reduced={reduced} respectSystemMotion={respectSystemMotion} onAnnouncement={onAnnouncement}
+    onDone={() => setQueue(current => current[0]?.id === item.id ? current.slice(1) : current)}/>;
 }
 
-
+export function PlayingPresentation({ item, suppressed, reduced, onDone, respectSystemMotion = true, onAnnouncement }: { item: PresentationItem; suppressed: boolean; reduced: boolean; onDone: () => void; respectSystemMotion?: boolean; onAnnouncement?: (id: string, kind: string) => void }) {
+  useEffect(() => { if (!suppressed) onAnnouncement?.(item.id, item.kind); }, [item.id, item.kind, suppressed, onAnnouncement]);
+  const [systemReduced, setSystemReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const query = matchMedia('(prefers-reduced-motion: reduce)');
+    const change = () => setSystemReduced(query.matches);
+    query.addEventListener('change', change);
+    return () => query.removeEventListener('change', change);
+  }, []);
+  const quiet = reduced || (respectSystemMotion && systemReduced);
+  const elapsedRef = useRef(0);
+  const closeAt = useRef<number | null>(null);
+  const completed = useRef(false);
+  const callback = useRef(onDone);
+  callback.current = onDone;
+  const [elapsed, setElapsed] = useState(0);
+  const [resumed, setResumed] = useState(false);
+  useEffect(() => {
+    if (suppressed) {
+      if (elapsedRef.current > 0 && item.result) {
+        elapsedRef.current = Math.max(elapsedRef.current, motionTiming.people + motionTiming.reveal);
+        setElapsed(elapsedRef.current);
+        setResumed(true);
+      }
+      return;
+    }
+    let frame = 0;
+    let previous = performance.now();
+    const tick = (now: number) => {
+      elapsedRef.current += now - previous;
+      previous = now;
+      const time = elapsedRef.current;
+      setElapsed(time);
+      const done = closeAt.current !== null
+        ? time - closeAt.current >= (quiet ? 0 : motionTiming.exit)
+        : presentationMotion(item, time, quiet).done;
+      if (done) {
+        if (!completed.current) { completed.current = true; callback.current(); }
+      } else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [suppressed, quiet, item.id]);
+  const motion = presentationMotion(item, elapsed, quiet);
+  const exiting = closeAt.current !== null || motion.exiting;
+  const close = () => { if (closeAt.current === null) { closeAt.current = elapsedRef.current; setElapsed(elapsedRef.current); } };
+  if (suppressed) return null;
+  const style = { '--motion-enter': `${item.result ? motionTiming.enter : motionTiming.reveal}ms`, '--motion-exit': `${motionTiming.exit}ms`, '--motion-reveal': `${motionTiming.reveal}ms` } as CSSProperties;
+  if (item.result) return <ResultOverlay item={item} onClose={close} reduced={quiet} peopleVisible={motion.people} exiting={exiting} resumed={resumed} motionStyle={style}/>;  const phase = item.kind === 'campaign' || item.kind === 'exile-vote';
+  return <div key={item.id} style={style} data-motion="true" data-exiting={exiting} data-reduced={quiet} className={`ww-transition transition-${item.kind}${phase ? ' ww-phase-transition' : ''}`} role="status" aria-label={phase ? '阶段开始' : '昼夜过场'}>
+    {phase ? <PhaseTransitionArt kind={item.kind as 'campaign' | 'exile-vote'}/> : <><div className="ww-sky"><Cloud side="left"/><div className="ww-orb"/><Cloud side="right"/></div><h2>{item.kind === 'night' ? '天黑了，请闭眼' : '天亮了，请睁眼'}</h2></>}
+  </div>;
+}
 export function SpeechBubble({ game, suppressed = false, reduced = false }: { game: DemoSnapshot; suppressed?: boolean; reduced?: boolean }) {
   const key = speechKey(game);
   if (!key) return null;
@@ -147,3 +194,6 @@ function CurrentSpeech({ game, suppressed, reduced }: { game: DemoSnapshot; supp
     {closed && !suppressed && <button className="ww-speech-reopen" onClick={() => setClosed(false)} aria-label="显示当前发言">显示发言</button>}
   </>;
 }
+
+
+

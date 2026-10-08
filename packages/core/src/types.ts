@@ -7,6 +7,7 @@ export interface HarnessStore {
   transaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T>;
   applyMemory(tx: Transaction, scopeId: string, changes: MemoryChange[]): Promise<void>;
   contextMemory(scopeId: string, visibility: Visibility[], required: string[], subjects: string[], tags: string[]): Promise<{ required: MemoryRecord[]; optional: MemoryRecord[] }>;
+  internalFact(scopeId: string, key: string, tx?: Transaction): Promise<MemoryRecord | null>;
   worldview?(scopeId: string): Promise<Worldview | undefined>;
 }
 export interface Worldview { worldId: string; version: string; content: string; digest: string }
@@ -21,7 +22,7 @@ export type MemoryChange =
   | { op: 'close_item'; id: string };
 export interface Prepared {
   gameVersion: string; facts: Json; instructions: string;
-  promptParts?: { sharedPublicFacts: Json; dynamicFacts: Json;
+  promptParts?: { sharedPublicFacts: Json; sharedCurrentState?: Json; dynamicFacts: Json;
     sharedKnowledge?: { id: string; content: string }[];
     privateKnowledge?: { id: string; content: string };
     matchedGuidance?: string[] };
@@ -38,6 +39,10 @@ export interface Binding {
   prepare(input: Json, scopeId: string): Promise<Prepared>;
   validate(proposal: Json, facts: Json): { ok: true } | { ok: false; code: string };
   apply(tx: Transaction, proposal: Json, context: ExecutionContext): Promise<{ result: Json; memoryChanges: MemoryChange[] }>;
+  privateMemoryUpdate?: {
+    factKey: string;
+    parseUpdate(proposal: Json, facts: Json, previousPayload: Json | null): Json | null;
+  };
 }
 export interface AssessmentInput {
   scopeId: string; requestId: string; expectedMemoryVersion: number;

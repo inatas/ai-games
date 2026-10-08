@@ -92,6 +92,14 @@ flowchart TD
 
 MVP只保证同一PostgreSQL中的宿主数据与框架数据原子提交；跨库、外部通知与分布式事务不在范围内。
 
+### 关键交互私有判断更新 v1.1（已实施）
+
+需求入口见[031](../../.agents/note/031-decision-private-memory-update.md)。本节是已实施的可选 Harness 能力：受信任宿主决定哪些关键交互需要私有判断、附加输出字段的结构与来源规则；框架只管理当前交互 `scopeId` 内的读取、独立校验和提交，不解释判断语义。
+
+`Binding.privateMemoryUpdate` 包含固定 `factKey` 和纯 `parseUpdate(proposal, facts, previousPayload)`。宿主把附加字段作为输出对象的**可选、宽松 JSON 字段**加入 `outputSchema`；主结果的严格 Schema 和业务校验不放松。完整响应仍须能解析且未超限；主结果有效时，普通的附加字段格式错误由 `parseUpdate` 返回 `null`，只忽略更新，不触发格式纠正或阻断主结果。整份 JSON 无法解析、主结果非法、可信解析代码异常或数据库故障仍沿用现有错误路径。
+
+存储端提供按 `scopeId + factKey + visibility='internal'` 查询单个事实的接口。组装时若已有该事实，将它放入当前主体的后部必需记忆；没有则照常运行，不改变共享消息前缀。提交事务内再次读取同 scope 的事实，调用解析器；返回完整新载荷时以内部 `replace_fact` 保存，并与宿主主结果及请求终态同事务提交。重复请求复取结果，过期、冲突或拒绝的交互不写有效判断。未配置的 Binding 保持现状；不建表、不新增模型调用、不把内部事实投影为公开信息。当前权威事实始终优先于旧判断。
+
 ## 4. 宿主接入协议草案
 
 ```ts

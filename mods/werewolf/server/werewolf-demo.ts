@@ -54,10 +54,10 @@ export async function werewolfDemoRoutes(app: FastifyInstance, options: { rooms?
     app.get<{ Params: { id: string } }>('/api/werewolf/model/:id/usage', async (request, reply) => localModelTest
       ? options.modelService!.usage(request.params.id)
       : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
-    app.get<{ Params: { id: string }; Querystring: { after?: string; limit?: string; seat?: string; result?: string } }>(
+    app.get<{ Params: { id: string }; Querystring: { after?: string; limit?: string; seat?: string; result?: string; interaction?: string } }>(
       '/api/werewolf/model/:id/model-calls', async (request, reply) => localModelTest
         ? options.modelService!.calls(request.params.id, Number(request.query.after ?? 0), Number(request.query.limit ?? 50),
-          request.query.seat ? Number(request.query.seat) : undefined, request.query.result)
+          request.query.seat ? Number(request.query.seat) : undefined, request.query.result, request.query.interaction)
         : reply.code(403).send({ error: 'DIAGNOSTIC_FORBIDDEN' }));
     app.get<{ Params: { id: string; requestId: string; attempt: string } }>(
       '/api/werewolf/model/:id/model-calls/:requestId/:attempt', async (request, reply) => localModelTest

@@ -10,13 +10,14 @@ import { modelRoomSnapshot } from './werewolf-model-snapshot.ts';
 import type { DemoSnapshot } from '../shared/werewolf.ts';
 import type { ModelProfile } from './robot-users.ts';
 import { JevShadowWorker } from './jev-shadow.ts';
+import { compareJevSelect } from './jev-comparison.ts';
 import type { PoolClient } from 'pg';
 
 const OWNER_LOCK = [0x57455245, 0x574F4C46] as const; // WERE/WOLF, scoped to one PostgreSQL database.
 
 /** Accept only the version produced by the current game definition for this seed. */
 export function modelRoomSeedFromVersion(version: string): number | null {
-  const match = /^5\.(\d+)\.double\.12p-seer-witch-hunter-idiot\.[a-f0-9]{64}\.e2$/.exec(version);
+  const match = /^5\.(\d+)\.double\./.exec(version);
   if (!match) return null;
   const seed = Number(match[1]);
   return Number.isSafeInteger(seed) && werewolfDefinition({ seed, sheriff: 'double' }).version === version ? seed : null;
@@ -87,7 +88,7 @@ export class WerewolfModelService {
     let runtime = this.runtimes.get(seed);
     if (!runtime) {
       runtime = new RoomRuntime(this.store, werewolfDefinition({ seed, sheriff: 'double' }), this.adapters,
-        { harness: { inputBudget: 100_000, modelWindow: 128_000, outputBudget: 500,
+        { harness: { inputBudget: 100_000, modelWindow: 128_000, outputBudget: 800,
           callTimeoutMs: 45000, totalTimeoutMs: 75000,
           networkRetry: { maxAttempts: 3, delaysMs: [1000, 3000], jitterMs: 500,
             minRemainingMs: 10000, commitReserveMs: 5000, key: 'werewolf', gate: this.networkRetryGate },
@@ -177,10 +178,11 @@ export class WerewolfModelService {
       result: row.result, details: row.details }));
   }
 
-  async calls(id: string, after = 0, limit = 50, seat?: number, result?: string) {
+  async calls(id: string, after = 0, limit = 50, seat?: number, result?: string, interaction?: string) {
     if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
         (seat !== undefined && (!Number.isSafeInteger(seat) || seat < 1 || seat > 12)) ||
-        (result !== undefined && !['started', 'succeeded', 'failed', 'unknown', 'not-sent'].includes(result))) {
+        (result !== undefined && !['started', 'succeeded', 'failed', 'unknown', 'not-sent'].includes(result)) ||
+        (interaction !== undefined && !['SELECT', 'SPEECH'].includes(interaction))) {
       throw new HarnessError('INVALID_INPUT');
     }
     await this.roomSeed(id);
@@ -188,7 +190,11 @@ export class WerewolfModelService {
       WHERE mod_id='werewolf' AND room_id=$1 AND sequence>$2
         AND event_type IN ('model.call.started.v1','model.context_rejected.v1')
         AND ($3::integer IS NULL OR (details->>'seatNo')::integer=$3)
-      ORDER BY sequence LIMIT 1000`, [id, after, seat ?? null])).rows;
+        AND ($4::text IS NULL OR CASE
+          WHEN details->'modelRequest'->'outputSchema'->'properties' ? 'selected' THEN 'SELECT'
+          WHEN details->'modelRequest'->'outputSchema'->'properties' ? 'speech' THEN 'SPEECH'
+          ELSE NULL END=$4)
+      ORDER BY sequence LIMIT 1000`, [id, after, seat ?? null, interaction ?? null])).rows;
     if (!starts.length) return [];
     const requestIds = [...new Set(starts.map(row => row.request_id))];
     const related = (await this.store.pool.query(`SELECT request_id,event_type,details FROM fw_event_log
@@ -209,6 +215,8 @@ export class WerewolfModelService {
       return {
         sequence: Number(start.sequence), occurredAt: start.occurred_at, requestId: start.request_id,
         userId: start.user_id, seatNo: start.details.seatNo ?? null, role: start.details.role ?? null,
+        interaction: Object.hasOwn(start.details.modelRequest?.outputSchema?.properties ?? {}, 'selected') ? 'SELECT'
+          : Object.hasOwn(start.details.modelRequest?.outputSchema?.properties ?? {}, 'speech') ? 'SPEECH' : null,
         phase: start.details.scene ?? null, micNo: start.details.micNo ?? null,
         profile: start.details.modelProfile ?? null, attempt, status,
         latencyMs: terminal?.details.latencyMs ?? null,
@@ -231,12 +239,15 @@ export class WerewolfModelService {
       throw new HarnessError('INVALID_INPUT');
     }
     await this.roomSeed(id);
-    const events = (await this.store.pool.query(`SELECT sequence,event_type,occurred_at,result,details FROM fw_event_log
-      WHERE mod_id='werewolf' AND room_id=$1 AND request_id=$2 AND details->>'attempt'=$3
-      ORDER BY sequence`, [id, requestId, String(attempt)])).rows;
+    const allEvents = (await this.store.pool.query(`SELECT sequence,event_type,occurred_at,result,details FROM fw_event_log
+      WHERE mod_id='werewolf' AND room_id=$1 AND request_id=$2
+      ORDER BY sequence`, [id, requestId])).rows;
+    const events = allEvents.filter(event => event.details.attempt === attempt);
     if (!events.length) throw new HarnessError('NOT_FOUND', 404);
+    const comparison = compareJevSelect(allEvents);
     return { requestId, attempt, events: events.map(event => ({ sequence: Number(event.sequence),
-      eventType: event.event_type, occurredAt: event.occurred_at, result: event.result, details: event.details })) };
+      eventType: event.event_type, occurredAt: event.occurred_at, result: event.result, details: event.details })),
+      ...(comparison ? { comparison } : {}) };
   }
 
   async usage(id: string) {

@@ -239,6 +239,7 @@ export class RoomRuntime {
     return {
       id: `turn-based.${snapshot.id}`, version: this.definition.version, mode: 'assessment',
       inputSchema, outputSchema: job.decisionInput?.outputSchema ?? (interrupt ? snapshot.phase!.interrupt!.schema : snapshot.phase!.schema),
+      ...(interrupt || !this.definition.privateMemoryUpdate ? {} : { privateMemoryUpdate: this.definition.privateMemoryUpdate }),
       lockResources: async (tx, scopeId) => {
         if (scopeId !== job.scopeId) throw new HarnessError('FORBIDDEN', 403);
         await this.read(tx, snapshot.id, true);
@@ -250,7 +251,8 @@ export class RoomRuntime {
         const parts = job.decisionInput?.context;
         const promptParts = parts ? {
           sharedPublicFacts: parts.public_history,
-          dynamicFacts: Object.fromEntries(Object.entries(parts).filter(([key]) => key !== 'public_history')),
+          sharedCurrentState: parts.game_state,
+          dynamicFacts: Object.fromEntries(Object.entries(parts).filter(([key]) => key !== 'public_history' && key !== 'game_state')),
           ...(job.decisionInput?.sharedKnowledge ? { sharedKnowledge: job.decisionInput.sharedKnowledge } : {}),
           ...(job.decisionInput?.privateKnowledge ? { privateKnowledge: job.decisionInput.privateKnowledge } : {}),
           ...(job.decisionInput?.matchedGuidance?.length ? { matchedGuidance: job.decisionInput.matchedGuidance } : {}),
