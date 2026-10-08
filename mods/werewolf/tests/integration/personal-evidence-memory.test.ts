@@ -52,10 +52,10 @@ test('WW-PM01/02/03: one model seat keeps a private judgment across real room de
     assert.equal(sawPrevious, true, 'later model request should read its own committed judgment');
     const room = await runtime.inspect(created.id);
     const ownScope = room.seats.find(seat => seat.seat === 3)!.scopeId;
-    const fact = await db.store.internalFact(ownScope, 'werewolf.personal-evidence.v1');
+    const fact = await db.store.internalFact(ownScope, 'werewolf.decision-memory.v2');
     assert.equal((fact?.payload as { entries: { judgment: string }[] }).entries[0]?.judgment, '3号暂时关注夜间结果');
     for (const seat of room.seats.filter(seat => seat.seat !== 3)) {
-      assert.equal(await db.store.internalFact(seat.scopeId, 'werewolf.personal-evidence.v1'), null);
+      assert.equal(await db.store.internalFact(seat.scopeId, 'werewolf.decision-memory.v2'), null);
     }
     assert.equal(JSON.stringify(await runtime.spectate(room.id)).includes('3号暂时关注夜间结果'), false);
   } finally { await runtime.close(); await db.stop(); }

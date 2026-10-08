@@ -122,10 +122,10 @@ export function prepareWerewolfDecision(room: Room, seat: number, definition: Ro
       publicEventWatermark: events.length },
     outputSchema: speech
       ? { type: 'object', additionalProperties: false, required: ['speech'], properties: {
-        speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars }, personal_evidence_update: {},
+        speech: { type: 'string', minLength: 1, maxLength: maxSpeechChars }, personal_evidence_update: {}, strategy_update: {},
       } }
       : { type: 'object', additionalProperties: false, required: ['selected'], properties: {
-        selected: { enum: options.map(option => option.id) }, personal_evidence_update: {},
+        selected: { enum: options.map(option => option.id) }, personal_evidence_update: {}, strategy_update: {},
       } },
     context: {
       rules: {

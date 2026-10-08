@@ -4,6 +4,18 @@
 
 ## 定位
 
+### 连续阶段窗口扩展（v1，待确认）
+
+需求：[032](../../.agents/note/032-shared-stage-deadline-and-failure-continuation.md)，当前未实施。业务分支与参与者由宿主定义，框架只保存时序及提交边界。
+
+Phase.windowGroup 为非空字符串。Room.windowGroup 保存 {key,startedAt,deadlineAt,durationMs}；初次入组以 windowMs 建立，相邻同 key 复用原期限且不能改变 durationMs，新 key／离组建立正常窗口。phaseStartedAt 为当前步骤开始，phaseDeadlineAt 为原组截止，actionDeadline 不越过它；固定等待可复用而不额外调用模型。到期 fallback 应直接离组，不串联新的过期步骤加时；恢复不重新计时。
+
+RoomDefinition.fallbackOnFailure?(room):boolean 默认 false；只有终止失败、启用该钩子且有 fallbackDecision 时才立即接受默认动作。失败原因先登记在 pendingJobs，不伪造模型返回。不启用沿用原到期默认。minDecisionTimeMs?(room):number 指派发所需最少剩余时间；不足时记跳过原因并使用既有默认动作，不调用供应商。规则明确选项先于模型准入。
+
+Decision.origin 为 model／script／rule／default／external；acceptDecision 增加可选来源参数，默认 external。运行时真实入口赋值，主输出不能覆盖来源。接受动作、来源、窗口及后续阶段在同一短事务保存；模型等待不持锁，scope／epoch／恢复沿用原契约。
+
+RoomDefinition.revealEvent?(event):boolean 可限制非公共事件终局展示；缺失仍按现有终局公开，公共事件不隐藏，actorView 的原席位权限及可信 inspect 保持。日志、网络重试及附加记忆不换协议。验收见[窗口扩展测试](../testing/turn-based-matches.md#连续阶段窗口与失败续接v1待确认)。
+
 2026-09-20用户明确要求编写基于房间的回合制游戏框架，不强制整合当前MUD框架，最底层统一。本架构方向与下述v1契约已确认并实现；v2抢占增量亦已获明确确认并实现。
 
 第二层由两种并列框架组成：现有MUD框架，以及独立的房间制回合游戏框架。两者共同使用第一层基础能力，各自拥有运行模型、游戏状态和客户端视图。第三层通过相应框架的公共接口接入。本文仅定义第二层职责与契约，使用题材中性的示例；具体游戏规则和接入说明归对应MOD文档。

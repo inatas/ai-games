@@ -19,7 +19,10 @@ export function parsePersonalEvidenceUpdate(proposal: Json, facts: Json, previou
       !Array.isArray(raw.removeKeys) || raw.removeKeys.length > 4) return null;
   const history = Array.isArray(facts.public_history) ? facts.public_history : [];
   const privateInfo = facts.private_information;
-  const privateEvents = object(privateInfo) && Array.isArray(privateInfo.events) ? privateInfo.events : [];
+  const privateEvents = object(privateInfo) ? [
+    ...(Array.isArray(privateInfo.events) ? privateInfo.events : []),
+    ...(Array.isArray(privateInfo.team_history) ? privateInfo.team_history : []),
+  ] : [];
   const publicSequences = new Set(history.flatMap(event =>
     object(event) && Number.isSafeInteger(event.sequence) ? [event.sequence as number] : []));
   const privateSequences = new Set(privateEvents.flatMap(event =>

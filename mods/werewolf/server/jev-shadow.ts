@@ -25,12 +25,12 @@ export function buildJevSelectRequest(request: Pick<ModelRequest, 'messages' | '
         !message || !['system', 'user'].includes(message.role) || typeof message.content !== 'string')) return null;
   const current = request.messages.findLast(message => message.content.startsWith('CURRENT_FACTS:'));
   if (!current) return null;
-  let action: { request_type?: string; options?: { id: string; value: unknown }[] };
+  let action: { request_type?: string; scene?: string; options?: { id: string; value: unknown }[] };
   try {
     const facts = JSON.parse(current.content.slice('CURRENT_FACTS:'.length));
     action = facts.current_action;
   } catch { return null; }
-  if (action?.request_type !== 'SELECT' || !Array.isArray(action.options) || action.options.length !== ids.length ||
+  if (action?.scene?.startsWith('wolf-team-') || action?.request_type !== 'SELECT' || !Array.isArray(action.options) || action.options.length !== ids.length ||
       action.options.some(option => !option || typeof option.id !== 'string' || !('value' in option))) return null;
   const options = new Map(action.options.map(option => [option.id, option.value]));
   if (options.size !== ids.length || ids.some(id => !options.has(id))) return null;
@@ -121,7 +121,8 @@ export class JevShadowWorker {
           sourceSequence: Number(source.sequence), seatNo: source.details.seatNo ?? null,
           role: source.details.role ?? null, scene: source.details.scene ?? null,
           modelProfile: source.details.modelProfile ?? null,
-          ...(request ? { jevRequest: request } : { reason: 'SELECT_CONTEXT_MISMATCH' }) })]);
+          ...(request ? { jevRequest: request } : { reason: source.details.scene?.startsWith('wolf-team-')
+            ? 'TEAM_SELECT_EXCLUDED' : 'SELECT_CONTEXT_MISMATCH' }) })]);
       return !!request;
     });
     if (!started || !request) return;

@@ -36,12 +36,12 @@ test('JS-02/03/04: shadow SELECT is logged once and never affects the source req
     await worker.activate();
     const roomId = randomUUID();
     const sourceId = randomUUID();
-    const append = async (modId: string, requestId: string, attempt: number, request: object, simulated = false) => {
+    const append = async (modId: string, requestId: string, attempt: number, request: object, simulated = false, scene = 'vote') => {
       await db.store.pool.query(`INSERT INTO fw_event_log
         (event_id,event_type,occurred_at,mod_id,room_id,request_id,result,details)
         VALUES($1,'model.call.started.v1',now(),$2,$3,$4,'started',$5)`, [
         randomUUID(), modId, roomId, requestId,
-        JSON.stringify({ attempt, simulated, seatNo: 3, role: 'seer', scene: 'vote', scopeId: randomUUID(), modelRequest: request }),
+        JSON.stringify({ attempt, simulated, seatNo: 3, role: 'seer', scene, scopeId: randomUUID(), modelRequest: request }),
       ]);
     };
     await append('werewolf', sourceId, 1, selectRequest);
@@ -50,9 +50,21 @@ test('JS-02/03/04: shadow SELECT is logged once and never affects the source req
     await append('werewolf', randomUUID(), 1, selectRequest, true);
     await append('qingxi', randomUUID(), 1, selectRequest);
     await append('werewolf', randomUUID(), 2, selectRequest);
+    const excluded = randomUUID();
+    const consentScene = 'wolf-team-self-knife-consent';
+    await append('werewolf', excluded, 1, { ...selectRequest, messages: [{ role: 'user',
+      content: 'CURRENT_FACTS:' + JSON.stringify({ current_action: { scene: consentScene, request_type: 'SELECT', options: [
+        { id: 'option-0', value: { kind: 'team-consent', accepted: false } },
+        { id: 'option-1', value: { kind: 'team-consent', accepted: true } },
+      ] } }) }] }, false, consentScene);
     await worker.runOnce();
     await worker.runOnce();
     assert.equal(calls.length, 1);
+    const skipped = (await db.store.pool.query('SELECT event_type,details FROM fw_event_log WHERE request_id=$1 AND event_type LIKE $2',
+      [excluded, 'model.shadow.jev.%'])).rows;
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].event_type, 'model.shadow.jev.skipped.v1');
+    assert.equal(skipped[0].details.reason, 'TEAM_SELECT_EXCLUDED');
     assert.deepEqual((calls[0] as any).state.messages, selectRequest.messages);
     const events = (await db.store.pool.query(`SELECT event_type,result,details FROM fw_event_log
       WHERE request_id=$1 AND event_type LIKE 'model.shadow.jev.%' ORDER BY sequence`, [sourceId])).rows;

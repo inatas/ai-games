@@ -6,7 +6,8 @@ import { modelRoomSeedFromVersion } from '../server/werewolf-model-service.ts';
 test('WW-W09: model rooms recognize the current definition version for start and recovery', () => {
   const version = werewolfDefinition({ seed: 10, sheriff: 'double' }).version;
   assert.equal(modelRoomSeedFromVersion(version), 10);
-  assert.match(version, /\.e2\.c4\.pm1\.t2$/);
+  assert.match(version, /\.e2\.c4\.pm2\.t2$/);
+  assert.equal(modelRoomSeedFromVersion(version.replace('.pm2.', '.pm1.')), null);
   assert.equal(modelRoomSeedFromVersion(version.replace(/\.t2$/, '')), null);
   assert.equal(modelRoomSeedFromVersion('4.10.double.unknown'), null);
   assert.equal(modelRoomSeedFromVersion('4.not-a-seed.double.rules3'), null);

@@ -45,6 +45,7 @@ test('WW-PM01: the optional sidecar is available in both action schemas without 
   assert.equal(select.intent, 'SELECT');
   assert.deepEqual((select.outputSchema as { required: string[] }).required, ['selected']);
   assert.ok('personal_evidence_update' in (select.outputSchema as { properties: object }).properties);
+  assert.ok('strategy_update' in (select.outputSchema as { properties: object }).properties);
   room.phase = { ...room.phase!, key: 'speech', actors: [10], schema: {
     type: 'object', properties: { text: { type: 'string' } },
   } };
@@ -52,5 +53,6 @@ test('WW-PM01: the optional sidecar is available in both action schemas without 
   assert.equal(speech.intent, 'SPEECH');
   assert.deepEqual((speech.outputSchema as { required: string[] }).required, ['speech']);
   assert.ok('personal_evidence_update' in (speech.outputSchema as { properties: object }).properties);
+  assert.ok('strategy_update' in (speech.outputSchema as { properties: object }).properties);
   assert.deepEqual(Object.keys(speech.context), Object.keys(select.context));
 });
